@@ -12,3 +12,7 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+
+# db and data should never be uploaded, they are folder that are used in compile time
+data
+db
