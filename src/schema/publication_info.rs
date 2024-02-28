@@ -1,7 +1,7 @@
 use crate::schema::json_utils;
 use serde_json::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PublicationInfo {
     pub license: String,
     pub remastered: bool,

@@ -1,38 +1,46 @@
 mod db;
 mod schema;
 
+extern crate dotenvy;
 extern crate git2;
 
+use crate::db::db_handler_one;
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::foundry_schema::creature::foundry_creature::FoundryCreature;
+use crate::schema::source_schema::creature::source_creature::SourceCreature;
+use dotenvy::dotenv;
 use git2::Repository;
-use std::fs;
 use std::path::Path;
+use std::{env, fs};
 
 #[tokio::main]
 async fn main() {
-    let foundry_url = "https://github.com/foundryvtt/pf2e";
-    let foundry_path = "./data/foundry";
-    let db_path = "./db/database.db";
-    fetch_foundry_data(foundry_url, foundry_path);
-    let x = deserialize_json_bestiaries(get_creature_json_paths(get_bestiary_paths(foundry_path)));
+    dotenv().ok(); // use dotenv env variables
+    let source_url = &env::var("SOURCE_URL")
+        .expect("SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
+    let source_path = &env::var("SOURCE_DOWNLOAD_PATH").expect(
+        "DOWNLOAD PATH NOT SET.. Aborting. Hint: set SOURCE_DOWNLOAD_PATH environmental variable",
+    );
+    let db_url = &env::var("DATABASE_URL")
+        .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
+    let conn = db::db_handler_one::connect(db_url)
+        .await
+        .expect("Could not connect to the given db url, something went wrong..");
+    fetch_source_data(source_url, source_path);
+    let x = deserialize_json_bestiaries(get_creature_json_paths(get_bestiary_paths(source_path)));
     for el in x {
-        BybeCreature::init_from_foundry_creature(el);
+        // add db cleanup if result is failure
+        let bb_creature = BybeCreature::init_from_source_creature(el);
+        db_handler_one::insert_creature_to_db(&conn, bb_creature.clone())
+            .await
+            .expect("Something failed while inserting in db");
     }
     //println!("{:?}", x);
-    fs::create_dir_all("./db/").expect("TODO: panic message");
-    let conn = db::db_handler_one::connect(db_path)
-        .await
-        .expect("TODO: panic message");
-    db::db_handler_one::init_tables(&conn)
-        .await
-        .expect("TODO: panic message");
 }
 
-fn deserialize_json_bestiaries(json_creatures_list: Vec<String>) -> Vec<FoundryCreature> {
+fn deserialize_json_bestiaries(json_creatures_list: Vec<String>) -> Vec<SourceCreature> {
     let mut creature_list = vec![];
     for creature_file in json_creatures_list {
-        let x = FoundryCreature::init_from_json(
+        let x = SourceCreature::init_from_json(
             serde_json::from_str(&read_from_file_to_string(creature_file.as_str()))
                 .expect("JSON was not well-formatted"),
         );
@@ -63,10 +71,10 @@ fn get_creature_json_paths(bestiary_list: Vec<String>) -> Vec<String> {
     json_list
 }
 
-fn get_bestiary_paths(foundry_path: &str) -> Vec<String> {
-    let bestiaries_path = format!("{}/packs", foundry_path);
+fn get_bestiary_paths(source_path: &str) -> Vec<String> {
+    let bestiaries_path = format!("{}/packs", source_path);
     let paths =
-        fs::read_dir(bestiaries_path).expect("No valid packs folder found in foundry dataset");
+        fs::read_dir(bestiaries_path).expect("No valid packs folder found in source dataset");
     let mut bestiary_folders = vec![];
     for path in paths {
         match path {
@@ -84,15 +92,15 @@ fn read_from_file_to_string(creature_file: &str) -> String {
         .unwrap_or_else(|_| panic!("Unable to read file {}", creature_file))
 }
 
-fn fetch_foundry_data(foundry_url: &str, foundry_path: &str) {
-    // Clones foundry if the given path is empty, otherwise warns
+fn fetch_source_data(source_url: &str, source_path: &str) {
+    // Clones source if the given path is empty, otherwise warns
     // But keeps executing
-    if !Path::new(foundry_path).exists() {
-        match Repository::clone(foundry_url, foundry_path) {
+    if !Path::new(source_path).exists() {
+        match Repository::clone(source_url, source_path) {
             Ok(repo) => repo,
             Err(e) => panic!("failed to clone: {}", e),
         };
     } else {
-        println!("Warning: Path already exists, won't clone foundry dataset.")
+        println!("Warning: Path already exists, won't clone source dataset.")
     }
 }

@@ -2,7 +2,7 @@ use crate::schema::json_utils;
 use crate::schema::publication_info::PublicationInfo;
 use serde_json::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Weapon {
     pub name: String,
 
@@ -116,7 +116,7 @@ impl Weapon {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WeaponTraits {
     pub rarity: String,
     pub traits: Vec<String>,
@@ -138,7 +138,7 @@ impl WeaponTraits {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WeaponDamageData {
     pub dmg_type: String,
     pub n_of_dices: i64,

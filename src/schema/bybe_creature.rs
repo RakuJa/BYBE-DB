@@ -1,9 +1,10 @@
 use crate::schema::bybe_creature_metadata_enum::{RarityEnum, SizeEnum};
-use crate::schema::foundry_schema::creature::foundry_creature::FoundryCreature;
-use crate::schema::foundry_schema::creature::item::spell::Spell;
-use crate::schema::foundry_schema::creature::item::weapon::Weapon;
+use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::item::weapon::Weapon;
+use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use std::collections::HashMap;
 
+#[derive(Clone)]
 pub struct BybeCreature {
     pub name: String,
     pub creature_type: Option<String>,
@@ -61,56 +62,60 @@ pub struct BybeCreature {
 }
 
 impl BybeCreature {
-    pub fn init_from_foundry_creature(foundry_cr: FoundryCreature) -> BybeCreature {
+    pub fn init_from_source_creature(source_cr: SourceCreature) -> BybeCreature {
         BybeCreature {
-            name: foundry_cr.name,
+            name: source_cr.name,
             creature_type: None,
-            charisma: foundry_cr.abilities.charisma,
-            constitution: foundry_cr.abilities.constitution,
-            dexterity: foundry_cr.abilities.dexterity,
-            intelligence: foundry_cr.abilities.intelligence,
-            strength: foundry_cr.abilities.strength,
-            wisdom: foundry_cr.abilities.wisdom,
-            ac: foundry_cr.attributes.ac,
-            hp: foundry_cr.attributes.hp,
-            hp_details: foundry_cr.attributes.hp_details,
-            ac_details: foundry_cr.attributes.ac_details,
-            speed: foundry_cr.attributes.speed,
-            immunities: foundry_cr.attributes.immunities,
-            resistances: foundry_cr.attributes.resistances,
-            weaknesses: foundry_cr.attributes.weakness,
-            languages_details: foundry_cr.details.languages_details,
-            languages: foundry_cr.details.languages,
-            level: foundry_cr.details.level,
-            license: foundry_cr.details.publication_info.license,
-            remaster: foundry_cr.details.publication_info.remastered,
-            source: foundry_cr.details.publication_info.source,
-            initiative_ability: foundry_cr.initiative_ability,
-            perception_mod: foundry_cr.perception.perception_modifier,
-            perception_details: foundry_cr.perception.perception_details,
-            senses: foundry_cr.perception.senses,
-            fortitude_mod: foundry_cr.saves.fortitude,
-            reflex_mod: foundry_cr.saves.reflex,
-            will_mod: foundry_cr.saves.will,
-            fortitude_detail: foundry_cr.saves.fortitude_detail,
-            reflex_detail: foundry_cr.saves.reflex_detail,
-            will_detail: foundry_cr.saves.will_detail,
-            rarity: foundry_cr
+            charisma: source_cr.abilities.charisma,
+            constitution: source_cr.abilities.constitution,
+            dexterity: source_cr.abilities.dexterity,
+            intelligence: source_cr.abilities.intelligence,
+            strength: source_cr.abilities.strength,
+            wisdom: source_cr.abilities.wisdom,
+            ac: source_cr.attributes.ac,
+            hp: source_cr.attributes.hp,
+            hp_details: source_cr.attributes.hp_details,
+            ac_details: source_cr.attributes.ac_details,
+            speed: source_cr.attributes.speed,
+            immunities: source_cr.attributes.immunities,
+            resistances: source_cr.attributes.resistances,
+            weaknesses: source_cr.attributes.weakness,
+            languages_details: source_cr.details.languages_details,
+            languages: source_cr.details.languages,
+            level: source_cr.details.level,
+            license: source_cr.details.publication_info.license,
+            remaster: source_cr.details.publication_info.remastered,
+            source: source_cr.details.publication_info.source,
+            initiative_ability: source_cr.initiative_ability,
+            perception_mod: source_cr.perception.perception_modifier,
+            perception_details: source_cr.perception.perception_details,
+            senses: source_cr.perception.senses,
+            fortitude_mod: source_cr.saves.fortitude,
+            reflex_mod: source_cr.saves.reflex,
+            will_mod: source_cr.saves.will,
+            fortitude_detail: source_cr.saves.fortitude_detail,
+            reflex_detail: source_cr.saves.reflex_detail,
+            will_detail: source_cr.saves.will_detail,
+            rarity: source_cr
                 .traits
                 .rarity
                 .as_str()
                 .parse()
                 .unwrap_or(RarityEnum::Common),
-            size: foundry_cr
+            size: source_cr
                 .traits
                 .size
                 .as_str()
                 .parse()
                 .unwrap_or(SizeEnum::Medium),
-            traits: foundry_cr.traits.traits,
-            weapons: foundry_cr.items.weapon_list,
-            spells: foundry_cr.items.spell_list,
-            spell_casting: foundry_cr.items.spell_casting,
+            traits: source_cr.traits.traits,
+            weapons: source_cr.items.weapon_list,
+            spells: source_cr.items.spell_list,
+            spell_casting: source_cr.items.spell_casting,
         }
+    }
+
+    pub fn is_spell_caster(&self) -> bool {
+        !self.spells.is_empty()
     }
 }

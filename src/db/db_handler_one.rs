@@ -1,332 +1,409 @@
+use crate::schema::bybe_creature::BybeCreature;
+use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::item::weapon::Weapon;
 use anyhow::Result;
-use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
-use std::path::Path;
+use sqlx::sqlite::SqliteConnectOptions;
+use sqlx::{Sqlite, SqlitePool, Transaction};
+use std::collections::HashMap;
+use std::str::FromStr;
 
-pub async fn connect(filename: impl AsRef<Path>) -> Result<SqlitePool> {
-    let options = SqliteConnectOptions::new()
-        .filename(filename)
-        .create_if_missing(true);
-
+pub async fn connect(db_path: &str) -> Result<SqlitePool> {
+    let options = SqliteConnectOptions::from_str(db_path)?.create_if_missing(true);
     Ok(SqlitePool::connect_with(options).await?)
 }
 
-pub async fn init_tables(conn: &SqlitePool) -> Result<bool> {
-    Ok(init_creature_table(conn).await?
-        && init_trait_table(conn).await?
-        && init_trait_cr_association_table(conn).await?
-        && init_language_table(conn).await?
-        && init_language_cr_association_table(conn).await?
-        && init_immunity_table(conn).await?
-        && init_immunity_cr_association_table(conn).await?
-        && init_sense_table(conn).await?
-        && init_sense_cr_association_table(conn).await?
-        && init_speed_table(conn).await?
-        && init_resistances_table(conn).await?
-        && init_weakness_table(conn).await?
-        && init_weapon_table(conn).await?
-        && init_trait_weapon_association_table(conn).await?
-        && init_spell_table(conn).await?
-        && init_trait_spell_association_table(conn).await?
-        && init_tradition_table(conn).await?
-        && init_tradition_spell_association_table(conn).await?)
-}
+pub async fn insert_creature_to_db(conn: &SqlitePool, cr: BybeCreature) -> Result<bool> {
+    let mut tx: Transaction<Sqlite> = conn.begin().await?;
+    let cr_id = insert_creature(&mut tx, &cr).await?;
+    insert_traits(&mut tx, &cr.traits).await?;
+    insert_cr_trait_association(&mut tx, &cr.traits, cr_id).await?;
+    insert_language_and_association(&mut tx, &cr.languages, cr_id).await?;
+    insert_immunity_and_association(&mut tx, &cr.immunities, cr_id).await?;
+    insert_sense_and_association(&mut tx, &cr.senses, cr_id).await?;
+    insert_speeds(&mut tx, &cr.speed, cr_id).await?;
+    insert_weaknesses(&mut tx, &cr.weaknesses, cr_id).await?;
+    insert_resistances(&mut tx, &cr.resistances, cr_id).await?;
+    for el in &cr.weapons {
+        let wp_id = insert_weapon(&mut tx, el, cr_id).await?;
+        insert_traits(&mut tx, &el.traits.traits).await?;
+        insert_wp_trait_association(&mut tx, &el.traits.traits, wp_id).await?;
+    }
+    for el in &cr.spells {
+        let spell_id = insert_spells(&mut tx, el, cr_id).await?;
+        insert_traits(&mut tx, &el.traits.traits).await?;
+        insert_spell_trait_association(&mut tx, &el.traits.traits, spell_id).await?;
+        insert_tradition_and_association(&mut tx, &el.traits.traditions, spell_id).await?;
+    }
+    tx.commit().await?;
 
-async fn init_creature_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS CREATURE_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            aon_id INTEGER,
-            charisma INTEGER NOT NULL,
-            constitution INTEGER NOT NULL,
-            dexterity INTEGER NOT NULL,
-            intelligence INTEGER NOT NULL,
-            strength INTEGER NOT NULL,
-            wisdom INTEGER NOT NULL,
-            ac INTEGER NOT NULL,
-            hp INTEGER NOT NULL,
-            hp_details TEXT NOT NULL,
-            ac_details TEXT NOT NULL,
-            language_detail TEXT,
-            level INTEGER NOT NULL,
-            license VARCHAR NOT NULL,
-            remaster BOOL NOT NULL,
-            source TEXT NOT NULL,
-            initiative_ability TEXT NOT NULL,
-            perception INTEGER NOT NULL,
-            perception_details VARCHAR NOT NULL,
-            fortitude INTEGER NOT NULL,
-            reflex INTEGER NOT NULL,
-            will INTEGER NOT NULL,
-            fortitude_detail TEXT NOT NULL,
-            reflex_detail TEXT NOT NULL,
-            will_detail TEXT NOT NULL,
-            rarity TEXT NOT NULL,
-            size TEXT NOT NULL,
-
-
-            type TEXT,
-
-            is_ranged BOOL NOT NULL,
-            is_melee BOOL NOT NULL,
-            is_spell_caster BOOL NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
     Ok(true)
 }
 
-async fn init_trait_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS TRAIT_TABLE (
-            name TEXT PRIMARY KEY
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_traits<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!("INSERT OR IGNORE INTO TRAIT_TABLE (name) VALUES ($1)", el)
+            .execute(&mut **conn)
+            .await?;
+    }
     Ok(true)
 }
 
-async fn init_trait_cr_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS TRAIT_CREATURE_ASSOCIATION_TABLE (
-            creature_id INTEGER NOT NULL,
-            trait_id TEXT NOT NULL,
-            PRIMARY KEY (creature_id, trait_id),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_cr_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT INTO TRAIT_CREATURE_ASSOCIATION_TABLE \
+            (creature_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_speed_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SPEED_TABLE (
-            creature_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
-            value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, type),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_language_and_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    languages: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in languages {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO LANGUAGE_TABLE (name) VALUES ($1)",
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+        sqlx::query!(
+            "INSERT INTO LANGUAGE_CREATURE_ASSOCIATION_TABLE \
+            (creature_id, language_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_resistances_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS RESISTANCE_TABLE (
-            creature_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
-            value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, type),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_immunity_and_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    immunities: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in immunities {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO IMMUNITY_TABLE (name) VALUES ($1)",
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+        sqlx::query!(
+            "INSERT INTO IMMUNITY_CREATURE_ASSOCIATION_TABLE \
+            (creature_id, immunity_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_weakness_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS WEAKNESS_TABLE (
-            creature_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
-            value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, type),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_sense_and_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    senses: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in senses {
+        sqlx::query!("INSERT OR IGNORE INTO SENSE_TABLE (name) VALUES ($1)", el)
+            .execute(&mut **conn)
+            .await?;
+        sqlx::query!(
+            "INSERT OR IGNORE INTO SENSE_CREATURE_ASSOCIATION_TABLE \
+            (creature_id, sense_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_immunity_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS IMMUNITY_TABLE (
-            name TEXT PRIMARY KEY
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_speeds<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    speed: &HashMap<String, i64>,
+    id: i64,
+) -> Result<bool> {
+    for (speed_type, speed_value) in speed {
+        sqlx::query!(
+            "INSERT INTO SPEED_TABLE (creature_id, type, value) VALUES ($1, $2, $3)",
+            id,
+            speed_type,
+            speed_value
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_immunity_cr_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS IMMUNITY_CREATURE_ASSOCIATION_TABLE (
-            creature_id INTEGER NOT NULL,
-            immunity_id TEXT NOT NULL,
-            PRIMARY KEY (creature_id, immunity_id),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (immunity_id) REFERENCES IMMUNITY_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_resistances<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    resistances: &HashMap<String, i64>,
+    id: i64,
+) -> Result<bool> {
+    for (res_type, res_value) in resistances {
+        sqlx::query!(
+            "INSERT INTO RESISTANCE_TABLE (creature_id, type, value) VALUES ($1, $2, $3)",
+            id,
+            res_type,
+            res_value
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_language_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS LANGUAGE_TABLE (
-            name TEXT PRIMARY KEY
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_weaknesses<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    weaknesses: &HashMap<String, i64>,
+    id: i64,
+) -> Result<bool> {
+    for (weak_type, weak_value) in weaknesses {
+        sqlx::query!(
+            "INSERT INTO WEAKNESS_TABLE (creature_id, type, value) VALUES ($1, $2, $3)",
+            id,
+            weak_type,
+            weak_value
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_language_cr_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS LANGUAGE_CREATURE_ASSOCIATION_TABLE (
-            creature_id INTEGER NOT NULL,
-            language_id TEXT NOT NULL,
-            PRIMARY KEY (creature_id, language_id),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (language_id) REFERENCES LANGUAGE_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreature) -> Result<i64> {
+    let is_spell_caster = cr.is_spell_caster();
+    let size = cr.size.to_string();
+    let rarity = cr.rarity.to_string();
+    Ok(sqlx::query!(
+        "
+            INSERT INTO CREATURE_TABLE VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+                $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+                $31, $32
+            )",
+        None::<i64>, // id, autoincrement
+        cr.name,
+        None::<i64>, //aon_id, need to fetch it manually
+        cr.charisma,
+        cr.constitution,
+        cr.dexterity,
+        cr.intelligence,
+        cr.strength,
+        cr.wisdom,
+        cr.ac,
+        cr.hp,
+        cr.hp_details,
+        cr.ac_details,
+        cr.languages_details,
+        cr.level,
+        cr.license,
+        cr.remaster,
+        cr.source,
+        cr.initiative_ability,
+        cr.perception_mod,
+        cr.perception_details,
+        cr.fortitude_mod,
+        cr.reflex_mod,
+        cr.will_mod,
+        cr.fortitude_detail,
+        cr.reflex_detail,
+        cr.will_detail,
+        rarity,
+        size,
+        None::<String>, // type, source says NPC always..
+        None::<String>, // family, source does not have it
+        is_spell_caster,
+    )
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
+}
+
+// CREATURE CORE DONE
+// WEAPON CORE START
+
+async fn insert_wp_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT INTO TRAIT_WEAPON_ASSOCIATION_TABLE \
+            (weapon_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_sense_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SENSE_TABLE (
-            name TEXT PRIMARY KEY
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_weapon<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    wp: &Weapon,
+    cr_id: i64,
+) -> Result<i64> {
+    let (dmg_type, n_of_dices, die_size, bonus_dmg) = match wp.damage.clone() {
+        Some(data) => (
+            Some(data.dmg_type),
+            Some(data.n_of_dices),
+            Some(data.die_size),
+            Some(data.bonus_dmg),
+        ),
+        None => (None, None, None, None),
+    };
+
+    Ok(sqlx::query!(
+        "
+            INSERT INTO WEAPON_TABLE VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+                $21, $22, $23, $24, $25, $26, $27, $28, $29
+            )",
+        None::<i64>, // id, autoincrement
+        wp.name,
+        wp.base_weapon,
+        wp.to_hit_bonus,
+        wp.bulk,
+        wp.category,
+        dmg_type,
+        n_of_dices,
+        die_size,
+        bonus_dmg,
+        wp.carry_type,
+        wp.hands_held,
+        wp.invested,
+        wp.weapon_group,
+        wp.hardness,
+        wp.hp_max,
+        wp.hp_curr,
+        wp.level,
+        wp.publication_info.license,
+        wp.publication_info.remastered,
+        wp.publication_info.source,
+        wp.quantity,
+        wp.range,
+        wp.reload,
+        wp.size,
+        wp.traits.rarity,
+        wp.usage,
+        wp.weapon_type,
+        cr_id
+    )
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
+}
+
+// WEAPON CORE END
+// SPELL CORE START
+
+async fn insert_spell_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT INTO TRAIT_SPELL_ASSOCIATION_TABLE \
+            (spell_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_sense_cr_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SENSE_CREATURE_ASSOCIATION_TABLE (
-            creature_id INTEGER NOT NULL,
-            sense_id TEXT NOT NULL,
-            PRIMARY KEY (creature_id, sense_id),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (sense_id) REFERENCES SENSE_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
+async fn insert_tradition_and_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    tradition: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in tradition {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO TRADITION_TABLE (name) VALUES ($1)",
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+        sqlx::query!(
+            "INSERT INTO TRADITION_SPELL_ASSOCIATION_TABLE \
+            (spell_id, tradition_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
     Ok(true)
 }
 
-async fn init_weapon_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS WEAPON_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            base TEXT NOT NULL,
-            to_hit_bonus INTEGER NOT NULL,
-            bulk INTEGER NOT NULL,
-            category TEXT NOT NULL,
-            dmg_type TEXT,
-            n_of_dices INTEGER,
-            die_size TEXT,
-            bonus_dmg INTEGER,
-            carry_type TEXT,
-            hands_held INTEGER,
-            invested BOOL,
-            weapon_group TEXT NOT NULL,
-            hardness INTEGER,
-            hp_max INTEGER,
-            hp_curr INTEGER,
-            level INTEGER,
-            license TEXT NOT NULL,
-            remastered BOOL NOT NULL,
-            source TEXT NOT NULL,
-            quantity INTEGER,
-            range TEXT,
-            reload TEXT,
-            size TEXT NOT NULL,
-            rarity TEXT NOT NULL,
-            usage TEXT NOT NULL,
-            type TEXT NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
-    Ok(true)
-}
-
-async fn init_trait_weapon_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS TRAIT_WEAPON_ASSOCIATION_TABLE (
-            weapon_id INTEGER NOT NULL,
-            trait_id TEXT NOT NULL,
-            PRIMARY KEY (weapon_id, trait_id),
-            FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id),
-            FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
-    Ok(true)
-}
-
-async fn init_spell_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SPELL_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            area_type TEXT,
-            area_value INTEGER,
-            counteraction BOOL NOT NULL,
-
-            saving_throw_is_basic BOOL,
-            saving_throw_statistic TEXT,
-
-            sustained BOOL NOT NULL,
-            duration TEXT,
-            level INTEGER NOT NULL,
-            range TEXT NOT NULL,
-            target TEXT NOT NULL,
-            action TEXT NOT NULL,
-            license TEXT NOT NULL,
-            remastered BOOL NOT NULL,
-            source TEXT NOT NULL,
-            rarity TEXT NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
-    Ok(true)
-}
-
-async fn init_trait_spell_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS TRAIT_SPELL_ASSOCIATION_TABLE (
-            spell_id INTEGER NOT NULL,
-            trait_id TEXT NOT NULL,
-            PRIMARY KEY (spell_id, trait_id),
-            FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
-            FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
-    Ok(true)
-}
-
-async fn init_tradition_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS TRADITION_TABLE (
-            name TEXT PRIMARY KEY
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
-    Ok(true)
-}
-
-async fn init_tradition_spell_association_table(conn: &SqlitePool) -> Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS TRADITION_SPELL_ASSOCIATION_TABLE (
-            spell_id INTEGER NOT NULL,
-            tradition_id TEXT NOT NULL,
-            PRIMARY KEY (spell_id, tradition_id),
-            FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
-            FOREIGN KEY (tradition_id) REFERENCES TRADITION_TABLE(name)
-    );
-    "#;
-    sqlx::query(query).execute(conn).await?;
-    Ok(true)
+async fn insert_spells<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    spell: &Spell,
+    cr_id: i64,
+) -> Result<i64> {
+    let (area_type, area_value) = match spell.area.clone() {
+        Some(data) => (Some(data.area_type), Some(data.area_value)),
+        None => (None, None),
+    };
+    let (save_throw, save_throw_mod) = match spell.saving_throw.clone() {
+        Some(data) => (Some(data.statistic), Some(data.basic)),
+        None => (None, None),
+    };
+    Ok(sqlx::query!(
+        "
+            INSERT INTO SPELL_TABLE VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                $11, $12, $13, $14, $15, $16, $17, $18
+            )",
+        None::<i64>, // id, autoincrement
+        spell.name,
+        area_type,
+        area_value,
+        spell.counteraction,
+        save_throw,
+        save_throw_mod,
+        spell.sustained,
+        spell.duration,
+        spell.level,
+        spell.range,
+        spell.target,
+        spell.actions,
+        spell.publication_info.license,
+        spell.publication_info.remastered,
+        spell.publication_info.source,
+        spell.traits.rarity,
+        cr_id
+    )
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
 }

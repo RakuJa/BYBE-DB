@@ -1,15 +1,15 @@
-use crate::schema::foundry_schema::creature::abilities::RawAbilities;
-use crate::schema::foundry_schema::creature::attributes::RawAttributes;
-use crate::schema::foundry_schema::creature::details::RawDetails;
-use crate::schema::foundry_schema::creature::item::items::RawItems;
-use crate::schema::foundry_schema::creature::perception::RawPerception;
-use crate::schema::foundry_schema::creature::saves::RawSaves;
-use crate::schema::foundry_schema::creature::traits::RawTraits;
 use crate::schema::json_utils;
+use crate::schema::source_schema::creature::abilities::RawAbilities;
+use crate::schema::source_schema::creature::attributes::RawAttributes;
+use crate::schema::source_schema::creature::details::RawDetails;
+use crate::schema::source_schema::creature::item::items::RawItems;
+use crate::schema::source_schema::creature::perception::RawPerception;
+use crate::schema::source_schema::creature::saves::RawSaves;
+use crate::schema::source_schema::creature::traits::RawTraits;
 use serde_json::Value;
 
 #[derive(Debug)]
-pub struct FoundryCreature {
+pub struct SourceCreature {
     pub name: String,
     pub creature_type: String,
 
@@ -23,8 +23,8 @@ pub struct FoundryCreature {
     pub items: RawItems,
 }
 
-impl FoundryCreature {
-    pub fn init_from_json(json: Value) -> Option<FoundryCreature> {
+impl SourceCreature {
+    pub fn init_from_json(json: Value) -> Option<SourceCreature> {
         let creature_type = json_utils::get_field_from_json(&json, "type")
             .as_str()
             .unwrap()
@@ -47,7 +47,7 @@ impl FoundryCreature {
             .as_str()
             .unwrap()
             .to_string();
-        Some(FoundryCreature {
+        Some(SourceCreature {
             name,
             creature_type,
 

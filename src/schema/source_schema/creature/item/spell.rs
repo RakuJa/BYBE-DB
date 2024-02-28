@@ -1,9 +1,9 @@
-use crate::schema::foundry_schema::creature::item::saving_throw::SavingThrow;
 use crate::schema::json_utils;
 use crate::schema::publication_info::PublicationInfo;
+use crate::schema::source_schema::creature::item::saving_throw::SavingThrow;
 use serde_json::Value;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Spell {
     pub name: String,
     pub area: Option<Area>,
@@ -100,7 +100,7 @@ impl Spell {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpellTraits {
     pub rarity: String,
     pub traditions: Vec<String>,
@@ -164,7 +164,7 @@ impl HeightenedData {
 
  */
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Area {
     pub area_type: String,
     pub area_value: i64,
@@ -187,7 +187,7 @@ impl Area {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawDamageData {
     pub category: Option<String>,
     pub formula: String,

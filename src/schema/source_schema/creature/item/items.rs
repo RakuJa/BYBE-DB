@@ -1,5 +1,5 @@
-use crate::schema::foundry_schema::creature::item::spell::Spell;
-use crate::schema::foundry_schema::creature::item::weapon::Weapon;
+use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::item::weapon::Weapon;
 use serde_json::Value;
 
 #[derive(Debug)]
