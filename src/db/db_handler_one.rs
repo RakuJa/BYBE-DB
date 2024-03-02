@@ -145,7 +145,7 @@ async fn insert_speeds<'a>(
 ) -> Result<bool> {
     for (speed_type, speed_value) in speed {
         sqlx::query!(
-            "INSERT INTO SPEED_TABLE (creature_id, type, value) VALUES ($1, $2, $3)",
+            "INSERT INTO SPEED_TABLE (creature_id, name, value) VALUES ($1, $2, $3)",
             id,
             speed_type,
             speed_value
@@ -163,7 +163,7 @@ async fn insert_resistances<'a>(
 ) -> Result<bool> {
     for (res_type, res_value) in resistances {
         sqlx::query!(
-            "INSERT INTO RESISTANCE_TABLE (creature_id, type, value) VALUES ($1, $2, $3)",
+            "INSERT INTO RESISTANCE_TABLE (creature_id, name, value) VALUES ($1, $2, $3)",
             id,
             res_type,
             res_value
@@ -181,7 +181,7 @@ async fn insert_weaknesses<'a>(
 ) -> Result<bool> {
     for (weak_type, weak_value) in weaknesses {
         sqlx::query!(
-            "INSERT INTO WEAKNESS_TABLE (creature_id, type, value) VALUES ($1, $2, $3)",
+            "INSERT INTO WEAKNESS_TABLE (creature_id, name, value) VALUES ($1, $2, $3)",
             id,
             weak_type,
             weak_value

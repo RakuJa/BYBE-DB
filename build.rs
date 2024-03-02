@@ -28,25 +28,51 @@ async fn main() {
 
 pub async fn init_tables(conn: &SqlitePool) -> anyhow::Result<bool> {
     let mut tx: Transaction<Sqlite> = conn.begin().await?;
-    init_creature_table(&mut tx).await?;
-    init_trait_table(&mut tx).await?;
-    init_trait_cr_association_table(&mut tx).await?;
-    init_language_table(&mut tx).await?;
-    init_language_cr_association_table(&mut tx).await?;
-    init_immunity_table(&mut tx).await?;
-    init_immunity_cr_association_table(&mut tx).await?;
-    init_sense_table(&mut tx).await?;
-    init_sense_cr_association_table(&mut tx).await?;
-    init_speed_table(&mut tx).await?;
-    init_resistances_table(&mut tx).await?;
-    init_weakness_table(&mut tx).await?;
-    init_weapon_table(&mut tx).await?;
-    init_trait_weapon_association_table(&mut tx).await?;
-    init_spell_table(&mut tx).await?;
-    init_trait_spell_association_table(&mut tx).await?;
-    init_tradition_table(&mut tx).await?;
-    init_tradition_spell_association_table(&mut tx).await?;
+    init_all_creature_related_tables(&mut tx).await?;
+    init_creature_builder_tables(&mut tx).await?;
     tx.commit().await?;
+    Ok(true)
+}
+
+async fn init_all_creature_related_tables<'a>(
+    tx: &mut Transaction<'a, Sqlite>,
+) -> anyhow::Result<bool> {
+    init_creature_table(tx).await?;
+    init_trait_table(tx).await?;
+    init_trait_cr_association_table(tx).await?;
+    init_language_table(tx).await?;
+    init_language_cr_association_table(tx).await?;
+    init_immunity_table(tx).await?;
+    init_immunity_cr_association_table(tx).await?;
+    init_sense_table(tx).await?;
+    init_sense_cr_association_table(tx).await?;
+    init_speed_table(tx).await?;
+    init_resistances_table(tx).await?;
+    init_weakness_table(tx).await?;
+    init_weapon_table(tx).await?;
+    init_trait_weapon_association_table(tx).await?;
+    init_spell_table(tx).await?;
+    init_trait_spell_association_table(tx).await?;
+    init_tradition_table(tx).await?;
+    init_tradition_spell_association_table(tx).await?;
+    Ok(true)
+}
+
+async fn init_creature_builder_tables<'a>(
+    tx: &mut Transaction<'a, Sqlite>,
+) -> anyhow::Result<bool> {
+    init_ability_mod_scales(tx).await?;
+    init_perception_scales(tx).await?;
+    init_skill_scales(tx).await?;
+    init_item_scales(tx).await?;
+    init_ac_scales(tx).await?;
+    init_saving_throw_scales(tx).await?;
+    init_hp_scales(tx).await?;
+    init_res_weak_scales(tx).await?;
+    init_strike_bonus_scales(tx).await?;
+    init_strike_dmg_scales(tx).await?;
+    init_spell_dc_and_atk_scales(tx).await?;
+    init_area_dmg_scales(tx).await?;
     Ok(true)
 }
 
@@ -127,9 +153,9 @@ async fn init_speed_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Res
     let query = r#"
     CREATE TABLE IF NOT EXISTS SPEED_TABLE (
             creature_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
+            name TEXT NOT NULL,
             value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, type),
+            PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
     "#;
@@ -141,9 +167,9 @@ async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyho
     let query = r#"
     CREATE TABLE IF NOT EXISTS RESISTANCE_TABLE (
             creature_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
+            name TEXT NOT NULL,
             value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, type),
+            PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
     "#;
@@ -155,9 +181,9 @@ async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::
     let query = r#"
     CREATE TABLE IF NOT EXISTS WEAKNESS_TABLE (
             creature_id INTEGER NOT NULL,
-            type TEXT NOT NULL,
+            name TEXT NOT NULL,
             value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, type),
+            PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
     "#;
@@ -365,6 +391,188 @@ async fn init_tradition_spell_association_table<'a>(
             PRIMARY KEY (spell_id, tradition_id),
             FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
             FOREIGN KEY (tradition_id) REFERENCES TRADITION_TABLE(name)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_ability_mod_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS ABILITY_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme INTEGER,
+            high INTEGER NOT NULL,
+            moderate INTEGER NOT NULL,
+            low INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_perception_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS PERCEPTION_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme INTEGER NOT NULL,
+            high INTEGER NOT NULL,
+            moderate INTEGER NOT NULL,
+            low INTEGER NOT NULL,
+            terrible INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_skill_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS SKILL_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme INTEGER NOT NULL,
+            high INTEGER NOT NULL,
+            moderate INTEGER NOT NULL,
+            low_ub INTEGER NOT NULL,
+            low_lb INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_item_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS ITEM_SCALES_TABLE (
+            cr_level TEXT NOT NULL,
+            safe_item_level TEXT NOT NULL,
+            PRIMARY KEY (cr_level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_ac_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS AC_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme INTEGER NOT NULL,
+            high INTEGER NOT NULL,
+            moderate INTEGER NOT NULL,
+            low INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_saving_throw_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS SAVING_THROW_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme INTEGER NOT NULL,
+            high INTEGER NOT NULL,
+            moderate INTEGER NOT NULL,
+            low INTEGER NOT NULL,
+            terrible INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_hp_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS HP_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            high_ub INTEGER NOT NULL,
+            high_lb INTEGER NOT NULL,
+            moderate_ub INTEGER NOT NULL,
+            moderate_lb INTEGER NOT NULL,
+            low_ub INTEGER NOT NULL,
+            low_lb INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_res_weak_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS RES_WEAK_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            max INTEGER NOT NULL,
+            min INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_strike_bonus_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS STRIKE_BONUS_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme INTEGER NOT NULL,
+            high INTEGER NOT NULL,
+            moderate INTEGER NOT NULL,
+            low INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_strike_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS STRIKE_DAMAGE_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme TEXT NOT NULL,
+            high TEXT NOT NULL,
+            moderate TEXT NOT NULL,
+            low TEXT NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_spell_dc_and_atk_scales<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS SPELL_DC_AND_ATTACK_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            extreme_dc INTEGER NOT NULL,
+            extreme_atk_bonus INTEGER NOT NULL,
+            high_dc INTEGER NOT NULL,
+            high_atk_bonus INTEGER NOT NULL,
+            moderate_dc INTEGER NOT NULL,
+            moderate_atk_bonus INTEGER NOT NULL,
+            PRIMARY KEY (level)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_area_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS AREA_DAMAGE_SCALES_TABLE (
+            level INTEGER NOT NULL,
+            unlimited_use TEXT NOT NULL,
+            limited_use TEXT NOT NULL,
+            PRIMARY KEY (level)
     );
     "#;
     sqlx::query(query).execute(&mut **conn).await?;
