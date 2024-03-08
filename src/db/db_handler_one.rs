@@ -3,7 +3,7 @@ use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
 use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Sqlite, SqlitePool, Transaction};
+use sqlx::{query_file, Sqlite, SqlitePool, Transaction};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -36,6 +36,11 @@ pub async fn insert_creature_to_db(conn: &SqlitePool, cr: BybeCreature) -> Resul
     }
     tx.commit().await?;
 
+    Ok(true)
+}
+
+pub async fn insert_scales_values_to_db(conn: &SqlitePool) -> Result<bool> {
+    query_file!("src/db/scales.sql").execute(conn).await?;
     Ok(true)
 }
 

@@ -1,4 +1,3 @@
-use crate::schema::json_utils;
 use crate::schema::source_schema::creature::abilities::RawAbilities;
 use crate::schema::source_schema::creature::attributes::RawAttributes;
 use crate::schema::source_schema::creature::details::RawDetails;
@@ -6,6 +5,7 @@ use crate::schema::source_schema::creature::item::items::RawItems;
 use crate::schema::source_schema::creature::perception::RawPerception;
 use crate::schema::source_schema::creature::saves::RawSaves;
 use crate::schema::source_schema::creature::traits::RawTraits;
+use crate::utils::json_utils;
 use serde_json::Value;
 
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-use crate::schema::json_utils;
+use crate::utils::json_utils;
 use serde_json::Value;
 
 #[derive(Debug, Clone)]

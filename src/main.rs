@@ -1,5 +1,6 @@
 mod db;
 mod schema;
+mod utils;
 
 extern crate dotenvy;
 extern crate git2;
@@ -32,8 +33,11 @@ async fn main() {
         let bb_creature = BybeCreature::init_from_source_creature(el);
         db_handler_one::insert_creature_to_db(&conn, bb_creature.clone())
             .await
-            .expect("Something failed while inserting in db");
+            .expect("Something failed while inserting creature in db");
     }
+    db_handler_one::insert_scales_values_to_db(&conn)
+        .await
+        .expect("Something failed while insert scale values in db");
     //println!("{:?}", x);
 }
 
