@@ -38,7 +38,10 @@ async fn main() {
     db_handler_one::insert_scales_values_to_db(&conn)
         .await
         .expect("Something failed while insert scale values in db");
-    //println!("{:?}", x);
+
+    db_handler_one::update_with_aon_data(&conn)
+        .await
+        .expect("Could not update Database using AON data");
 }
 
 fn deserialize_json_bestiaries(json_creatures_list: Vec<String>) -> Vec<SourceCreature> {

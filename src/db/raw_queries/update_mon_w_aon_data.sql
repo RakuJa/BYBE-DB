@@ -2249,7 +2249,7 @@ UPDATE CREATURE_TABLE set aon_id = 763, cr_type = 'Monster', family = 'Geniekin'
 UPDATE CREATURE_TABLE set aon_id = 864, cr_type = 'Monster', family = 'Worm That Walks' WHERE id = 99;
 UPDATE CREATURE_TABLE set aon_id = 975, cr_type = 'Monster', family = NULL WHERE id = 3189;
 UPDATE CREATURE_TABLE set aon_id = 1086, cr_type = 'Monster', family = NULL WHERE id = 814;
-UPDATE CREATURE_TABLE set aon_id = 1137, cr_type = 'Monster', family = 'Divine Warden' WHERE id = 824;Divine Warden Of Brigh, ['Nosferatu Malefactor']
+UPDATE CREATURE_TABLE set aon_id = 1137, cr_type = 'Monster', family = 'Divine Warden' WHERE id = 824;
 UPDATE CREATURE_TABLE set aon_id = 1234, cr_type = 'Monster', family = 'Mortic' WHERE id = 808;
 UPDATE CREATURE_TABLE set aon_id = 1235, cr_type = 'Monster', family = 'Mortic' WHERE id = 545;
 UPDATE CREATURE_TABLE set aon_id = 1236, cr_type = 'Monster', family = 'Mortic' WHERE id = 653;
@@ -2356,7 +2356,7 @@ UPDATE CREATURE_TABLE set aon_id = 565, cr_type = 'Monster', family = 'Basilisk'
 UPDATE CREATURE_TABLE set aon_id = 1002, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Ravenile Rager');
 UPDATE CREATURE_TABLE set aon_id = 1009, cr_type = 'Monster', family = 'Elemental, Water' WHERE UPPER(name) = UPPER('Water Elemental Vessel (I2)');
 UPDATE CREATURE_TABLE set aon_id = 1009, cr_type = 'Monster', family = 'Elemental, Water' WHERE UPPER(name) = UPPER('Water Elemental Vessel');
-UPDATE CREATURE_TABLE set aon_id = 1058, cr_type = 'Monster', family = 'Agathion' WHERE UPPER(name) = UPPER('Draconal (White)');Draconal (Dragon Agathion), []
+UPDATE CREATURE_TABLE set aon_id = 1058, cr_type = 'Monster', family = 'Agathion' WHERE UPPER(name) = UPPER('Draconal (White)');
 UPDATE CREATURE_TABLE set aon_id = 1058, cr_type = 'Monster', family = 'Agathion' WHERE UPPER(name) = UPPER('Draconal (Yellow)');
 UPDATE CREATURE_TABLE set aon_id = 1058, cr_type = 'Monster', family = 'Agathion' WHERE UPPER(name) = UPPER('Draconal (Red)');
 UPDATE CREATURE_TABLE set aon_id = 1058, cr_type = 'Monster', family = 'Agathion' WHERE UPPER(name) = UPPER('Draconal (Black)');
