@@ -40,13 +40,19 @@ pub async fn insert_creature_to_db(conn: &SqlitePool, cr: BybeCreature) -> Resul
 }
 
 pub async fn update_with_aon_data(conn: &SqlitePool) -> Result<bool> {
-    query_file!("src/db/raw_queries/update_mon_w_aon_data.sql").execute(conn).await?;
-    query_file!("src/db/raw_queries/update_npc_w_aon_data.sql").execute(conn).await?;
+    query_file!("src/db/raw_queries/update_mon_w_aon_data.sql")
+        .execute(conn)
+        .await?;
+    query_file!("src/db/raw_queries/update_npc_w_aon_data.sql")
+        .execute(conn)
+        .await?;
     Ok(true)
 }
 
 pub async fn insert_scales_values_to_db(conn: &SqlitePool) -> Result<bool> {
-    query_file!("src/db/raw_queries/scales.sql").execute(conn).await?;
+    query_file!("src/db/raw_queries/scales.sql")
+        .execute(conn)
+        .await?;
     Ok(true)
 }
 
