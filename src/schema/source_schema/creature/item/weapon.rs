@@ -48,7 +48,6 @@ pub struct Weapon {
 impl Weapon {
     pub fn init_from_json(json: Value) -> Weapon {
         let system_json = json_utils::get_field_from_json(&json, "system");
-
         let hit_bonus_json = json_utils::get_field_from_json(&system_json, "bonus");
         let bulk_json = json_utils::get_field_from_json(&system_json, "bulk");
         let equipped_json = json_utils::get_field_from_json(&system_json, "equipped");
@@ -81,18 +80,18 @@ impl Weapon {
             carry_type: equipped_json
                 .get("carryType")
                 .map(|x| x.as_str().unwrap().to_string()),
-            hands_held: equipped_json.get("handsHeld").map(|x| x.as_i64().unwrap()),
-            invested: equipped_json.get("invested").map(|x| x.as_bool().unwrap()),
+            hands_held: equipped_json.get("handsHeld").and_then(|x| x.as_i64()),
+            invested: equipped_json.get("invested").and_then(|x| x.as_bool()),
             weapon_group: json_utils::get_field_from_json(&system_json, "group")
                 .as_str()
                 .unwrap()
                 .to_string(),
-            hardness: system_json.get("hardness").map(|x| x.as_i64().unwrap()),
-            hp_max: hp_json.get("max").map(|x| x.as_i64().unwrap()),
-            hp_curr: hp_json.get("value").map(|x| x.as_i64().unwrap()),
-            level: level_json.get("value").map(|x| x.as_i64().unwrap()),
+            hardness: system_json.get("hardness").and_then(|x| x.as_i64()),
+            hp_max: hp_json.get("max").and_then(|x| x.as_i64()),
+            hp_curr: hp_json.get("value").and_then(|x| x.as_i64()),
+            level: level_json.get("value").and_then(|x| x.as_i64()),
             publication_info: PublicationInfo::init_from_json(&publication_json),
-            quantity: system_json.get("quantity").map(|x| x.as_i64().unwrap()),
+            quantity: system_json.get("quantity").and_then(|x| x.as_i64()),
             range: equipped_json
                 .get("range")
                 .map(|x| x.as_str().unwrap().to_string()),
@@ -151,9 +150,9 @@ impl WeaponDamageData {
         match json.get("damage") {
             None => {
                 let json_obj = json
-                    .as_object()
-                    .and_then(|x| x.keys().next())
-                    .and_then(|key| json.get(key));
+                    .get("damageRolls")
+                    .and_then(|x| x.as_object())
+                    .and_then(|json_map| json_map.values().next());
                 json_obj.and_then(|x| {
                     let dmg = x.get("damage")?.as_str()?;
                     let (n_dices, dmg_data) = dmg.split_once('d')?;
