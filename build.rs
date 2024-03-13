@@ -55,6 +55,8 @@ async fn init_all_creature_related_tables<'a>(
     init_trait_spell_association_table(tx).await?;
     init_tradition_table(tx).await?;
     init_tradition_spell_association_table(tx).await?;
+    init_action_table(tx).await?;
+    init_trait_action_association_table(tx).await?;
     Ok(true)
 }
 
@@ -573,6 +575,44 @@ async fn init_area_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow:
             level INTEGER UNIQUE NOT NULL,
             unlimited_use TEXT NOT NULL,
             limited_use TEXT NOT NULL
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS ACTION_TABLE (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            n_of_actions INTEGER,
+            category TEXT NOT NULL,
+            description TEXT NOT NULL,
+            license TEXT NOT NULL,
+            remaster BOOL NOT NULL,
+            source TEXT NOT NULL,
+            slug TEXT,
+            rarity TEXT,
+            creature_id INTEGER NOT NULL,
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
+    )
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_trait_action_association_table<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS TRAIT_ACTION_ASSOCIATION_TABLE (
+            action_id INTEGER NOT NULL,
+            trait_id TEXT NOT NULL,
+            PRIMARY KEY (action_id, trait_id),
+            FOREIGN KEY (action_id) REFERENCES ACTION_TABLE(id),
+            FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
     "#;
     sqlx::query(query).execute(&mut **conn).await?;

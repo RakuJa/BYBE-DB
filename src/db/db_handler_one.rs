@@ -1,4 +1,5 @@
 use crate::schema::bybe_creature::BybeCreature;
+use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
 use anyhow::Result;
@@ -33,6 +34,11 @@ pub async fn insert_creature_to_db(conn: &SqlitePool, cr: BybeCreature) -> Resul
         insert_traits(&mut tx, &el.traits.traits).await?;
         insert_spell_trait_association(&mut tx, &el.traits.traits, spell_id).await?;
         insert_tradition_and_association(&mut tx, &el.traits.traditions, spell_id).await?;
+    }
+    for el in &cr.actions {
+        let action_id = insert_actions(&mut tx, el, cr_id).await?;
+        insert_traits(&mut tx, &el.traits.traits).await?;
+        insert_action_trait_association(&mut tx, &el.traits.traits, action_id).await?;
     }
     tx.commit().await?;
 
@@ -423,4 +429,52 @@ async fn insert_spells<'a>(
     .execute(&mut **conn)
     .await?
     .last_insert_rowid())
+}
+
+// ACTION
+
+async fn insert_actions<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    action: &Action,
+    cr_id: i64,
+) -> Result<i64> {
+    Ok(sqlx::query!(
+        "
+            INSERT INTO ACTION_TABLE VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+            )",
+        None::<i64>, // id, autoincrement
+        action.name,
+        action.action_type,
+        action.n_of_actions,
+        action.category,
+        action.description,
+        action.publication_info.license,
+        action.publication_info.remastered,
+        action.publication_info.source,
+        action.slug,
+        action.traits.rarity,
+        cr_id
+    )
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
+}
+
+async fn insert_action_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT INTO TRAIT_ACTION_ASSOCIATION_TABLE \
+            (action_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
 }
