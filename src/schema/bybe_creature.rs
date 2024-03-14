@@ -1,6 +1,7 @@
 use crate::schema::bybe_creature_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use std::collections::HashMap;
@@ -59,7 +60,7 @@ pub struct BybeCreature {
 
     pub weapons: Vec<Weapon>,
     pub actions: Vec<Action>,
-    pub spell_casting: Option<String>,
+    pub spell_casting: Option<SpellCastingEntry>,
     pub spells: Vec<Spell>,
 }
 
@@ -114,11 +115,7 @@ impl BybeCreature {
             weapons: source_cr.items.weapon_list,
             actions: source_cr.items.action_list,
             spells: source_cr.items.spell_list,
-            spell_casting: source_cr.items.spell_casting,
+            spell_casting: source_cr.items.spell_casting_entry,
         }
-    }
-
-    pub fn is_spell_caster(&self) -> bool {
-        !self.spells.is_empty()
     }
 }

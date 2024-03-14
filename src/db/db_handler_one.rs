@@ -216,16 +216,26 @@ async fn insert_weaknesses<'a>(
 }
 
 async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreature) -> Result<i64> {
-    let is_spell_caster = cr.is_spell_caster();
     let size = cr.size.to_string();
     let rarity = cr.rarity.to_string();
+    let spell_casting_entry = cr.spell_casting.clone();
+
+    let spell_casting_name = spell_casting_entry.clone().map(|x| x.name);
+    let spell_casting_flexible = spell_casting_entry.clone().and_then(|x| x.is_flexible);
+    let spell_casting_type = spell_casting_entry.clone().map(|x| x.type_of_spell_caster);
+    let spell_casting_dc = spell_casting_entry.clone().and_then(|x| x.dc_modifier);
+    let spell_casting_mod = spell_casting_entry.clone().and_then(|x| x.modifier);
+    let spell_casting_atk_mod = spell_casting_entry.clone().and_then(|x| x.atk_modifier);
+    let spell_casting_item_mod = spell_casting_entry.clone().and_then(|x| x.item_mod);
+    let spell_casting_tradition = spell_casting_entry.clone().map(|x| x.tradition);
+
     Ok(sqlx::query!(
         "
             INSERT INTO CREATURE_TABLE VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                 $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-                $31, $32
+                $31, $32, $33, $34, $35, $36, $37, $38, $39
             )",
         None::<i64>, // id, autoincrement
         cr.name,
@@ -258,7 +268,14 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
         size,
         None::<String>, // type, source says NPC always..
         None::<String>, // family, source does not have it
-        is_spell_caster,
+        spell_casting_name,
+        spell_casting_flexible,
+        spell_casting_type,
+        spell_casting_dc,
+        spell_casting_mod,
+        spell_casting_atk_mod,
+        spell_casting_item_mod,
+        spell_casting_tradition,
     )
     .execute(&mut **conn)
     .await?

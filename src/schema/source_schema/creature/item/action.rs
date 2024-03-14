@@ -32,15 +32,14 @@ impl Action {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            n_of_actions: json_utils::get_field_from_json(&action_json, "value")
-                .as_i64().and_then(Some),
+            n_of_actions: json_utils::get_field_from_json(&action_json, "value").as_i64(),
             category: category_json.as_str().unwrap().to_string(),
             description: json_utils::get_field_from_json(&description_json, "value")
                 .as_str()
                 .unwrap()
                 .to_string(),
             publication_info: PublicationInfo::init_from_json(&publication_json),
-            slug: slug_json.as_str().and_then(|x| Some(x.to_string())),
+            slug: slug_json.as_str().map(|x| x.to_string()),
             traits: ActionTraits::init_from_json(&traits_json),
         }
     }

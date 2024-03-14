@@ -111,11 +111,17 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::
             rarity TEXT NOT NULL,
             size TEXT NOT NULL,
 
-
             cr_type TEXT,
             family TEXT,
 
-            is_spell_caster BOOL NOT NULL
+            spell_casting_name TEXT,
+            is_spell_casting_flexible BOOL,
+            type_of_spell_caster TEXT,
+            spell_casting_dc_mod TEXT,
+            spell_casting_modifier INTEGER,
+            spell_casting_atk_mod INTEGER,
+            spell_casting_item_mod INTEGER,
+            spell_casting_tradition TEXT
     );
     "#;
     sqlx::query(query).execute(&mut **conn).await?;
@@ -594,7 +600,7 @@ async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Re
             remaster BOOL NOT NULL,
             source TEXT NOT NULL,
             slug TEXT,
-            rarity TEXT,
+            rarity TEXT NOT NULL,
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     )
