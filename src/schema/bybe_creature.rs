@@ -1,5 +1,6 @@
 use crate::schema::bybe_creature_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
+use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
@@ -62,6 +63,7 @@ pub struct BybeCreature {
     pub actions: Vec<Action>,
     pub spell_casting: Option<SpellCastingEntry>,
     pub spells: Vec<Spell>,
+    pub skills: Vec<Skill>,
 }
 
 impl BybeCreature {
@@ -116,6 +118,7 @@ impl BybeCreature {
             actions: source_cr.items.action_list,
             spells: source_cr.items.spell_list,
             spell_casting: source_cr.items.spell_casting_entry,
+            skills: source_cr.items.skill_list,
         }
     }
 }

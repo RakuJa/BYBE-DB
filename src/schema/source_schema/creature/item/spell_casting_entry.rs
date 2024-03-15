@@ -10,8 +10,6 @@ pub struct SpellCastingEntry {
 
     pub dc_modifier: Option<i64>,
     pub atk_modifier: Option<i64>,
-    pub modifier: Option<i64>,
-    pub item_mod: Option<i64>,
     pub tradition: String,
 }
 
@@ -32,9 +30,7 @@ impl SpellCastingEntry {
                 .unwrap()
                 .to_string(),
             dc_modifier: json_utils::get_field_from_json(&spell_dc, "dc").as_i64(),
-            modifier: json_utils::get_field_from_json(&spell_dc, "mod").as_i64(),
             atk_modifier: json_utils::get_field_from_json(&spell_dc, "value").as_i64(),
-            item_mod: json_utils::get_field_from_json(&spell_dc, "item").as_i64(),
             tradition: json_utils::get_field_from_json(&system_json, "type")
                 .as_str()
                 .unwrap()

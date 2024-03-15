@@ -15,6 +15,8 @@ license = "MIT"
 keywords = ["database", "pathfinder"]
 publish = false
 
+build="build/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lints.rust]

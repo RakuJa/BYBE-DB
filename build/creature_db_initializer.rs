@@ -1,40 +1,6 @@
-use dotenv::dotenv;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{Sqlite, SqlitePool, Transaction};
-use std::str::FromStr;
-use std::{env, fs};
+use sqlx::{Sqlite, Transaction};
 
-#[tokio::main]
-async fn main() {
-    dotenv().ok(); // use dotenv env variables
-    let db_url = &env::var("DATABASE_URL")
-        .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
-    let db_path = &env::var("DATABASE_PATH")
-        .expect("DB PATH IS NOT SET.. Aborting. Hint: set DATABASE_PATH environmental variable");
-
-    fs::create_dir_all(db_path).expect("Could not create parent folder to save db.");
-
-    let conn = SqlitePool::connect_with(
-        SqliteConnectOptions::from_str(db_url)
-            .expect("Could not find a valid db in the given path")
-            .create_if_missing(true),
-    )
-    .await
-    .expect("Could not connect to the given db url, something went wrong..");
-    init_tables(&conn)
-        .await
-        .expect("Could not initialize tables inside the db, something went wrong..");
-}
-
-pub async fn init_tables(conn: &SqlitePool) -> anyhow::Result<bool> {
-    let mut tx: Transaction<Sqlite> = conn.begin().await?;
-    init_all_creature_related_tables(&mut tx).await?;
-    init_creature_builder_tables(&mut tx).await?;
-    tx.commit().await?;
-    Ok(true)
-}
-
-async fn init_all_creature_related_tables<'a>(
+pub async fn init_all_creature_related_tables<'a>(
     tx: &mut Transaction<'a, Sqlite>,
 ) -> anyhow::Result<bool> {
     init_creature_table(tx).await?;
@@ -57,24 +23,8 @@ async fn init_all_creature_related_tables<'a>(
     init_tradition_spell_association_table(tx).await?;
     init_action_table(tx).await?;
     init_trait_action_association_table(tx).await?;
-    Ok(true)
-}
-
-async fn init_creature_builder_tables<'a>(
-    tx: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    init_ability_mod_scales(tx).await?;
-    init_perception_scales(tx).await?;
-    init_skill_scales(tx).await?;
-    init_item_scales(tx).await?;
-    init_ac_scales(tx).await?;
-    init_saving_throw_scales(tx).await?;
-    init_hp_scales(tx).await?;
-    init_res_weak_scales(tx).await?;
-    init_strike_bonus_scales(tx).await?;
-    init_strike_dmg_scales(tx).await?;
-    init_spell_dc_and_atk_scales(tx).await?;
-    init_area_dmg_scales(tx).await?;
+    init_skill_table(tx).await?;
+    init_skill_modifier_variant_table(tx).await?;
     Ok(true)
 }
 
@@ -118,9 +68,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::
             is_spell_casting_flexible BOOL,
             type_of_spell_caster TEXT,
             spell_casting_dc_mod TEXT,
-            spell_casting_modifier INTEGER,
             spell_casting_atk_mod INTEGER,
-            spell_casting_item_mod INTEGER,
             spell_casting_tradition TEXT
     );
     "#;
@@ -404,188 +352,8 @@ async fn init_tradition_spell_association_table<'a>(
     sqlx::query(query).execute(&mut **conn).await?;
     Ok(true)
 }
-
-async fn init_ability_mod_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS ABILITY_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme INTEGER,
-            high INTEGER NOT NULL,
-            moderate INTEGER NOT NULL,
-            low INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_perception_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS PERCEPTION_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme INTEGER NOT NULL,
-            high INTEGER NOT NULL,
-            moderate INTEGER NOT NULL,
-            low INTEGER NOT NULL,
-            terrible INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_skill_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SKILL_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme INTEGER NOT NULL,
-            high INTEGER NOT NULL,
-            moderate INTEGER NOT NULL,
-            low_ub INTEGER NOT NULL,
-            low_lb INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_item_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS ITEM_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cr_level TEXT UNIQUE NOT NULL,
-            safe_item_level TEXT NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_ac_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS AC_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme INTEGER NOT NULL,
-            high INTEGER NOT NULL,
-            moderate INTEGER NOT NULL,
-            low INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_saving_throw_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SAVING_THROW_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme INTEGER NOT NULL,
-            high INTEGER NOT NULL,
-            moderate INTEGER NOT NULL,
-            low INTEGER NOT NULL,
-            terrible INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_hp_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS HP_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            high_ub INTEGER NOT NULL,
-            high_lb INTEGER NOT NULL,
-            moderate_ub INTEGER NOT NULL,
-            moderate_lb INTEGER NOT NULL,
-            low_ub INTEGER NOT NULL,
-            low_lb INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_res_weak_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS RES_WEAK_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            max INTEGER NOT NULL,
-            min INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_strike_bonus_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS STRIKE_BONUS_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme INTEGER NOT NULL,
-            high INTEGER NOT NULL,
-            moderate INTEGER NOT NULL,
-            low INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_strike_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS STRIKE_DAMAGE_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            extreme TEXT NOT NULL,
-            high TEXT NOT NULL,
-            moderate TEXT NOT NULL,
-            low TEXT NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_spell_dc_and_atk_scales<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS SPELL_DC_AND_ATTACK_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE  NOT NULL,
-            extreme_dc INTEGER NOT NULL,
-            extreme_atk_bonus INTEGER NOT NULL,
-            high_dc INTEGER NOT NULL,
-            high_atk_bonus INTEGER NOT NULL,
-            moderate_dc INTEGER NOT NULL,
-            moderate_atk_bonus INTEGER NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_area_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
-    CREATE TABLE IF NOT EXISTS AREA_DAMAGE_SCALES_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            level INTEGER UNIQUE NOT NULL,
-            unlimited_use TEXT NOT NULL,
-            limited_use TEXT NOT NULL
-    );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
+// END SPELL
+// BEGIN ACTION
 
 async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
@@ -619,6 +387,45 @@ async fn init_trait_action_association_table<'a>(
             PRIMARY KEY (action_id, trait_id),
             FOREIGN KEY (action_id) REFERENCES ACTION_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
+    );
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+// END ACTION
+// BEGIN SKILL
+
+async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS SKILL_TABLE (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            modifier INTEGER NOT NULL,
+            proficiency INTEGER NOT NULL,
+            license TEXT NOT NULL,
+            remaster BOOL NOT NULL,
+            source TEXT NOT NULL,
+            creature_id INTEGER NOT NULL,
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
+    )
+    "#;
+    sqlx::query(query).execute(&mut **conn).await?;
+    Ok(true)
+}
+
+async fn init_skill_modifier_variant_table<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+) -> anyhow::Result<bool> {
+    let query = r#"
+    CREATE TABLE IF NOT EXISTS CREATURE_SKILL_LABEL_TABLE (
+            creature_id INTEGER NOT NULL,
+            skill_id INTEGER NOT NULL,
+            skill_label TEXT NOT NULL,
+            PRIMARY KEY (creature_id, skill_id, skill_label),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
+            FOREIGN KEY (skill_id) REFERENCES SKILL_TABLE(id)
     );
     "#;
     sqlx::query(query).execute(&mut **conn).await?;

@@ -1,5 +1,6 @@
 use crate::schema::bybe_creature::BybeCreature;
 use crate::schema::source_schema::creature::item::action::Action;
+use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
 use anyhow::Result;
@@ -36,9 +37,13 @@ pub async fn insert_creature_to_db(conn: &SqlitePool, cr: BybeCreature) -> Resul
         insert_tradition_and_association(&mut tx, &el.traits.traditions, spell_id).await?;
     }
     for el in &cr.actions {
-        let action_id = insert_actions(&mut tx, el, cr_id).await?;
+        let action_id = insert_action(&mut tx, el, cr_id).await?;
         insert_traits(&mut tx, &el.traits.traits).await?;
         insert_action_trait_association(&mut tx, &el.traits.traits, action_id).await?;
+    }
+    for el in &cr.skills {
+        let skill_id = insert_skill(&mut tx, el, cr_id).await?;
+        insert_skill_modifier_variant_table(&mut tx, &el.variant_label, cr_id, skill_id).await?;
     }
     tx.commit().await?;
 
@@ -224,9 +229,7 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
     let spell_casting_flexible = spell_casting_entry.clone().and_then(|x| x.is_flexible);
     let spell_casting_type = spell_casting_entry.clone().map(|x| x.type_of_spell_caster);
     let spell_casting_dc = spell_casting_entry.clone().and_then(|x| x.dc_modifier);
-    let spell_casting_mod = spell_casting_entry.clone().and_then(|x| x.modifier);
     let spell_casting_atk_mod = spell_casting_entry.clone().and_then(|x| x.atk_modifier);
-    let spell_casting_item_mod = spell_casting_entry.clone().and_then(|x| x.item_mod);
     let spell_casting_tradition = spell_casting_entry.clone().map(|x| x.tradition);
 
     Ok(sqlx::query!(
@@ -235,7 +238,7 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                 $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-                $31, $32, $33, $34, $35, $36, $37, $38, $39
+                $31, $32, $33, $34, $35, $36, $37
             )",
         None::<i64>, // id, autoincrement
         cr.name,
@@ -272,9 +275,7 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
         spell_casting_flexible,
         spell_casting_type,
         spell_casting_dc,
-        spell_casting_mod,
         spell_casting_atk_mod,
-        spell_casting_item_mod,
         spell_casting_tradition,
     )
     .execute(&mut **conn)
@@ -450,7 +451,7 @@ async fn insert_spells<'a>(
 
 // ACTION
 
-async fn insert_actions<'a>(
+async fn insert_action<'a>(
     conn: &mut Transaction<'a, Sqlite>,
     action: &Action,
     cr_id: i64,
@@ -488,6 +489,51 @@ async fn insert_action_trait_association<'a>(
             "INSERT INTO TRAIT_ACTION_ASSOCIATION_TABLE \
             (action_id, trait_id) VALUES ($1, $2)",
             id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_skill<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    skill: &Skill,
+    cr_id: i64,
+) -> Result<i64> {
+    Ok(sqlx::query!(
+        "
+            INSERT INTO SKILL_TABLE VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9
+            )",
+        None::<i64>, // id, autoincrement
+        skill.name,
+        skill.description,
+        skill.modifier,
+        skill.proficiency,
+        skill.publication_info.license,
+        skill.publication_info.remastered,
+        skill.publication_info.source,
+        cr_id
+    )
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
+}
+
+async fn insert_skill_modifier_variant_table<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    skill_labels: &Vec<String>,
+    cr_id: i64,
+    skill_id: i64,
+) -> Result<bool> {
+    for el in skill_labels {
+        sqlx::query!(
+            "INSERT INTO CREATURE_SKILL_LABEL_TABLE \
+            (creature_id, skill_id, skill_label) VALUES ($1, $2, $3)",
+            cr_id,
+            skill_id,
             el
         )
         .execute(&mut **conn)

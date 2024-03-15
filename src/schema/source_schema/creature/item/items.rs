@@ -1,4 +1,5 @@
 use crate::schema::source_schema::creature::item::action::Action;
+use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
@@ -10,6 +11,7 @@ pub struct RawItems {
     pub weapon_list: Vec<Weapon>,
     pub action_list: Vec<Action>,
     pub spell_casting_entry: Option<SpellCastingEntry>,
+    pub skill_list: Vec<Skill>,
 }
 
 impl RawItems {
@@ -21,6 +23,7 @@ impl RawItems {
         let mut spell_list_entry = Vec::new();
         let mut weapon_list_entry = Vec::new();
         let mut action_list_entry = Vec::new();
+        let mut skill_list_entry = Vec::new();
         for el in json_vec {
             let curr_el_type = el
                 .get("type")
@@ -39,6 +42,9 @@ impl RawItems {
                 "action" => {
                     action_list_entry.push(Action::init_from_json(el.clone()));
                 }
+                "lore" => {
+                    skill_list_entry.push(Skill::init_from_json(el.clone()));
+                }
                 // there are other options
                 _ => {
                     // do nothing
@@ -50,6 +56,7 @@ impl RawItems {
             spell_list: spell_list_entry,
             weapon_list: weapon_list_entry,
             action_list: action_list_entry,
+            skill_list: skill_list_entry,
         }
     }
 }
