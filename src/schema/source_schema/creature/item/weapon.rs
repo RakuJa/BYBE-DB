@@ -57,6 +57,8 @@ impl Weapon {
         let reload_json = json_utils::get_field_from_json(&system_json, "reload");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         let usage_json = json_utils::get_field_from_json(&system_json, "usage");
+        let wp_type_json = json_utils::get_field_from_json(&system_json, "weaponType");
+
         Weapon {
             name: json_utils::get_field_from_json(&json, "name")
                 .as_str()
@@ -107,9 +109,9 @@ impl Weapon {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            weapon_type: json_utils::get_field_from_json(&json, "type")
+            weapon_type: json_utils::get_field_from_json(&wp_type_json, "value")
                 .as_str()
-                .unwrap()
+                .unwrap_or("melee")
                 .to_string(),
         }
     }

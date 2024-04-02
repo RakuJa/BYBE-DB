@@ -5,7 +5,7 @@ authors = ["RakuJa"]
 
 # Compiler info
 edition = "2021"
-rust-version = "1.76.0"
+rust-version = "1.77.1"
 
 description = "a Database to help develop tools for Pathfinder 2e. It's built for the BYBE webservice"
 readme = "README.md"
