@@ -50,11 +50,11 @@ impl FromStr for SizeEnum {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_uppercase().as_str() {
             "TINY" => Ok(SizeEnum::Tiny),
-            "SMALL" => Ok(SizeEnum::Small),
-            "MEDIUM" => Ok(SizeEnum::Medium),
-            "LARGE" => Ok(SizeEnum::Large),
+            "SMALL" | "SM" => Ok(SizeEnum::Small),
+            "MEDIUM" | "MED" => Ok(SizeEnum::Medium),
+            "LARGE" | "LG" => Ok(SizeEnum::Large),
             "HUGE" => Ok(SizeEnum::Huge),
-            "GARGANTUAN" => Ok(SizeEnum::Gargantuan),
+            "GARGANTUAN" | "GRG" => Ok(SizeEnum::Gargantuan),
             _ => Err(()),
         }
     }
