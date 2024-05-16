@@ -6,7 +6,7 @@ pub struct Action {
     pub name: String,
     pub action_type: String,
     pub n_of_actions: Option<i64>,
-    pub category: String,
+    pub category: Option<String>,
     pub description: String,
     pub publication_info: PublicationInfo,
     pub slug: Option<String>,
@@ -33,7 +33,7 @@ impl Action {
                 .unwrap()
                 .to_string(),
             n_of_actions: json_utils::get_field_from_json(&action_json, "value").as_i64(),
-            category: category_json.as_str().unwrap().to_string(),
+            category: category_json.as_str().map(|x| x.to_string()),
             description: json_utils::get_field_from_json(&description_json, "value")
                 .as_str()
                 .unwrap()

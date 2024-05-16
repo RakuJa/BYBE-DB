@@ -362,7 +362,7 @@ async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Re
             name TEXT NOT NULL,
             action_type TEXT NOT NULL,
             n_of_actions INTEGER,
-            category TEXT NOT NULL,
+            category TEXT,
             description TEXT NOT NULL,
             license TEXT NOT NULL,
             remaster BOOL NOT NULL,

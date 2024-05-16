@@ -14,36 +14,28 @@ pub struct RawAbilities {
 impl RawAbilities {
     pub fn init_from_json(json: Value) -> RawAbilities {
         RawAbilities {
-            charisma: json_utils::get_field_from_json(&json, "cha")
-                .get("mod")
-                .unwrap()
-                .as_i64()
+            charisma: get_ability_modifier(json_utils::get_field_from_json(&json, "cha"))
                 .expect("Cha Modifier is NaN"),
-            constitution: json_utils::get_field_from_json(&json, "con")
-                .get("mod")
-                .unwrap()
-                .as_i64()
+            constitution: get_ability_modifier(json_utils::get_field_from_json(&json, "con"))
                 .expect("Con Modifier is NaN"),
-            dexterity: json_utils::get_field_from_json(&json, "dex")
-                .get("mod")
-                .unwrap()
-                .as_i64()
+            dexterity: get_ability_modifier(json_utils::get_field_from_json(&json, "dex"))
                 .expect("Dex Modifier is NaN"),
-            intelligence: json_utils::get_field_from_json(&json, "int")
-                .get("mod")
-                .unwrap()
-                .as_i64()
+            intelligence: get_ability_modifier(json_utils::get_field_from_json(&json, "int"))
                 .expect("Int Modifier is NaN"),
-            strength: json_utils::get_field_from_json(&json, "str")
-                .get("mod")
-                .unwrap()
-                .as_i64()
+            strength: get_ability_modifier(json_utils::get_field_from_json(&json, "str"))
                 .expect("Str Modifier is NaN"),
-            wisdom: json_utils::get_field_from_json(&json, "wis")
-                .get("mod")
-                .unwrap()
-                .as_i64()
+            wisdom: get_ability_modifier(json_utils::get_field_from_json(&json, "wis"))
                 .expect("Wis Modifier is NaN"),
         }
+    }
+}
+
+fn get_ability_modifier(modifier: Value) -> Option<i64> {
+    let value = modifier.get("mod")?;
+    if value.is_null() {
+        // For some reason null is used to represent 0
+        Some(0)
+    } else {
+        value.as_i64()
     }
 }

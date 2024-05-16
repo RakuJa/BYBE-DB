@@ -86,7 +86,7 @@ async fn insert_cr_trait_association<'a>(
 ) -> Result<bool> {
     for el in traits {
         sqlx::query!(
-            "INSERT INTO TRAIT_CREATURE_ASSOCIATION_TABLE \
+            "INSERT OR IGNORE INTO TRAIT_CREATURE_ASSOCIATION_TABLE \
             (creature_id, trait_id) VALUES ($1, $2)",
             id,
             el
@@ -110,7 +110,7 @@ async fn insert_language_and_association<'a>(
         .execute(&mut **conn)
         .await?;
         sqlx::query!(
-            "INSERT INTO LANGUAGE_CREATURE_ASSOCIATION_TABLE \
+            "INSERT OR IGNORE INTO LANGUAGE_CREATURE_ASSOCIATION_TABLE \
             (creature_id, language_id) VALUES ($1, $2)",
             id,
             el
@@ -134,7 +134,7 @@ async fn insert_immunity_and_association<'a>(
         .execute(&mut **conn)
         .await?;
         sqlx::query!(
-            "INSERT INTO IMMUNITY_CREATURE_ASSOCIATION_TABLE \
+            "INSERT OR IGNORE INTO IMMUNITY_CREATURE_ASSOCIATION_TABLE \
             (creature_id, immunity_id) VALUES ($1, $2)",
             id,
             el
