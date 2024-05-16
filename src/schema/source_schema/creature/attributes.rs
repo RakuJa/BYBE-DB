@@ -33,7 +33,7 @@ impl RawAttributes {
         );
         let resistances_map = json_utils::from_json_vec_of_maps_to_map(&json, "resistances");
         let weaknesses_map = json_utils::from_json_vec_of_maps_to_map(&json, "weaknesses");
-        let tmp_hp = hp_json.get("value").unwrap();
+        let tmp_hp = hp_json.get("max").unwrap_or(hp_json.get("value").unwrap());
         RawAttributes {
             ac: ac_json
                 .get("value")
