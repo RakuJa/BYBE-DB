@@ -1,4 +1,5 @@
 use crate::schema::bybe_creature::BybeCreature;
+use crate::schema::bybe_item::BybeItem;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
@@ -8,7 +9,6 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query_file, Sqlite, SqlitePool, Transaction};
 use std::collections::HashMap;
 use std::str::FromStr;
-use crate::schema::bybe_item::BybeItem;
 
 pub async fn connect(db_path: &str) -> Result<SqlitePool> {
     let options = SqliteConnectOptions::from_str(db_path)?.create_if_missing(true);
@@ -100,8 +100,8 @@ async fn insert_item_trait_association<'a>(
             id,
             el
         )
-            .execute(&mut **conn)
-            .await?;
+        .execute(&mut **conn)
+        .await?;
     }
     Ok(true)
 }
@@ -250,31 +250,32 @@ async fn insert_weaknesses<'a>(
 async fn insert_item<'a>(conn: &mut Transaction<'a, Sqlite>, item: &BybeItem) -> Result<i64> {
     let size = item.size.to_string();
     let rarity = item.rarity.to_string();
-    let x = sqlx::query!("
+    let x = sqlx::query!(
+        "
         INSERT INTO ITEM_TABLE VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19
         );
     ",
-    None::<i64>, // id, autoincrement
-    item.name,
-    item.bulk,
-    item.category,
-    item.description,
-    item.hardness,
-    item.hp,
-    item.level,
-    item.price,
-    item.usage,
-    item.item_type,
-    item.material_grade,
-    item.material_type,
-    item.number_of_uses,
-    item.license,
-    item.remaster,
-    item.source,
-    rarity,
-    size
+        None::<i64>, // id, autoincrement
+        item.name,
+        item.bulk,
+        item.category,
+        item.description,
+        item.hardness,
+        item.hp,
+        item.level,
+        item.price,
+        item.usage,
+        item.item_type,
+        item.material_grade,
+        item.material_type,
+        item.number_of_uses,
+        item.license,
+        item.remaster,
+        item.source,
+        rarity,
+        size
     );
     Ok(x.execute(&mut **conn).await?.last_insert_rowid())
 }

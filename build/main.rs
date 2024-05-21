@@ -4,13 +4,13 @@ mod scales_db_initializer;
 mod trait_db_initializer;
 
 use crate::creature_db_initializer::init_all_creature_related_tables;
+use crate::item_db_initializer::init_all_item_related_table;
 use crate::scales_db_initializer::init_creature_builder_tables;
 use dotenv::dotenv;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::str::FromStr;
 use std::{env, fs};
-use crate::item_db_initializer::init_all_item_related_table;
 
 #[tokio::main]
 async fn main() {

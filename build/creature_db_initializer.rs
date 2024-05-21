@@ -74,7 +74,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
             spell_casting_atk_mod INTEGER,
             spell_casting_tradition TEXT
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -91,7 +91,7 @@ async fn init_trait_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>)
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -125,7 +125,7 @@ async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Resul
             PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -142,7 +142,7 @@ async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
             PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -155,7 +155,7 @@ async fn init_immunity_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     CREATE TABLE IF NOT EXISTS IMMUNITY_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -174,7 +174,7 @@ async fn init_immunity_cr_association_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (immunity_id) REFERENCES IMMUNITY_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -187,7 +187,7 @@ async fn init_language_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     CREATE TABLE IF NOT EXISTS LANGUAGE_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -206,7 +206,7 @@ async fn init_language_cr_association_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (language_id) REFERENCES LANGUAGE_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -219,7 +219,7 @@ async fn init_sense_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     CREATE TABLE IF NOT EXISTS SENSE_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -236,7 +236,7 @@ async fn init_sense_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>)
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (sense_id) REFERENCES SENSE_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -278,7 +278,7 @@ async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<boo
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -297,7 +297,7 @@ async fn init_trait_weapon_association_table<'a>(
             FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -330,7 +330,7 @@ async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -349,7 +349,7 @@ async fn init_trait_spell_association_table<'a>(
             FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -362,7 +362,7 @@ async fn init_tradition_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<
     CREATE TABLE IF NOT EXISTS TRADITION_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -381,7 +381,7 @@ async fn init_tradition_spell_association_table<'a>(
             FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
             FOREIGN KEY (tradition_id) REFERENCES TRADITION_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -408,7 +408,7 @@ async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<boo
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     )
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -427,7 +427,7 @@ async fn init_trait_action_association_table<'a>(
             FOREIGN KEY (action_id) REFERENCES ACTION_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -452,7 +452,7 @@ async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     )
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -470,7 +470,7 @@ async fn init_skill_modifier_variant_table<'a>(conn: &mut Transaction<'a, Sqlite
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
             FOREIGN KEY (skill_id) REFERENCES SKILL_TABLE(id)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;

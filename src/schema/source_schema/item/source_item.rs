@@ -48,20 +48,29 @@ impl SourceItem {
             .to_string();
         Some(SourceItem {
             name,
-            bulk: json_utils::get_field_from_json(&system_json, "bulk")
-                .as_f64()
-                .unwrap_or(0.0),
-            description: json_utils::get_field_from_json(&system_json, "description")
-                .as_str()
-                .unwrap_or_default()
-                .to_string(),
+            bulk: json_utils::get_field_from_json(
+                &json_utils::get_field_from_json(&system_json, "bulk"),
+                "value",
+            )
+            .as_f64()
+            .unwrap_or(0.0),
+            description: json_utils::get_field_from_json(
+                &json_utils::get_field_from_json(&system_json, "description"),
+                "value",
+            )
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
             hardness: json_utils::get_field_from_json(&system_json, "hardness")
                 .as_i64()
                 .unwrap(),
             hp_values: RawHpValues::init_from_json(&hp_json),
-            level: json_utils::get_field_from_json(&system_json, "level")
-                .as_i64()
-                .unwrap_or(0),
+            level: json_utils::get_field_from_json(
+                &json_utils::get_field_from_json(&system_json, "level"),
+                "value",
+            )
+            .as_i64()
+            .unwrap_or(0),
             price: PriceStruct::init_from_json(&price_json),
             publication_info: PublicationInfo::init_from_json(&publication_json),
             traits: RawTraits::init_from_json(traits_json),

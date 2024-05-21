@@ -35,7 +35,7 @@ pub async fn init_item_tables<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<
         rarity TEXT NOT NULL,
         size TEXT NOT NULL
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
@@ -52,7 +52,7 @@ async fn init_trait_item_association_table<'a>(conn: &mut Transaction<'a, Sqlite
             FOREIGN KEY (item_id) REFERENCES SPELL_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "
+    ",
     )
     .execute(&mut **conn)
     .await?;
