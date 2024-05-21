@@ -1,10 +1,11 @@
-use crate::schema::bybe_creature_metadata_enum::{RarityEnum, SizeEnum};
+use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::item::weapon::Weapon;
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
+use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -67,6 +68,11 @@ pub struct BybeCreature {
 }
 
 impl BybeCreature {
+    pub fn init_from_json(json: &Value) -> Option<BybeCreature> {
+        Some(Self::init_from_source_creature(
+            SourceCreature::init_from_json(json)?,
+        ))
+    }
     pub fn init_from_source_creature(source_cr: SourceCreature) -> BybeCreature {
         BybeCreature {
             name: source_cr.name,
@@ -78,7 +84,7 @@ impl BybeCreature {
             strength: source_cr.abilities.strength,
             wisdom: source_cr.abilities.wisdom,
             ac: source_cr.attributes.ac,
-            hp: source_cr.attributes.hp,
+            hp: source_cr.attributes.hp_values.hp,
             hp_details: source_cr.attributes.hp_details,
             ac_details: source_cr.attributes.ac_details,
             speed: source_cr.attributes.speed,

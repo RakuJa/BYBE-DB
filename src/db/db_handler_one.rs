@@ -8,12 +8,21 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query_file, Sqlite, SqlitePool, Transaction};
 use std::collections::HashMap;
 use std::str::FromStr;
+use crate::schema::bybe_item::BybeItem;
 
 pub async fn connect(db_path: &str) -> Result<SqlitePool> {
     let options = SqliteConnectOptions::from_str(db_path)?.create_if_missing(true);
     Ok(SqlitePool::connect_with(options).await?)
 }
 
+pub async fn insert_item_to_db(conn: &SqlitePool, item: BybeItem) -> Result<()> {
+    let mut tx: Transaction<Sqlite> = conn.begin().await?;
+    let item_id = insert_item(&mut tx, &item).await?;
+    insert_traits(&mut tx, &item.traits).await?;
+    insert_item_trait_association(&mut tx, &item.traits, item_id).await?;
+    tx.commit().await?;
+    Ok(())
+}
 pub async fn insert_creature_to_db(conn: &SqlitePool, cr: BybeCreature) -> Result<bool> {
     let mut tx: Transaction<Sqlite> = conn.begin().await?;
     let cr_id = insert_creature(&mut tx, &cr).await?;
@@ -73,6 +82,24 @@ async fn insert_traits<'a>(
 ) -> Result<bool> {
     for el in traits {
         sqlx::query!("INSERT OR IGNORE INTO TRAIT_TABLE (name) VALUES ($1)", el)
+            .execute(&mut **conn)
+            .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_item_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO TRAIT_ITEM_ASSOCIATION_TABLE \
+            (item_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
             .execute(&mut **conn)
             .await?;
     }
@@ -218,6 +245,38 @@ async fn insert_weaknesses<'a>(
         .await?;
     }
     Ok(true)
+}
+
+async fn insert_item<'a>(conn: &mut Transaction<'a, Sqlite>, item: &BybeItem) -> Result<i64> {
+    let size = item.size.to_string();
+    let rarity = item.rarity.to_string();
+    let x = sqlx::query!("
+        INSERT INTO ITEM_TABLE VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16, $17, $18, $19
+        );
+    ",
+    None::<i64>, // id, autoincrement
+    item.name,
+    item.bulk,
+    item.category,
+    item.description,
+    item.hardness,
+    item.hp,
+    item.level,
+    item.price,
+    item.usage,
+    item.item_type,
+    item.material_grade,
+    item.material_type,
+    item.number_of_uses,
+    item.license,
+    item.remaster,
+    item.source,
+    rarity,
+    size
+    );
+    Ok(x.execute(&mut **conn).await?.last_insert_rowid())
 }
 
 async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreature) -> Result<i64> {

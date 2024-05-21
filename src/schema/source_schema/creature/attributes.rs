@@ -1,3 +1,4 @@
+use crate::schema::source_schema::hp_values::RawHpValues;
 use crate::utils::json_utils;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -7,9 +8,7 @@ pub struct RawAttributes {
     // attributes
     pub ac: i64, //i8,
     pub ac_details: String,
-    pub hp: i64, //i16,
-    pub max_hp: i64,
-    pub temp_hp: i64,
+    pub hp_values: RawHpValues,
     pub hp_details: String,
     pub speed: HashMap<String, i64>,
     pub immunities: Vec<String>,
@@ -33,7 +32,6 @@ impl RawAttributes {
         );
         let resistances_map = json_utils::from_json_vec_of_maps_to_map(&json, "resistances");
         let weaknesses_map = json_utils::from_json_vec_of_maps_to_map(&json, "weaknesses");
-        let tmp_hp = hp_json.get("max").unwrap_or(hp_json.get("value").unwrap());
         RawAttributes {
             ac: ac_json
                 .get("value")
@@ -46,19 +44,7 @@ impl RawAttributes {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            hp: tmp_hp.as_i64().unwrap_or_else(|| {
-                tmp_hp
-                    .as_str()
-                    .unwrap()
-                    .parse::<i64>()
-                    .expect("HP field NaN")
-            }),
-            max_hp: hp_json
-                .get("max")
-                .unwrap()
-                .as_i64()
-                .expect("MAX HP field NaN"),
-            temp_hp: hp_json.get("temp").unwrap().as_i64().unwrap_or(0),
+            hp_values: RawHpValues::init_from_json(&hp_json),
             hp_details: hp_json
                 .get("details")
                 .unwrap()

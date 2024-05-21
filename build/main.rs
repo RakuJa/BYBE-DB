@@ -1,5 +1,7 @@
 mod creature_db_initializer;
+mod item_db_initializer;
 mod scales_db_initializer;
+mod trait_db_initializer;
 
 use crate::creature_db_initializer::init_all_creature_related_tables;
 use crate::scales_db_initializer::init_creature_builder_tables;
@@ -8,6 +10,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::str::FromStr;
 use std::{env, fs};
+use crate::item_db_initializer::init_all_item_related_table;
 
 #[tokio::main]
 async fn main() {
@@ -18,7 +21,6 @@ async fn main() {
         .expect("DB PATH IS NOT SET.. Aborting. Hint: set DATABASE_PATH environmental variable");
 
     fs::create_dir_all(db_path).expect("Could not create parent folder to save db.");
-
     let conn = SqlitePool::connect_with(
         SqliteConnectOptions::from_str(db_url)
             .expect("Could not find a valid db in the given path")
@@ -34,6 +36,7 @@ async fn main() {
 pub async fn init_tables(conn: &SqlitePool) -> anyhow::Result<bool> {
     let mut tx: Transaction<Sqlite> = conn.begin().await?;
     init_all_creature_related_tables(&mut tx).await?;
+    init_all_item_related_table(&mut tx).await?;
     init_creature_builder_tables(&mut tx).await?;
     tx.commit().await?;
     Ok(true)

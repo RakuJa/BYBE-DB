@@ -20,10 +20,10 @@ impl RawItems {
             .as_array()
             .expect("Items entry is not formatted as a vector, Abort.");
         let mut spell_casting_entry = None;
-        let mut spell_list_entry = Vec::new();
-        let mut weapon_list_entry = Vec::new();
-        let mut action_list_entry = Vec::new();
-        let mut skill_list_entry = Vec::new();
+        let mut spells = Vec::new();
+        let mut weapons = Vec::new();
+        let mut actions = Vec::new();
+        let mut skills = Vec::new();
         for el in json_vec {
             let curr_el_type = el
                 .get("type")
@@ -34,17 +34,20 @@ impl RawItems {
                     spell_casting_entry = Some(SpellCastingEntry::init_from_json(el.clone()));
                 }
                 "spell" => {
-                    spell_list_entry.push(Spell::init_from_json(el.clone()));
+                    spells.push(Spell::init_from_json(el.clone()));
                 }
                 "melee" | "ranged" => {
-                    weapon_list_entry.push(Weapon::init_from_json(el.clone()));
+                    weapons.push(Weapon::init_from_json(el.clone()));
                 }
                 "action" => {
-                    action_list_entry.push(Action::init_from_json(el.clone()));
+                    actions.push(Action::init_from_json(el.clone()));
                 }
                 "lore" => {
-                    skill_list_entry.push(Skill::init_from_json(el.clone()));
+                    skills.push(Skill::init_from_json(el.clone()));
                 }
+                // "real" items, the one for the shop
+                "consumable" => {}
+                "equipment" => {}
                 // there are other options
                 _ => {
                     // do nothing
@@ -53,10 +56,10 @@ impl RawItems {
         }
         RawItems {
             spell_casting_entry,
-            spell_list: spell_list_entry,
-            weapon_list: weapon_list_entry,
-            action_list: action_list_entry,
-            skill_list: skill_list_entry,
+            spell_list: spells,
+            weapon_list: weapons,
+            action_list: actions,
+            skill_list: skills,
         }
     }
 }

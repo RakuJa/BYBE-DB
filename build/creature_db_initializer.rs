@@ -1,8 +1,10 @@
+use crate::trait_db_initializer::init_trait_table;
+use anyhow::Result;
 use sqlx::{Sqlite, Transaction};
 
 pub async fn init_all_creature_related_tables<'a>(
     tx: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
+) -> Result<bool> {
     init_creature_table(tx).await?;
     init_trait_table(tx).await?;
     init_trait_cr_association_table(tx).await?;
@@ -28,8 +30,9 @@ pub async fn init_all_creature_related_tables<'a>(
     Ok(true)
 }
 
-async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS CREATURE_TABLE (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -71,28 +74,16 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::
             spell_casting_atk_mod INTEGER,
             spell_casting_tradition TEXT
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
-    Ok(true)
-}
-
-async fn init_trait_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    sqlx::query(
-        r#"
-    CREATE TABLE IF NOT EXISTS TRAIT_TABLE (
-            name TEXT PRIMARY KEY NOT NULL
-    );
-    "#,
+    "
     )
     .execute(&mut **conn)
     .await?;
     Ok(true)
 }
 
-async fn init_trait_cr_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_trait_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS TRAIT_CREATURE_ASSOCIATION_TABLE (
             creature_id INTEGER NOT NULL,
             trait_id TEXT NOT NULL,
@@ -100,13 +91,16 @@ async fn init_trait_cr_association_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_speed_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_speed_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS SPEED_TABLE (
             creature_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -114,13 +108,16 @@ async fn init_speed_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Res
             PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS RESISTANCE_TABLE (
             creature_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -128,13 +125,16 @@ async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyho
             PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS WEAKNESS_TABLE (
             creature_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -142,25 +142,31 @@ async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::
             PRIMARY KEY (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_immunity_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_immunity_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS IMMUNITY_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 async fn init_immunity_cr_association_table<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS IMMUNITY_CREATURE_ASSOCIATION_TABLE (
             creature_id INTEGER NOT NULL,
             immunity_id TEXT NOT NULL,
@@ -168,25 +174,31 @@ async fn init_immunity_cr_association_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (immunity_id) REFERENCES IMMUNITY_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_language_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_language_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS LANGUAGE_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 async fn init_language_cr_association_table<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS LANGUAGE_CREATURE_ASSOCIATION_TABLE (
             creature_id INTEGER NOT NULL,
             language_id TEXT NOT NULL,
@@ -194,25 +206,29 @@ async fn init_language_cr_association_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (language_id) REFERENCES LANGUAGE_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_sense_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_sense_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS SENSE_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_sense_cr_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_sense_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS SENSE_CREATURE_ASSOCIATION_TABLE (
             creature_id INTEGER NOT NULL,
             sense_id TEXT NOT NULL,
@@ -220,13 +236,16 @@ async fn init_sense_cr_association_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (sense_id) REFERENCES SENSE_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS WEAPON_TABLE (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -259,16 +278,18 @@ async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Re
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "#;
-
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 async fn init_trait_weapon_association_table<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS TRAIT_WEAPON_ASSOCIATION_TABLE (
             weapon_id INTEGER NOT NULL,
             trait_id TEXT NOT NULL,
@@ -276,13 +297,16 @@ async fn init_trait_weapon_association_table<'a>(
             FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS SPELL_TABLE (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -306,15 +330,18 @@ async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Res
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 async fn init_trait_spell_association_table<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS TRAIT_SPELL_ASSOCIATION_TABLE (
             spell_id INTEGER NOT NULL,
             trait_id TEXT NOT NULL,
@@ -322,25 +349,31 @@ async fn init_trait_spell_association_table<'a>(
             FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_tradition_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_tradition_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS TRADITION_TABLE (
             name TEXT PRIMARY KEY NOT NULL
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 async fn init_tradition_spell_association_table<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS TRADITION_SPELL_ASSOCIATION_TABLE (
             spell_id INTEGER NOT NULL,
             tradition_id TEXT NOT NULL,
@@ -348,15 +381,18 @@ async fn init_tradition_spell_association_table<'a>(
             FOREIGN KEY (spell_id) REFERENCES SPELL_TABLE(id),
             FOREIGN KEY (tradition_id) REFERENCES TRADITION_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 // END SPELL
 // BEGIN ACTION
 
-async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS ACTION_TABLE (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -372,15 +408,18 @@ async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Re
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     )
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 async fn init_trait_action_association_table<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS TRAIT_ACTION_ASSOCIATION_TABLE (
             action_id INTEGER NOT NULL,
             trait_id TEXT NOT NULL,
@@ -388,16 +427,19 @@ async fn init_trait_action_association_table<'a>(
             FOREIGN KEY (action_id) REFERENCES ACTION_TABLE(id),
             FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
 // END ACTION
 // BEGIN SKILL
 
-async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS SKILL_TABLE (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -410,15 +452,16 @@ async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Res
             creature_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     )
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
-async fn init_skill_modifier_variant_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
-    let query = r#"
+async fn init_skill_modifier_variant_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
     CREATE TABLE IF NOT EXISTS CREATURE_SKILL_LABEL_TABLE (
             creature_id INTEGER NOT NULL,
             skill_id INTEGER NOT NULL,
@@ -427,7 +470,9 @@ async fn init_skill_modifier_variant_table<'a>(
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
             FOREIGN KEY (skill_id) REFERENCES SKILL_TABLE(id)
     );
-    "#;
-    sqlx::query(query).execute(&mut **conn).await?;
+    "
+    )
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
