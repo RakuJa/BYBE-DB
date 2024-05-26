@@ -2,13 +2,13 @@ use maplit::hashmap;
 use serde_json::Value;
 use std::collections::HashMap;
 
-pub(crate) fn get_field_from_json(json: &Value, field: &str) -> Value {
+pub fn get_field_from_json(json: &Value, field: &str) -> Value {
     json.get(field)
         .unwrap_or(&Value::String("".to_string()))
         .clone()
 }
 
-pub(crate) fn from_json_vec_of_jsons_convert_to_array_of_str(
+pub fn from_json_vec_of_jsons_convert_to_array_of_str(
     json: &Value,
     field: &str,
     vec_field: &str,
@@ -28,7 +28,7 @@ pub(crate) fn from_json_vec_of_jsons_convert_to_array_of_str(
     vec
 }
 
-pub(crate) fn from_json_vec_of_str_to_vec_of_str(json_vec: &[Value]) -> Vec<String> {
+pub fn from_json_vec_of_str_to_vec_of_str(json_vec: &[Value]) -> Vec<String> {
     let vec: Vec<String> = json_vec
         .iter()
         .map(|value| value.as_str().unwrap().to_string().clone())
@@ -36,10 +36,7 @@ pub(crate) fn from_json_vec_of_str_to_vec_of_str(json_vec: &[Value]) -> Vec<Stri
     vec
 }
 
-pub(crate) fn from_json_vec_of_maps_to_map(
-    json: &Value,
-    field: &str,
-) -> Option<HashMap<String, i64>> {
+pub fn from_json_vec_of_maps_to_map(json: &Value, field: &str) -> Option<HashMap<String, i64>> {
     let mut map = hashmap! {};
     let binding = get_field_from_json(json, field);
     let json_maps = binding.as_array();
