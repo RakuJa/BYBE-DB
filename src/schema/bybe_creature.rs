@@ -62,6 +62,7 @@ pub struct BybeCreature {
 
     pub weapons: Vec<Weapon>,
     pub actions: Vec<Action>,
+    pub n_of_focus_points: i64,
     pub spell_casting: Option<SpellCastingEntry>,
     pub spells: Vec<Spell>,
     pub skills: Vec<Skill>,
@@ -125,6 +126,7 @@ impl BybeCreature {
             spells: source_cr.items.spell_list,
             spell_casting: source_cr.items.spell_casting_entry,
             skills: source_cr.items.skill_list,
+            n_of_focus_points: source_cr.resource.n_of_focus_points,
         }
     }
 }

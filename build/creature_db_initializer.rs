@@ -69,6 +69,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
 
             spell_casting_name TEXT,
             is_spell_casting_flexible BOOL,
+            n_of_focus_points INTEGER,
             type_of_spell_caster TEXT,
             spell_casting_dc_mod INTEGER,
             spell_casting_atk_mod INTEGER,

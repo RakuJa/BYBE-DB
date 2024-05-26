@@ -3,6 +3,7 @@ use crate::schema::source_schema::creature::attributes::RawAttributes;
 use crate::schema::source_schema::creature::details::RawDetails;
 use crate::schema::source_schema::creature::item::items::RawItems;
 use crate::schema::source_schema::creature::perception::RawPerception;
+use crate::schema::source_schema::creature::resources::RawResource;
 use crate::schema::source_schema::creature::saves::RawSaves;
 use crate::schema::source_schema::traits::RawTraits;
 use crate::utils::json_utils;
@@ -18,6 +19,7 @@ pub struct SourceCreature {
     pub details: RawDetails,
     pub initiative_ability: String,
     pub perception: RawPerception,
+    pub resource: RawResource,
     pub saves: RawSaves,
     pub traits: RawTraits,
     pub items: RawItems,
@@ -39,6 +41,7 @@ impl SourceCreature {
         let details_json = json_utils::get_field_from_json(&system_json, "details");
         let initiative_json = json_utils::get_field_from_json(&system_json, "initiative");
         let perception_json = json_utils::get_field_from_json(&system_json, "perception");
+        let resource_json = json_utils::get_field_from_json(&system_json, "resources");
         let saves_json = json_utils::get_field_from_json(&system_json, "saves");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         let items_json = json_utils::get_field_from_json(json, "items");
@@ -59,6 +62,7 @@ impl SourceCreature {
                 .unwrap()
                 .to_string(),
             perception: RawPerception::init_from_json(perception_json),
+            resource: RawResource::init_from_json(resource_json),
             saves: RawSaves::init_from_json(saves_json),
             traits: RawTraits::init_from_json(traits_json),
             items: RawItems::init_from_json(items_json),
