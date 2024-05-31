@@ -2545,6 +2545,8 @@ UPDATE CREATURE_TABLE set aon_id = 624, cr_type = 'Monster', family = 'Dragon, C
 UPDATE CREATURE_TABLE set aon_id = 624, cr_type = 'Monster', family = 'Dragon, Cloud' WHERE UPPER(name) = UPPER('Cloud Dragon (Young, Spellcaster)');
 UPDATE CREATURE_TABLE set aon_id = 627, cr_type = 'Monster', family = 'Dragon, Crystal' WHERE UPPER(name) = UPPER('Crystal Dragon (Young)');
 UPDATE CREATURE_TABLE set aon_id = 627, cr_type = 'Monster', family = 'Dragon, Crystal' WHERE UPPER(name) = UPPER('Crystal Dragon (Young, Spellcaster)');
+UPDATE CREATURE_TABLE set aon_id = 631, cr_type = 'Monster', family = 'Dragon, Magma' WHERE UPPER(name) = UPPER('Magma Dragon (Young)');
+UPDATE CREATURE_TABLE set aon_id = 631, cr_type = 'Monster', family = 'Dragon, Magma' WHERE UPPER(name) = UPPER('Magma Dragon (Young, Spellcaster)');
 UPDATE CREATURE_TABLE set aon_id = 634, cr_type = 'Monster', family = 'Dragon, Umbral' WHERE UPPER(name) = UPPER('Umbral Dragon (Young)');
 UPDATE CREATURE_TABLE set aon_id = 634, cr_type = 'Monster', family = 'Dragon, Umbral' WHERE UPPER(name) = UPPER('Umbral Dragon (Young, Spellcaster)');
 UPDATE CREATURE_TABLE set aon_id = 758, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Petitioner (Abaddon)');
@@ -2768,6 +2770,8 @@ UPDATE CREATURE_TABLE set aon_id = 147, cr_type = 'Monster', family = 'Dragon, B
 UPDATE CREATURE_TABLE set aon_id = 147, cr_type = 'Monster', family = 'Dragon, Bronze' WHERE UPPER(name) = UPPER('Bronze Dragon (Ancient, Spellcaster)');
 UPDATE CREATURE_TABLE set aon_id = 150, cr_type = 'Monster', family = 'Dragon, Copper' WHERE UPPER(name) = UPPER('Copper Dragon (Ancient)');
 UPDATE CREATURE_TABLE set aon_id = 150, cr_type = 'Monster', family = 'Dragon, Copper' WHERE UPPER(name) = UPPER('Copper Dragon (Ancient, Spellcaster)');
+UPDATE CREATURE_TABLE set aon_id = 156, cr_type = 'Monster', family = 'Dragon, Silver' WHERE UPPER(name) = UPPER('Silver Dragon (Ancient)');
+UPDATE CREATURE_TABLE set aon_id = 156, cr_type = 'Monster', family = 'Dragon, Silver' WHERE UPPER(name) = UPPER('Silver Dragon (Ancient, Spellcaster)');
 UPDATE CREATURE_TABLE set aon_id = 333, cr_type = 'Monster', family = 'Planar Scion' WHERE UPPER(name) = UPPER('Aasimar Redeemer');
 UPDATE CREATURE_TABLE set aon_id = 470, cr_type = 'Monster', family = 'Dragon, Magma' WHERE UPPER(name) = UPPER('Magma Dragon (Adult)');
 UPDATE CREATURE_TABLE set aon_id = 470, cr_type = 'Monster', family = 'Dragon, Magma' WHERE UPPER(name) = UPPER('Magma Dragon (Adult, Spellcaster)');
@@ -2795,6 +2799,7 @@ UPDATE CREATURE_TABLE set aon_id = 635, cr_type = 'Monster', family = 'Dragon, U
 UPDATE CREATURE_TABLE set aon_id = 635, cr_type = 'Monster', family = 'Dragon, Umbral' WHERE UPPER(name) = UPPER('Umbral Dragon (Adult, Spellcaster)');
 UPDATE CREATURE_TABLE set aon_id = 636, cr_type = 'Monster', family = 'Dragon, Umbral' WHERE UPPER(name) = UPPER('Umbral Dragon (Ancient)');
 UPDATE CREATURE_TABLE set aon_id = 636, cr_type = 'Monster', family = 'Dragon, Umbral' WHERE UPPER(name) = UPPER('Umbral Dragon (Ancient, Spellcaster)');
+UPDATE CREATURE_TABLE set aon_id = 864, cr_type = 'Monster', family = 'Worm That Walks' WHERE UPPER(name) = UPPER('Worm That Walks Cultist');
 UPDATE CREATURE_TABLE set aon_id = 975, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Deghuun (Child of Mhar)');
 UPDATE CREATURE_TABLE set aon_id = 1002, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Ravenile Rager');
 UPDATE CREATURE_TABLE set aon_id = 1009, cr_type = 'Monster', family = 'Elemental, Water' WHERE UPPER(name) = UPPER('Water Elemental Vessel');
@@ -2829,6 +2834,8 @@ UPDATE CREATURE_TABLE set aon_id = 1407, cr_type = 'Monster', family = NULL WHER
 UPDATE CREATURE_TABLE set aon_id = 1407, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Rivka (Yorak)');
 UPDATE CREATURE_TABLE set aon_id = 1441, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Sié Goluo');
 UPDATE CREATURE_TABLE set aon_id = 1511, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Melodic Squall');
+UPDATE CREATURE_TABLE set aon_id = 1586, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Animated Dragonstorm');
+UPDATE CREATURE_TABLE set aon_id = 1618, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Stone Ghost');
 UPDATE CREATURE_TABLE set aon_id = 1708, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('Dimari-Diji');
 UPDATE CREATURE_TABLE set aon_id = 1720, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('King of Biting Ants');
 -- UPDATE CREATURE_TABLE set aon_id = 1764, cr_type = 'Monster', family = NULL WHERE UPPER(name) = UPPER('None');Animated Blades,
