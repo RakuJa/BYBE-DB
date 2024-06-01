@@ -2903,3 +2903,4 @@ UPDATE CREATURE_TABLE set aon_id = 2949, cr_type = 'Monster', family = 'Dragon, 
 UPDATE CREATURE_TABLE set aon_id = 2954, cr_type = 'Monster', family = 'Dragon, Omen' WHERE UPPER(name) = UPPER('Omen Dragon (Adult)');
 UPDATE CREATURE_TABLE set aon_id = 2954, cr_type = 'Monster', family = 'Dragon, Omen' WHERE UPPER(name) = UPPER('Omen Dragon (Adult, Spellcaster)');
 
+UPDATE CREATURE_TABLE set name = "Advanced Eltha Embercall (9-10)" WHERE UPPER(name) = UPPER("Advanced Eltha Embercall (9-10)/Eltha Embercall (11-12)")
