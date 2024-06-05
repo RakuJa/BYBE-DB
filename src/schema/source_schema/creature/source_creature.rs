@@ -1,7 +1,7 @@
 use crate::schema::source_schema::creature::abilities::RawAbilities;
 use crate::schema::source_schema::creature::attributes::RawAttributes;
 use crate::schema::source_schema::creature::details::RawDetails;
-use crate::schema::source_schema::creature::item::items::RawItems;
+use crate::schema::source_schema::creature::item::items::ItemLinkedToCreature;
 use crate::schema::source_schema::creature::perception::RawPerception;
 use crate::schema::source_schema::creature::resources::RawResource;
 use crate::schema::source_schema::creature::saves::RawSaves;
@@ -9,7 +9,6 @@ use crate::schema::source_schema::traits::RawTraits;
 use crate::utils::json_utils;
 use serde_json::Value;
 
-#[derive(Debug)]
 pub struct SourceCreature {
     pub name: String,
     pub creature_type: String,
@@ -22,7 +21,7 @@ pub struct SourceCreature {
     pub resource: RawResource,
     pub saves: RawSaves,
     pub traits: RawTraits,
-    pub items: RawItems,
+    pub items: ItemLinkedToCreature,
 }
 
 impl SourceCreature {
@@ -65,7 +64,7 @@ impl SourceCreature {
             resource: RawResource::init_from_json(resource_json),
             saves: RawSaves::init_from_json(saves_json),
             traits: RawTraits::init_from_json(traits_json),
-            items: RawItems::init_from_json(items_json),
+            items: ItemLinkedToCreature::init_from_json(items_json),
         })
     }
 }

@@ -1,9 +1,9 @@
+use crate::schema::bybe_item::{BybeItem, BybeWeapon};
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
-use crate::schema::source_schema::creature::item::weapon::Weapon;
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -60,7 +60,8 @@ pub struct BybeCreature {
     pub size: SizeEnum,
     pub traits: Vec<String>,
 
-    pub weapons: Vec<Weapon>,
+    pub weapons: Vec<BybeWeapon>,
+    pub items: Vec<BybeItem>,
     pub actions: Vec<Action>,
     pub n_of_focus_points: i64,
     pub spell_casting: Option<SpellCastingEntry>,
@@ -122,6 +123,7 @@ impl BybeCreature {
                 .unwrap_or(SizeEnum::Medium),
             traits: source_cr.traits.traits,
             weapons: source_cr.items.weapon_list,
+            items: source_cr.items.item_list,
             actions: source_cr.items.action_list,
             spells: source_cr.items.spell_list,
             spell_casting: source_cr.items.spell_casting_entry,

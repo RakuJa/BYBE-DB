@@ -13,8 +13,8 @@ pub struct Skill {
 }
 
 impl Skill {
-    pub fn init_from_json(json: Value) -> Skill {
-        let system_json = json_utils::get_field_from_json(&json, "system");
+    pub fn init_from_json(json: &Value) -> Skill {
+        let system_json = json_utils::get_field_from_json(json, "system");
         let description_json = json_utils::get_field_from_json(&system_json, "description");
         let modifier_json = json_utils::get_field_from_json(&system_json, "mod");
         let proficiency_json = json_utils::get_field_from_json(&system_json, "proficient");
@@ -22,7 +22,7 @@ impl Skill {
         // let rules_json = json_utils::get_field_from_json(&system_json, "rules");
         let variants_json = json_utils::get_field_from_json(&system_json, "variants");
         Skill {
-            name: json_utils::get_field_from_json(&json, "name")
+            name: json_utils::get_field_from_json(json, "name")
                 .as_str()
                 .unwrap()
                 .to_string(),

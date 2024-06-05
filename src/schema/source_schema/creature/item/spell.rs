@@ -29,8 +29,8 @@ pub struct Spell {
 }
 
 impl Spell {
-    pub fn init_from_json(json: Value) -> Spell {
-        let system_json = json_utils::get_field_from_json(&json, "system");
+    pub fn init_from_json(json: &Value) -> Spell {
+        let system_json = json_utils::get_field_from_json(json, "system");
         let mut damage_data = Vec::new();
         let mut i = 0;
         let damage_json = json_utils::get_field_from_json(&system_json, "damage");
@@ -52,7 +52,7 @@ impl Spell {
         let time_json = json_utils::get_field_from_json(&system_json, "time");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         Spell {
-            name: json_utils::get_field_from_json(&json, "name")
+            name: json_utils::get_field_from_json(json, "name")
                 .as_str()
                 .unwrap()
                 .to_string(),
@@ -92,10 +92,7 @@ impl Spell {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            traits: SpellTraits::init_from_json(&json_utils::get_field_from_json(
-                &traits_json,
-                "traits",
-            )),
+            traits: SpellTraits::init_from_json(&traits_json),
         }
     }
 }
@@ -127,6 +124,7 @@ impl SpellTraits {
         }
     }
 }
+
 /*
 #[derive(Debug)]
 pub struct HeightenedData {

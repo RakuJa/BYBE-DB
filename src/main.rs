@@ -8,11 +8,12 @@ extern crate git2;
 
 use crate::db::db_handler_one;
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::BybeItem;
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
 use git2::Repository;
+use sqlx::{Sqlite, Transaction};
 use std::path::Path;
 use std::{env, fs};
 
@@ -43,6 +44,19 @@ async fn main() {
             .await
             .expect("Something failed while inserting item in db");
     }
+    let mut tx: Transaction<Sqlite> = conn.begin().await.unwrap();
+    for el in deserialize_json_armors(&json_paths) {
+        db_handler_one::insert_armor_to_db(&mut tx, &el)
+            .await
+            .expect("Something failed while inserting armor in db");
+    }
+
+    for el in deserialize_json_weapons(&json_paths) {
+        db_handler_one::insert_weapon_to_db(&mut tx, &el)
+            .await
+            .expect("Something failed while inserting weapon in db");
+    }
+    tx.commit().await.unwrap();
     db_handler_one::insert_scales_values_to_db(&conn)
         .await
         .expect("Something failed while insert scale values in db");
@@ -76,6 +90,32 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
         }
     }
     items
+}
+
+fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
+    let mut weapons = Vec::new();
+    for file in json_files {
+        if let Some(item) = BybeWeapon::init_from_json(
+            &serde_json::from_str(&read_from_file_to_string(file.as_str()))
+                .expect("JSON was not well-formatted"),
+        ) {
+            weapons.push(item);
+        }
+    }
+    weapons
+}
+
+fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
+    let mut armors = Vec::new();
+    for file in json_files {
+        if let Some(item) = BybeArmor::init_from_json(
+            &serde_json::from_str(&read_from_file_to_string(file.as_str()))
+                .expect("JSON was not well-formatted"),
+        ) {
+            armors.push(item);
+        }
+    }
+    armors
 }
 
 fn fetch_source_data(source_url: &str, source_path: &str) {

@@ -3,12 +3,14 @@ use crate::schema::source_schema::hp_values::RawHpValues;
 use crate::schema::source_schema::item::material::RawMaterial;
 use crate::schema::source_schema::price_struct::PriceStruct;
 use crate::schema::source_schema::traits::RawTraits;
-use crate::utils::json_utils;
+use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 
 pub struct SourceItem {
     pub name: String,
     pub bulk: f64,
+    pub quantity: i64,
+    pub base_item: Option<String>,
     pub description: String,
     pub hardness: i64,
     pub hp_values: RawHpValues,
@@ -16,79 +18,71 @@ pub struct SourceItem {
     pub price: PriceStruct, // in cp,
     pub publication_info: PublicationInfo,
     pub traits: RawTraits,
-    pub usage: String,
+    pub usage: Option<String>,
     pub item_type: String,
 
+    pub group: Option<String>,
     pub category: Option<String>,
-    pub damage: Option<i64>,
     pub material: RawMaterial,
     pub uses: Option<i64>, // for consumables, for equip set as null.
 }
 
 impl SourceItem {
     pub fn init_from_json(json: &Value) -> Option<SourceItem> {
-        let item_type = json_utils::get_field_from_json(json, "type")
+        let item_type = get_field_from_json(json, "type")
             .as_str()
             .unwrap()
             .to_string()
             .to_ascii_lowercase();
-        if !(item_type.eq("equipment") | item_type.eq("consumable")) {
-            return None;
-        }
-        let system_json = json_utils::get_field_from_json(json, "system");
-        let hp_json = json_utils::get_field_from_json(&system_json, "hp");
-        let price_json = json_utils::get_field_from_json(&system_json, "price");
-        let traits_json = json_utils::get_field_from_json(&system_json, "traits");
-        let publication_json = json_utils::get_field_from_json(&system_json, "publication");
-        let material_json = json_utils::get_field_from_json(&system_json, "material");
-        let uses_json = json_utils::get_field_from_json(&system_json, "uses");
-        let name = json_utils::get_field_from_json(json, "name")
+        let system_json = get_field_from_json(json, "system");
+        let hp_json = get_field_from_json(&system_json, "hp");
+        let price_json = get_field_from_json(&system_json, "price");
+        let traits_json = get_field_from_json(&system_json, "traits");
+        let publication_json = get_field_from_json(&system_json, "publication");
+        let material_json = get_field_from_json(&system_json, "material");
+        let uses_json = get_field_from_json(&system_json, "uses");
+        let name = get_field_from_json(json, "name")
             .as_str()
             .unwrap()
             .to_string();
         Some(SourceItem {
             name,
-            bulk: json_utils::get_field_from_json(
-                &json_utils::get_field_from_json(&system_json, "bulk"),
-                "value",
-            )
-            .as_f64()
-            .unwrap_or(0.0),
-            description: json_utils::get_field_from_json(
-                &json_utils::get_field_from_json(&system_json, "description"),
+            bulk: get_field_from_json(&get_field_from_json(&system_json, "bulk"), "value")
+                .as_f64()
+                .unwrap_or(0.0),
+            quantity: get_field_from_json(json, "quantity").as_i64().unwrap_or(1),
+            base_item: get_field_from_json(json, "baseItem")
+                .as_str()
+                .map(|x| x.to_string()),
+            description: get_field_from_json(
+                &get_field_from_json(&system_json, "description"),
                 "value",
             )
             .as_str()
             .unwrap_or_default()
             .to_string(),
-            hardness: json_utils::get_field_from_json(&system_json, "hardness")
+            hardness: get_field_from_json(&system_json, "hardness")
                 .as_i64()
-                .unwrap(),
+                .unwrap_or(0),
             hp_values: RawHpValues::init_from_json(&hp_json),
-            level: json_utils::get_field_from_json(
-                &json_utils::get_field_from_json(&system_json, "level"),
-                "value",
-            )
-            .as_i64()
-            .unwrap_or(0),
+            level: get_field_from_json(&get_field_from_json(&system_json, "level"), "value")
+                .as_i64()
+                .unwrap_or(0),
             price: PriceStruct::init_from_json(&price_json),
             publication_info: PublicationInfo::init_from_json(&publication_json),
             traits: RawTraits::init_from_json(traits_json),
-            usage: system_json
-                .get("usage")
-                .unwrap()
-                .get("value")
-                .unwrap()
+            usage: get_field_from_json(&get_field_from_json(&system_json, "usage"), "value")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(|x| x.to_string()),
             item_type,
+            group: get_field_from_json(json, "group")
+                .as_str()
+                .map(|x| x.to_string()),
             category: system_json
                 .get("category")
                 .map(|x| String::from(x.as_str().unwrap())),
-            damage: json_utils::get_field_from_json(&system_json, "damage").as_i64(),
             material: RawMaterial::init_from_json(&material_json),
-            uses: json_utils::get_field_from_json(&uses_json, "max").as_i64(),
+            uses: get_field_from_json(&uses_json, "max").as_i64(),
         })
     }
 }

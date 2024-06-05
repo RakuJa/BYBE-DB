@@ -17,10 +17,9 @@ pub async fn init_all_creature_related_tables<'a>(
     init_speed_table(tx).await?;
     init_resistances_table(tx).await?;
     init_weakness_table(tx).await?;
-    init_weapon_table(tx).await?;
-    init_trait_weapon_association_table(tx).await?;
     init_spell_table(tx).await?;
     init_trait_spell_association_table(tx).await?;
+    init_weapon_cr_association_table(tx).await?;
     init_tradition_table(tx).await?;
     init_tradition_spell_association_table(tx).await?;
     init_action_table(tx).await?;
@@ -244,67 +243,6 @@ async fn init_sense_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>)
     Ok(true)
 }
 
-async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
-    sqlx::query(
-        "
-    CREATE TABLE IF NOT EXISTS WEAPON_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            base TEXT NOT NULL,
-            to_hit_bonus INTEGER NOT NULL,
-            bulk INTEGER NOT NULL,
-            category TEXT NOT NULL,
-            dmg_type TEXT,
-            n_of_dices INTEGER,
-            die_size TEXT,
-            bonus_dmg INTEGER,
-            carry_type TEXT,
-            hands_held INTEGER,
-            invested BOOL,
-            weapon_group TEXT NOT NULL,
-            hardness INTEGER,
-            hp_max INTEGER,
-            hp_curr INTEGER,
-            level INTEGER,
-            license TEXT NOT NULL,
-            remaster BOOL NOT NULL,
-            source TEXT NOT NULL,
-            quantity INTEGER,
-            range TEXT,
-            reload TEXT,
-            size TEXT NOT NULL,
-            rarity TEXT NOT NULL,
-            usage TEXT NOT NULL,
-            wp_type TEXT NOT NULL,
-            creature_id INTEGER NOT NULL,
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
-    );
-    ",
-    )
-    .execute(&mut **conn)
-    .await?;
-    Ok(true)
-}
-
-async fn init_trait_weapon_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<bool> {
-    sqlx::query(
-        "
-    CREATE TABLE IF NOT EXISTS TRAIT_WEAPON_ASSOCIATION_TABLE (
-            weapon_id INTEGER NOT NULL,
-            trait_id TEXT NOT NULL,
-            PRIMARY KEY (weapon_id, trait_id),
-            FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id),
-            FOREIGN KEY (trait_id) REFERENCES TRAIT_TABLE(name)
-    );
-    ",
-    )
-    .execute(&mut **conn)
-    .await?;
-    Ok(true)
-}
-
 async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
@@ -470,6 +408,40 @@ async fn init_skill_modifier_variant_table<'a>(conn: &mut Transaction<'a, Sqlite
             PRIMARY KEY (creature_id, skill_id, skill_label),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
             FOREIGN KEY (skill_id) REFERENCES SKILL_TABLE(id)
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_weapon_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS WEAPON_CREATURE_ASSOCIATION_TABLE (
+            creature_id INTEGER NOT NULL,
+            weapon_id INTEGER NOT NULL,
+            PRIMARY KEY (creature_id, weapon_id),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id)
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_item_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS ITEM_CREATURE_ASSOCIATION_TABLE (
+            creature_id INTEGER NOT NULL,
+            item_id INTEGER NOT NULL,
+            PRIMARY KEY (creature_id, item_id),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (item_id) REFERENCES ITEM_TABLE(id)
     );
     ",
     )

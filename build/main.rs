@@ -35,8 +35,8 @@ async fn main() {
 
 pub async fn init_tables(conn: &SqlitePool) -> anyhow::Result<bool> {
     let mut tx: Transaction<Sqlite> = conn.begin().await?;
-    init_all_creature_related_tables(&mut tx).await?;
     init_all_item_related_table(&mut tx).await?;
+    init_all_creature_related_tables(&mut tx).await?;
     init_creature_builder_tables(&mut tx).await?;
     tx.commit().await?;
     Ok(true)

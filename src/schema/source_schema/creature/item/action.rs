@@ -14,8 +14,8 @@ pub struct Action {
 }
 
 impl Action {
-    pub fn init_from_json(json: Value) -> Action {
-        let system_json = json_utils::get_field_from_json(&json, "system");
+    pub fn init_from_json(json: &Value) -> Action {
+        let system_json = json_utils::get_field_from_json(json, "system");
         let publication_json = json_utils::get_field_from_json(&system_json, "publication");
         let action_type_json = json_utils::get_field_from_json(&system_json, "actionType");
         let action_json = json_utils::get_field_from_json(&system_json, "actions");
@@ -24,7 +24,7 @@ impl Action {
         let slug_json = json_utils::get_field_from_json(&system_json, "slug");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         Action {
-            name: json_utils::get_field_from_json(&json, "name")
+            name: json_utils::get_field_from_json(json, "name")
                 .as_str()
                 .unwrap()
                 .to_string(),
