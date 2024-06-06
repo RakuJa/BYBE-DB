@@ -154,6 +154,7 @@ pub struct BybeWeapon {
     pub property_runes: Vec<String>,
     pub range: Option<i64>,
     pub reload: Option<String>,
+    pub weapon_type: String,
 }
 
 impl BybeWeapon {
@@ -163,7 +164,7 @@ impl BybeWeapon {
             .unwrap()
             .to_string()
             .to_ascii_lowercase();
-        if !(item_type.eq("weapon") | item_type.eq("ranged") | item_type.eq("melee")) {
+        if !(item_type.eq("weapon") | item_type.eq("melee")) {
             return None;
         }
         let system_json = get_field_from_json(json, "system");
@@ -175,6 +176,8 @@ impl BybeWeapon {
                 None => (None, None, None),
             };
         let hit_bonus_json = get_field_from_json(&system_json, "bonus");
+        let wp_type_json = get_field_from_json(&system_json, "weaponType");
+
         Some(BybeWeapon {
             item_core,
             bonus_dmg: get_field_from_json(
@@ -206,6 +209,11 @@ impl BybeWeapon {
                 .as_str()
                 .map(|x| x.to_string()),
             to_hit_bonus: get_field_from_json(&hit_bonus_json, "value").as_i64(),
+            weapon_type: get_field_from_json(&wp_type_json, "value")
+                .as_str()
+                .unwrap_or("melee")
+                .to_string()
+                .to_uppercase(),
         })
     }
 }

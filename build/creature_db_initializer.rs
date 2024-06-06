@@ -19,7 +19,7 @@ pub async fn init_all_creature_related_tables<'a>(
     init_weakness_table(tx).await?;
     init_spell_table(tx).await?;
     init_trait_spell_association_table(tx).await?;
-    init_weapon_cr_association_table(tx).await?;
+    init_item_cr_association_table(tx).await?;
     init_tradition_table(tx).await?;
     init_tradition_spell_association_table(tx).await?;
     init_action_table(tx).await?;

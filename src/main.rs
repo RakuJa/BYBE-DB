@@ -13,7 +13,7 @@ use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
 use git2::Repository;
-use sqlx::{Sqlite, Transaction};
+use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::path::Path;
 use std::{env, fs};
 
@@ -33,37 +33,29 @@ async fn main() {
     fetch_source_data(source_url, source_path);
 
     let json_paths = get_json_paths(source_path);
+    db_update(&conn, json_paths).await.unwrap();
+}
 
+async fn db_update(conn: &SqlitePool, json_paths: Vec<String>) -> anyhow::Result<()> {
+    let mut tx: Transaction<Sqlite> = conn.begin().await?;
     for el in deserialize_json_creatures(&json_paths) {
-        db_handler_one::insert_creature_to_db(&conn, el)
-            .await
-            .expect("Something failed while inserting creature in db");
+        db_handler_one::insert_creature_to_db(&mut tx, el).await?;
     }
     for el in deserialize_json_items(&json_paths) {
-        db_handler_one::insert_item_to_db(&conn, el)
-            .await
-            .expect("Something failed while inserting item in db");
+        db_handler_one::insert_item_to_db(&mut tx, &el, None).await?;
     }
-    let mut tx: Transaction<Sqlite> = conn.begin().await.unwrap();
     for el in deserialize_json_armors(&json_paths) {
-        db_handler_one::insert_armor_to_db(&mut tx, &el)
-            .await
-            .expect("Something failed while inserting armor in db");
+        db_handler_one::insert_armor_to_db(&mut tx, &el).await?;
     }
 
     for el in deserialize_json_weapons(&json_paths) {
-        db_handler_one::insert_weapon_to_db(&mut tx, &el)
-            .await
-            .expect("Something failed while inserting weapon in db");
+        db_handler_one::insert_weapon_to_db(&mut tx, &el, None).await?;
     }
-    tx.commit().await.unwrap();
-    db_handler_one::insert_scales_values_to_db(&conn)
-        .await
-        .expect("Something failed while insert scale values in db");
+    db_handler_one::insert_scales_values_to_db(&mut tx).await?;
 
-    db_handler_one::update_with_aon_data(&conn)
-        .await
-        .expect("Could not update Database using AON data");
+    db_handler_one::update_with_aon_data(&mut tx).await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
