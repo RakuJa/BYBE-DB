@@ -45,7 +45,7 @@ async fn db_update(conn: &SqlitePool, json_paths: Vec<String>) -> anyhow::Result
         db_handler_one::insert_item_to_db(&mut tx, &el, None).await?;
     }
     for el in deserialize_json_armors(&json_paths) {
-        db_handler_one::insert_armor_to_db(&mut tx, &el).await?;
+        db_handler_one::insert_armor_to_db(&mut tx, &el, None).await?;
     }
 
     for el in deserialize_json_weapons(&json_paths) {

@@ -109,7 +109,7 @@ pub async fn init_armor_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<
         n_of_potency_runes INTEGER NOT NULL,
         n_of_resilient_runes INTEGER NOT NULL,
         speed_penalty INTEGER NOT NULL,
-        strength_required INTEGER NOT NULL,
+        strength_required INTEGER,
 
         base_item_id INTEGER,
         FOREIGN KEY (base_item_id) REFERENCES ITEM_TABLE(id)

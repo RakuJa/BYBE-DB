@@ -416,23 +416,6 @@ async fn init_skill_modifier_variant_table<'a>(conn: &mut Transaction<'a, Sqlite
     Ok(true)
 }
 
-async fn init_weapon_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
-    sqlx::query(
-        "
-    CREATE TABLE IF NOT EXISTS WEAPON_CREATURE_ASSOCIATION_TABLE (
-            creature_id INTEGER NOT NULL,
-            weapon_id INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, weapon_id),
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id)
-    );
-    ",
-    )
-    .execute(&mut **conn)
-    .await?;
-    Ok(true)
-}
-
 async fn init_item_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
     sqlx::query(
         "

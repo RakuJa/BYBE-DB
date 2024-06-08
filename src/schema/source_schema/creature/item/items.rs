@@ -1,4 +1,4 @@
-use crate::schema::bybe_item::{BybeItem, BybeWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
@@ -8,6 +8,7 @@ use serde_json::Value;
 pub struct ItemLinkedToCreature {
     pub spell_list: Vec<Spell>,
     pub weapon_list: Vec<BybeWeapon>,
+    pub armor_list: Vec<BybeArmor>,
     pub item_list: Vec<BybeItem>,
     pub action_list: Vec<Action>,
     pub spell_casting_entry: Option<SpellCastingEntry>,
@@ -22,6 +23,7 @@ impl ItemLinkedToCreature {
         let mut spell_casting_entry = None;
         let mut spells = Vec::new();
         let mut weapons = Vec::new();
+        let mut armors = Vec::new();
         let mut actions = Vec::new();
         let mut skills = Vec::new();
         let mut items = Vec::new();
@@ -40,6 +42,11 @@ impl ItemLinkedToCreature {
                 "melee" | "weapon" => {
                     if let Some(wp) = BybeWeapon::init_from_json(el) {
                         weapons.push(wp);
+                    }
+                }
+                "armor" => {
+                    if let Some(armor) = BybeArmor::init_from_json(el) {
+                        armors.push(armor)
                     }
                 }
                 "action" => {
@@ -64,6 +71,7 @@ impl ItemLinkedToCreature {
             spell_casting_entry,
             spell_list: spells,
             weapon_list: weapons,
+            armor_list: armors,
             item_list: items,
             action_list: actions,
             skill_list: skills,

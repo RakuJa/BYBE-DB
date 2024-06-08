@@ -85,6 +85,7 @@ impl BybeItem {
     }
 }
 
+#[derive(Clone)]
 pub struct BybeArmor {
     pub item_core: BybeItem,
     pub ac_bonus: i64,
@@ -94,7 +95,7 @@ pub struct BybeArmor {
     pub property_runes: Vec<String>,
     pub n_of_resilient_runes: i64,
     pub speed_penalty: i64,
-    pub strength_required: i64,
+    pub strength_required: Option<i64>,
 }
 
 impl BybeArmor {
@@ -133,9 +134,7 @@ impl BybeArmor {
             speed_penalty: get_field_from_json(&system_json, "speedPenalty")
                 .as_i64()
                 .unwrap(),
-            strength_required: get_field_from_json(&system_json, "strength")
-                .as_i64()
-                .unwrap_or(0),
+            strength_required: get_field_from_json(&system_json, "strength").as_i64(),
         })
     }
 }
@@ -171,21 +170,27 @@ impl BybeWeapon {
         let item_core = BybeItem::init_from_source_item(SourceItem::init_from_json(json)?);
         let runes_data = get_field_from_json(&system_json, "runes");
         let (die_size, number_of_dice, dmg_type) =
-            match WeaponDamageData::init_from_json(&get_field_from_json(&system_json, "damage")) {
+            match WeaponDamageData::init_from_json(&system_json) {
                 Some(x) => (Some(x.die_size), Some(x.n_of_dices), Some(x.dmg_type)),
                 None => (None, None, None),
             };
         let hit_bonus_json = get_field_from_json(&system_json, "bonus");
         let wp_type_json = get_field_from_json(&system_json, "weaponType");
+        let fallback_bonus_dmg = get_field_from_json(&system_json, "bonus");
+        let bonus_dmg_json = system_json
+            .get("bonusDamage")
+            .unwrap_or(&fallback_bonus_dmg);
 
+        let weapon_type = get_field_from_json(&wp_type_json, "value")
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+            .to_uppercase();
         Some(BybeWeapon {
             item_core,
-            bonus_dmg: get_field_from_json(
-                &get_field_from_json(&system_json, "bonusDamage"),
-                "value",
-            )
-            .as_i64()
-            .unwrap_or(0),
+            bonus_dmg: get_field_from_json(bonus_dmg_json, "value")
+                .as_i64()
+                .unwrap_or(0),
             die_size,
             number_of_dice,
             dmg_type,
@@ -209,11 +214,11 @@ impl BybeWeapon {
                 .as_str()
                 .map(|x| x.to_string()),
             to_hit_bonus: get_field_from_json(&hit_bonus_json, "value").as_i64(),
-            weapon_type: get_field_from_json(&wp_type_json, "value")
-                .as_str()
-                .unwrap_or("melee")
-                .to_string()
-                .to_uppercase(),
+            weapon_type: if weapon_type.is_empty() {
+                String::from("GENERIC")
+            } else {
+                weapon_type
+            },
         })
     }
 }
@@ -251,7 +256,10 @@ impl WeaponDamageData {
                     .unwrap()
                     .to_string(),
                 n_of_dices: get_field_from_json(x, "dice").as_i64().unwrap(),
-                die_size: get_field_from_json(x, "die").as_str().unwrap().to_string(),
+                die_size: get_field_from_json(x, "die")
+                    .as_str()
+                    .unwrap_or("d1")
+                    .to_string(),
                 bonus_dmg: 0,
             }),
         }

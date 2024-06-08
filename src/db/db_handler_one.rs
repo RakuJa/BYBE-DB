@@ -45,8 +45,9 @@ pub async fn insert_weapon_to_db<'a>(
 pub async fn insert_armor_to_db<'a>(
     conn: &mut Transaction<'a, Sqlite>,
     armor: &BybeArmor,
+    cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, &armor.item_core, None).await?;
+    let item_id = insert_item_to_db(conn, &armor.item_core, cr_id).await?;
 
     let arm_id = insert_armor(conn, armor, item_id).await?;
 
@@ -70,6 +71,9 @@ pub async fn insert_creature_to_db<'a>(
     insert_resistances(conn, &cr.resistances, cr_id).await?;
     for el in &cr.weapons {
         insert_weapon_to_db(conn, el, Some(cr_id)).await?;
+    }
+    for el in &cr.armors {
+        insert_armor_to_db(conn, el, Some(cr_id)).await?;
     }
     for el in &cr.spells {
         let spell_id = insert_spell(conn, el, cr_id).await?;

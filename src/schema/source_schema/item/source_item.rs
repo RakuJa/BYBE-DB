@@ -50,8 +50,10 @@ impl SourceItem {
             bulk: get_field_from_json(&get_field_from_json(&system_json, "bulk"), "value")
                 .as_f64()
                 .unwrap_or(0.0),
-            quantity: get_field_from_json(json, "quantity").as_i64().unwrap_or(1),
-            base_item: get_field_from_json(json, "baseItem")
+            quantity: get_field_from_json(&system_json, "quantity")
+                .as_i64()
+                .unwrap_or(1),
+            base_item: get_field_from_json(&system_json, "baseItem")
                 .as_str()
                 .map(|x| x.to_string()),
             description: get_field_from_json(
@@ -74,8 +76,12 @@ impl SourceItem {
             usage: get_field_from_json(&get_field_from_json(&system_json, "usage"), "value")
                 .as_str()
                 .map(|x| x.to_string()),
-            item_type,
-            group: get_field_from_json(json, "group")
+            item_type: if item_type.eq("melee") {
+                String::from("weapon")
+            } else {
+                item_type
+            },
+            group: get_field_from_json(&system_json, "group")
                 .as_str()
                 .map(|x| x.to_string()),
             category: system_json

@@ -1,4 +1,4 @@
-use crate::schema::bybe_item::{BybeItem, BybeWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
@@ -61,6 +61,7 @@ pub struct BybeCreature {
     pub traits: Vec<String>,
 
     pub weapons: Vec<BybeWeapon>,
+    pub armors: Vec<BybeArmor>,
     pub items: Vec<BybeItem>,
     pub actions: Vec<Action>,
     pub n_of_focus_points: i64,
@@ -122,6 +123,7 @@ impl BybeCreature {
                 .parse()
                 .unwrap_or(SizeEnum::Medium),
             traits: source_cr.traits.traits,
+            armors: source_cr.items.armor_list,
             weapons: source_cr.items.weapon_list,
             items: source_cr.items.item_list,
             actions: source_cr.items.action_list,
