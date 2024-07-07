@@ -265,3 +265,44 @@ impl WeaponDamageData {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct BybeShield {
+    pub item_core: BybeItem,
+    pub n_of_reinforcing_runes: i64,
+    pub ac_bonus: i64,
+    pub speed_penalty: i64,
+}
+
+impl BybeShield {
+    pub fn init_from_json(json: &Value) -> Option<BybeShield> {
+        let item_type = get_field_from_json(json, "type")
+            .as_str()
+            .unwrap()
+            .to_string()
+            .to_ascii_lowercase();
+        if !item_type.eq("shield") {
+            return None;
+        }
+
+        let system_json = get_field_from_json(json, "system");
+        let item_core = BybeItem::init_from_source_item(SourceItem::init_from_json(json)?);
+        let specific_json = get_field_from_json(json, "specific");
+
+        Some(BybeShield {
+            item_core,
+            n_of_reinforcing_runes: get_field_from_json(
+                &get_field_from_json(&specific_json, "runes"),
+                "reinforcing",
+            )
+            .as_i64()
+            .unwrap_or(0),
+            ac_bonus: get_field_from_json(&system_json, "acBonus")
+                .as_i64()
+                .unwrap_or(0),
+            speed_penalty: get_field_from_json(&system_json, "speedPenalty")
+                .as_i64()
+                .unwrap_or(0),
+        })
+    }
+}

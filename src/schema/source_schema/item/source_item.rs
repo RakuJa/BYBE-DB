@@ -39,7 +39,9 @@ impl SourceItem {
         let price_json = get_field_from_json(&system_json, "price");
         let traits_json = get_field_from_json(&system_json, "traits");
         let publication_json = get_field_from_json(&system_json, "publication");
-        let material_json = get_field_from_json(&system_json, "material");
+        let binding =
+            get_field_from_json(&get_field_from_json(&system_json, "specific"), "material");
+        let material_json = system_json.get("material").unwrap_or(&binding);
         let uses_json = get_field_from_json(&system_json, "uses");
         let name = get_field_from_json(json, "name")
             .as_str()
@@ -87,7 +89,7 @@ impl SourceItem {
             category: system_json
                 .get("category")
                 .map(|x| String::from(x.as_str().unwrap())),
-            material: RawMaterial::init_from_json(&material_json),
+            material: RawMaterial::init_from_json(material_json),
             uses: get_field_from_json(&uses_json, "max").as_i64(),
         })
     }

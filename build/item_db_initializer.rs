@@ -8,6 +8,7 @@ pub async fn init_all_item_related_table<'a>(tx: &mut Transaction<'a, Sqlite>) -
     init_rune_table(tx).await?;
     init_weapon_table(tx).await?;
     init_armor_table(tx).await?;
+    init_shield_table(tx).await?;
 
     init_rune_weapon_association_table(tx).await?;
     init_rune_armor_association_table(tx).await?;
@@ -23,7 +24,6 @@ pub async fn init_item_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         bulk REAL NOT NULL,
-        quantity INTEGER NOT NULL,
         base_item TEXT,
         category TEXT,
         description TEXT NOT NULL,
@@ -43,7 +43,12 @@ pub async fn init_item_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<(
         source TEXT NOT NULL,
 
         rarity TEXT NOT NULL,
-        size TEXT NOT NULL
+        size TEXT NOT NULL,
+
+        UNIQUE(
+            name, bulk, description, hardness, hp, level, price,
+            item_type, license, remaster, source, rarity, size
+        ) ON CONFLICT ABORT
     );
     ",
     )
@@ -88,7 +93,7 @@ pub async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result
         weapon_type TEXT NOT NULL,
 
         base_item_id INTEGER,
-        FOREIGN KEY (base_item_id) REFERENCES ITEM_TABLE(id)
+        FOREIGN KEY (base_item_id) REFERENCES ITEM_TABLE(id) ON UPDATE CASCADE
     );
     ",
     )
@@ -112,7 +117,29 @@ pub async fn init_armor_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<
         strength_required INTEGER,
 
         base_item_id INTEGER,
-        FOREIGN KEY (base_item_id) REFERENCES ITEM_TABLE(id)
+        FOREIGN KEY (base_item_id) REFERENCES ITEM_TABLE(id) ON UPDATE CASCADE
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(())
+}
+
+pub async fn init_shield_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS SHIELD_TABLE (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        bonus_ac INTEGER NOT NULL,
+
+        n_of_reinforcing_runes INTEGER NOT NULL,
+
+        speed_penalty INTEGER NOT NULL,
+
+        base_item_id INTEGER,
+        FOREIGN KEY (base_item_id) REFERENCES ITEM_TABLE(id) ON UPDATE CASCADE
     );
     ",
     )

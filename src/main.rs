@@ -8,7 +8,7 @@ extern crate git2;
 
 use crate::db::db_handler_one;
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon};
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
@@ -38,18 +38,22 @@ async fn main() {
 
 async fn db_update(conn: &SqlitePool, json_paths: Vec<String>) -> anyhow::Result<()> {
     let mut tx: Transaction<Sqlite> = conn.begin().await?;
-    for el in deserialize_json_creatures(&json_paths) {
-        db_handler_one::insert_creature_to_db(&mut tx, el).await?;
-    }
     for el in deserialize_json_items(&json_paths) {
         db_handler_one::insert_item_to_db(&mut tx, &el, None).await?;
     }
     for el in deserialize_json_armors(&json_paths) {
         db_handler_one::insert_armor_to_db(&mut tx, &el, None).await?;
     }
-
+    for el in deserialize_json_shields(&json_paths) {
+        db_handler_one::insert_shield_to_db(&mut tx, &el, None).await?;
+    }
     for el in deserialize_json_weapons(&json_paths) {
         db_handler_one::insert_weapon_to_db(&mut tx, &el, None).await?;
+    }
+    // we add creature as last. This is made to avoid useless duplicates for
+    // item, weapons, etc
+    for el in deserialize_json_creatures(&json_paths) {
+        db_handler_one::insert_creature_to_db(&mut tx, el).await?;
     }
     db_handler_one::insert_scales_values_to_db(&mut tx).await?;
 
@@ -108,6 +112,19 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
         }
     }
     armors
+}
+
+fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
+    let mut shields = Vec::new();
+    for file in json_files {
+        if let Some(item) = BybeShield::init_from_json(
+            &serde_json::from_str(&read_from_file_to_string(file.as_str()))
+                .expect("JSON was not well-formatted"),
+        ) {
+            shields.push(item);
+        }
+    }
+    shields
 }
 
 fn fetch_source_data(source_url: &str, source_path: &str) {
