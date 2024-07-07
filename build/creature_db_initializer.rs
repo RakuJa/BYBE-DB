@@ -33,7 +33,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS CREATURE_TABLE (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         name TEXT NOT NULL,
         aon_id INTEGER,
         charisma INTEGER NOT NULL,
