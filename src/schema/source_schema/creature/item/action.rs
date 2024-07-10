@@ -1,6 +1,8 @@
 use crate::schema::publication_info::PublicationInfo;
+use crate::schema::source_schema::description::Description;
 use crate::utils::json_utils;
 use serde_json::Value;
+
 #[derive(Debug, Clone)]
 pub struct Action {
     pub name: String,
@@ -36,6 +38,7 @@ impl Action {
             category: category_json.as_str().map(|x| x.to_string()),
             description: json_utils::get_field_from_json(&description_json, "value")
                 .as_str()
+                .map(Description::initialize)
                 .unwrap()
                 .to_string(),
             publication_info: PublicationInfo::init_from_json(&publication_json),

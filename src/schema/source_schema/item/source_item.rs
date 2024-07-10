@@ -1,4 +1,5 @@
 use crate::schema::publication_info::PublicationInfo;
+use crate::schema::source_schema::description::Description;
 use crate::schema::source_schema::hp_values::RawHpValues;
 use crate::schema::source_schema::item::material::RawMaterial;
 use crate::schema::source_schema::price_struct::PriceStruct;
@@ -63,6 +64,7 @@ impl SourceItem {
                 "value",
             )
             .as_str()
+            .map(Description::initialize)
             .unwrap_or_default()
             .to_string(),
             hardness: get_field_from_json(&system_json, "hardness")

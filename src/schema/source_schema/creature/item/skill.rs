@@ -1,4 +1,5 @@
 use crate::schema::publication_info::PublicationInfo;
+use crate::schema::source_schema::description::Description;
 use crate::utils::json_utils;
 use serde_json::Value;
 
@@ -28,7 +29,7 @@ impl Skill {
                 .to_string(),
             description: json_utils::get_field_from_json(&description_json, "value")
                 .as_str()
-                .map(|x| x.to_string()),
+                .map(|x| Description::initialize(x).to_string()),
             modifier: json_utils::get_field_from_json(&modifier_json, "value")
                 .as_i64()
                 .unwrap(),
