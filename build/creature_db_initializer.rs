@@ -19,7 +19,12 @@ pub async fn init_all_creature_related_tables<'a>(
     init_weakness_table(tx).await?;
     init_spell_table(tx).await?;
     init_trait_spell_association_table(tx).await?;
+
     init_item_cr_association_table(tx).await?;
+    init_weapon_cr_association_table(tx).await?;
+    init_armor_cr_association_table(tx).await?;
+    init_shield_cr_association_table(tx).await?;
+
     init_tradition_table(tx).await?;
     init_tradition_spell_association_table(tx).await?;
     init_action_table(tx).await?;
@@ -33,7 +38,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS CREATURE_TABLE (
-        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        id INTEGER PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
         aon_id INTEGER,
         charisma INTEGER NOT NULL,
@@ -253,7 +258,7 @@ async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SPELL_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             area_type TEXT,
             area_value INTEGER,
@@ -339,7 +344,7 @@ async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<boo
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS ACTION_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             action_type TEXT NOT NULL,
             n_of_actions INTEGER,
@@ -386,7 +391,7 @@ async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SKILL_TABLE (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id INTEGER PRIMARY KEY NOT NULL,
             name TEXT NOT NULL,
             description TEXT,
             modifier INTEGER NOT NULL,
@@ -432,6 +437,60 @@ async fn init_item_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) 
             PRIMARY KEY (creature_id, item_id, quantity),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (item_id) REFERENCES ITEM_TABLE(id) ON UPDATE CASCADE
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_weapon_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS WEAPON_CREATURE_ASSOCIATION_TABLE (
+            creature_id INTEGER NOT NULL,
+            weapon_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            PRIMARY KEY (creature_id, weapon_id, quantity),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id) ON UPDATE CASCADE
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_shield_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS SHIELD_CREATURE_ASSOCIATION_TABLE (
+            creature_id INTEGER NOT NULL,
+            shield_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            PRIMARY KEY (creature_id, shield_id, quantity),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (shield_id) REFERENCES SHIELD_TABLE(id) ON UPDATE CASCADE
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_armor_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS ARMOR_CREATURE_ASSOCIATION_TABLE (
+            creature_id INTEGER NOT NULL,
+            armor_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            PRIMARY KEY (creature_id, armor_id, quantity),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (armor_id) REFERENCES ARMOR_TABLE(id) ON UPDATE CASCADE
     );
     ",
     )
