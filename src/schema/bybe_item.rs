@@ -142,11 +142,8 @@ impl BybeArmor {
 #[derive(Clone)]
 pub struct BybeWeapon {
     pub item_core: BybeItem,
-    pub bonus_dmg: i64,
     pub to_hit_bonus: Option<i64>,
-    pub dmg_type: Option<String>,
-    pub number_of_dice: Option<i64>,
-    pub die_size: Option<String>,
+    pub damage_data: Vec<WeaponDamageData>,
     pub splash_dmg: Option<i64>,
     pub n_of_potency_runes: i64,
     pub n_of_striking_runes: i64,
@@ -167,19 +164,9 @@ impl BybeWeapon {
             return None;
         }
         let system_json = get_field_from_json(json, "system");
-        let item_core = BybeItem::init_from_source_item(SourceItem::init_from_json(json)?);
         let runes_data = get_field_from_json(&system_json, "runes");
-        let (die_size, number_of_dice, dmg_type) =
-            match WeaponDamageData::init_from_json(&system_json) {
-                Some(x) => (Some(x.die_size), Some(x.n_of_dices), Some(x.dmg_type)),
-                None => (None, None, None),
-            };
         let hit_bonus_json = get_field_from_json(&system_json, "bonus");
         let wp_type_json = get_field_from_json(&system_json, "weaponType");
-        let fallback_bonus_dmg = get_field_from_json(&system_json, "bonus");
-        let bonus_dmg_json = system_json
-            .get("bonusDamage")
-            .unwrap_or(&fallback_bonus_dmg);
 
         let weapon_type = get_field_from_json(&wp_type_json, "value")
             .as_str()
@@ -187,18 +174,9 @@ impl BybeWeapon {
             .to_string()
             .to_uppercase();
         Some(BybeWeapon {
-            item_core,
-            bonus_dmg: get_field_from_json(bonus_dmg_json, "value")
-                .as_i64()
-                .unwrap_or(0),
-            die_size,
-            number_of_dice,
-            dmg_type,
-            splash_dmg: get_field_from_json(
-                &get_field_from_json(&system_json, "splashDamage"),
-                "value",
-            )
-            .as_i64(),
+            item_core: BybeItem::init_from_source_item(SourceItem::init_from_json(json)?),
+            splash_dmg: get_field_from_json(&get_field_from_json(json, "splashDamage"), "value")
+                .as_i64(),
             n_of_potency_runes: get_field_from_json(&runes_data, "potency")
                 .as_i64()
                 .unwrap_or(0),
@@ -219,50 +197,94 @@ impl BybeWeapon {
             } else {
                 weapon_type
             },
+            damage_data: WeaponDamageData::init_vec_from_json(&system_json),
         })
     }
 }
 
+#[derive(Clone)]
 pub struct WeaponDamageData {
-    pub dmg_type: String,
-    pub n_of_dices: i64,
-    pub die_size: String,
+    pub dmg_type: Option<String>,
+    pub n_of_dice: Option<i64>,
+    pub die_size: Option<i64>,
     pub bonus_dmg: i64,
 }
 
 impl WeaponDamageData {
-    pub fn init_from_json(json: &Value) -> Option<WeaponDamageData> {
-        match json.get("damage") {
-            None => {
-                let json_obj = json
-                    .get("damageRolls")
-                    .and_then(|x| x.as_object())
-                    .and_then(|json_map| json_map.values().next());
-                json_obj.and_then(|x| {
-                    let dmg = x.get("damage")?.as_str()?;
-                    let (n_dices, dmg_data) = dmg.split_once('d')?;
-                    let (die, bonus_dmg) = dmg_data.split_once('+')?;
-                    Some(WeaponDamageData {
-                        dmg_type: get_field_from_json(x, "damageType").as_str()?.to_string(),
-                        n_of_dices: n_dices.parse().ok()?,
-                        bonus_dmg: bonus_dmg.parse().ok()?,
-                        die_size: format!("d{}", die),
-                    })
-                })
+    pub fn init_vec_from_json(json: &Value) -> Vec<WeaponDamageData> {
+        let result_vec = match json.get("damage") {
+            Some(x) => {
+                vec![WeaponDamageData {
+                    dmg_type: get_field_from_json(x, "damageType")
+                        .as_str()
+                        .map(|x| x.to_string()),
+                    n_of_dice: get_field_from_json(x, "dice").as_i64(),
+                    die_size: Some(
+                        get_field_from_json(x, "die")
+                            .as_str()
+                            .and_then(|x| x.replace("d", "").parse::<i64>().ok())
+                            .unwrap_or(1),
+                    ),
+                    bonus_dmg: 0,
+                }]
             }
-            Some(x) => Some(WeaponDamageData {
-                dmg_type: get_field_from_json(x, "damageType")
-                    .as_str()
-                    .unwrap()
-                    .to_string(),
-                n_of_dices: get_field_from_json(x, "dice").as_i64().unwrap(),
-                die_size: get_field_from_json(x, "die")
-                    .as_str()
-                    .unwrap_or("d1")
-                    .to_string(),
-                bonus_dmg: 0,
-            }),
+            None => {
+                let mut weapon_dmg_vec = Vec::new();
+                if let Some(key_value_map) = json.get("damageRolls").and_then(|x| x.as_object()) {
+                    for (_key, value) in key_value_map {
+                        if let Some(dmg_data) = Self::parse_dmg_json(value) {
+                            weapon_dmg_vec.push(dmg_data);
+                        }
+                    }
+                }
+                weapon_dmg_vec
+            }
+        };
+        if result_vec.is_empty() {
+            vec![WeaponDamageData {
+                dmg_type: None,
+                n_of_dice: None,
+                die_size: None,
+                bonus_dmg: get_field_from_json(&get_field_from_json(json, "bonusDamage"), "value")
+                    .as_i64()
+                    .unwrap_or(0),
+            }]
+        } else {
+            result_vec
         }
+    }
+
+    /// parses a single item of a "DamageRolls"-like json
+    fn parse_dmg_json(json: &Value) -> Option<WeaponDamageData> {
+        let dmg = json.get("damage")?.as_str()?;
+        let (n_dices, dmg_data) = if let Some(x) = dmg.split_once('d') {
+            x
+        } else {
+            // we have a single number, so we put in dmg that will put it in the die size
+            // aka 1 => 1d1 | 3 => 3d1
+            (dmg, "1")
+        };
+        let (die, bonus_dmg) = if dmg_data.contains('+') {
+            let (die, dmg) = dmg_data.split_once('+').unwrap();
+            (die, dmg.to_string())
+        } else if dmg_data.contains('-') {
+            let (die, dmg) = dmg_data.split_once('-').unwrap();
+            (die, format!("-{dmg}"))
+        } else {
+            (dmg_data, "".to_string())
+        };
+        Some(WeaponDamageData {
+            dmg_type: get_field_from_json(json, "damageType")
+                .as_str()
+                .map(|x| x.to_string()),
+            n_of_dice: n_dices.parse::<i64>().ok(),
+            bonus_dmg: bonus_dmg
+                .parse()
+                .map(|x: String| x.parse::<i64>().unwrap_or(0))
+                .ok()
+                .unwrap_or(0),
+            die_size: die.parse::<i64>().ok(),
+        })
     }
 }
 

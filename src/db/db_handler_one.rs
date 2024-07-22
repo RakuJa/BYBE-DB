@@ -1,9 +1,9 @@
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query_file, Sqlite, SqlitePool, Transaction};
 use std::collections::HashMap;
@@ -22,8 +22,8 @@ pub async fn insert_item_to_db<'a>(
     let item_id = insert_item(conn, item).await?;
     insert_traits(conn, &item.traits).await?;
     insert_item_trait_association(conn, &item.traits, item_id).await?;
-    if cr_id.is_some() {
-        insert_item_creature_association(conn, item_id, cr_id.unwrap(), item.quantity).await?;
+    if let Some(creature_id) = cr_id {
+        insert_item_creature_association(conn, item_id, creature_id, item.quantity).await?;
     }
     Ok(item_id)
 }
@@ -33,8 +33,18 @@ pub async fn insert_shield_to_db<'a>(
     shield: &BybeShield,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, &shield.item_core, cr_id).await?;
+    // Don't creature useless links between item & creature.
+    // Since item is as generic as possible the specializations
+    // (weapon, armor, etc) should have a separate association table
+    let item_id = insert_item_to_db(conn, &shield.item_core, None).await?;
+
     let shield_id = insert_shield(conn, shield, item_id).await?;
+
+    if let Some(creature_id) = cr_id {
+        insert_weapon_creature_association(conn, shield_id, creature_id, shield.item_core.quantity)
+            .await?;
+    }
+    insert_shield_trait_association(conn, &shield.item_core.traits, shield_id).await?;
 
     Ok(shield_id)
 }
@@ -44,12 +54,22 @@ pub async fn insert_weapon_to_db<'a>(
     wp: &BybeWeapon,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, &wp.item_core, cr_id).await?;
+    // Don't creature useless links between item & creature.
+    // Since item is as generic as possible the specializations
+    // (weapon, armor, etc) should have a separate association table
+    let item_id = insert_item_to_db(conn, &wp.item_core, None).await?;
 
     let wp_id = insert_weapon(conn, wp, item_id).await?;
+    if let Some(creature_id) = cr_id {
+        insert_weapon_creature_association(conn, wp_id, creature_id, wp.item_core.quantity).await?;
+    }
+
+    insert_weapon_damage(conn, &wp.damage_data, wp_id).await?;
 
     insert_runes(conn, &wp.property_runes).await?;
     insert_weapon_rune_association(conn, &wp.property_runes, wp_id).await?;
+
+    insert_weapon_trait_association(conn, &wp.item_core.traits, wp_id).await?;
     Ok(wp_id)
 }
 
@@ -58,12 +78,22 @@ pub async fn insert_armor_to_db<'a>(
     armor: &BybeArmor,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, &armor.item_core, cr_id).await?;
+    // Don't creature useless links between item & creature.
+    // Since item is as generic as possible the specializations
+    // (weapon, armor, etc) should have a separate association table
+    let item_id = insert_item_to_db(conn, &armor.item_core, None).await?;
 
     let arm_id = insert_armor(conn, armor, item_id).await?;
 
+    if let Some(creature_id) = cr_id {
+        insert_armor_creature_association(conn, arm_id, creature_id, armor.item_core.quantity)
+            .await?;
+    }
+
     insert_runes(conn, &armor.property_runes).await?;
     insert_armor_rune_association(conn, &armor.property_runes, arm_id).await?;
+
+    insert_armor_trait_association(conn, &armor.item_core.traits, arm_id).await?;
     Ok(arm_id)
 }
 
@@ -132,6 +162,60 @@ async fn insert_traits<'a>(
         sqlx::query!("INSERT OR IGNORE INTO TRAIT_TABLE (name) VALUES ($1)", el)
             .execute(&mut **conn)
             .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_weapon_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO TRAIT_WEAPON_ASSOCIATION_TABLE
+            (weapon_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_shield_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO TRAIT_SHIELD_ASSOCIATION_TABLE
+            (shield_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_armor_trait_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    for el in traits {
+        sqlx::query!(
+            "INSERT OR IGNORE INTO TRAIT_ARMOR_ASSOCIATION_TABLE
+            (armor_id, trait_id) VALUES ($1, $2)",
+            id,
+            el
+        )
+        .execute(&mut **conn)
+        .await?;
     }
     Ok(true)
 }
@@ -334,31 +418,33 @@ async fn insert_item<'a>(conn: &mut Transaction<'a, Sqlite>, item: &BybeItem) ->
     .await
     {
         Ok(r) => Ok(r.last_insert_rowid()),
-        Err(_) => sqlx::query!(
-            "SELECT id FROM ITEM_TABLE WHERE
+        Err(_) => {
+            let x = sqlx::query!(
+                "SELECT id FROM ITEM_TABLE WHERE
                 name = $1 AND bulk =$2 AND description = $3 AND hardness = $4 AND
                 hp = $5 AND level = $6 AND price = $7 AND item_type = $8 AND
                 license = $9 AND remaster = $10 AND source = $11 AND
                 rarity = $12 AND size = $13
                 ",
-            item.name,
-            item.bulk,
-            item.description,
-            item.hardness,
-            item.hp,
-            item.level,
-            item.price,
-            item.item_type,
-            item.license,
-            item.remaster,
-            item.source,
-            rarity,
-            size
-        )
-        .fetch_one(&mut **conn)
-        .await?
-        .id
-        .context("Could not insert new item and could not find a valid duplicate."),
+                item.name,
+                item.bulk,
+                item.description,
+                item.hardness,
+                item.hp,
+                item.level,
+                item.price,
+                item.item_type,
+                item.license,
+                item.remaster,
+                item.source,
+                rarity,
+                size
+            )
+            .fetch_one(&mut **conn)
+            .await?
+            .id;
+            Ok(x)
+        }
     }
 }
 
@@ -468,6 +554,24 @@ async fn insert_shield<'a>(
     .last_insert_rowid())
 }
 
+async fn insert_shield_creature_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    shield_id: i64,
+    cr_id: i64,
+    quantity: i64,
+) -> Result<bool> {
+    sqlx::query!(
+        "INSERT OR IGNORE INTO SHIELD_CREATURE_ASSOCIATION_TABLE
+            (shield_id, creature_id, quantity) VALUES ($1, $2, $3)",
+        shield_id,
+        cr_id,
+        quantity
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
 // WEAPON CORE START
 async fn insert_weapon<'a>(
     conn: &mut Transaction<'a, Sqlite>,
@@ -477,15 +581,10 @@ async fn insert_weapon<'a>(
     Ok(sqlx::query!(
         "
         INSERT INTO WEAPON_TABLE VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            $11, $12, $13
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         )",
         None::<i64>, // id, autoincrement
-        wp.bonus_dmg,
         wp.to_hit_bonus,
-        wp.dmg_type,
-        wp.number_of_dice,
-        wp.die_size,
         wp.splash_dmg,
         wp.n_of_potency_runes,
         wp.n_of_striking_runes,
@@ -497,6 +596,48 @@ async fn insert_weapon<'a>(
     .execute(&mut **conn)
     .await?
     .last_insert_rowid())
+}
+
+async fn insert_weapon_damage<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    dmg_data: &Vec<WeaponDamageData>,
+    wp_id: i64,
+) -> Result<()> {
+    for el in dmg_data {
+        sqlx::query!(
+            "
+        INSERT INTO WEAPON_DAMAGE_TABLE VALUES (
+            $1, $2, $3, $4, $5, $6
+        )",
+            None::<i64>, // id, autoincrement
+            el.bonus_dmg,
+            el.dmg_type,
+            el.n_of_dice,
+            el.die_size,
+            wp_id,
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(())
+}
+
+async fn insert_weapon_creature_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    weapon_id: i64,
+    cr_id: i64,
+    quantity: i64,
+) -> Result<bool> {
+    sqlx::query!(
+        "INSERT OR IGNORE INTO WEAPON_CREATURE_ASSOCIATION_TABLE
+            (weapon_id, creature_id, quantity) VALUES ($1, $2, $3)",
+        weapon_id,
+        cr_id,
+        quantity
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
 }
 
 // WEAPON CORE END
@@ -526,6 +667,23 @@ async fn insert_armor<'a>(
     .execute(&mut **conn)
     .await?
     .last_insert_rowid())
+}
+async fn insert_armor_creature_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    armor_id: i64,
+    cr_id: i64,
+    quantity: i64,
+) -> Result<bool> {
+    sqlx::query!(
+        "INSERT OR IGNORE INTO ARMOR_CREATURE_ASSOCIATION_TABLE
+            (armor_id, creature_id, quantity) VALUES ($1, $2, $3)",
+        armor_id,
+        cr_id,
+        quantity
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
 }
 
 // ARMOR CORE END
