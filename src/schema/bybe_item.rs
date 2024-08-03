@@ -122,7 +122,9 @@ impl BybeArmor {
             dex_cap: get_field_from_json(&system_json, "dexCap")
                 .as_i64()
                 .unwrap(),
-            n_of_potency_runes: get_field_from_json(&rune_json, "potency").as_i64().unwrap(),
+            n_of_potency_runes: get_field_from_json(&rune_json, "potency")
+                .as_i64()
+                .unwrap_or(0),
             property_runes: json_utils::from_json_vec_of_str_to_vec_of_str(
                 get_field_from_json(&rune_json, "property")
                     .as_array()
@@ -130,7 +132,7 @@ impl BybeArmor {
             ),
             n_of_resilient_runes: get_field_from_json(&rune_json, "resilient")
                 .as_i64()
-                .unwrap(),
+                .unwrap_or(0),
             speed_penalty: get_field_from_json(&system_json, "speedPenalty")
                 .as_i64()
                 .unwrap(),

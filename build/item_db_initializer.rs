@@ -30,7 +30,7 @@ pub async fn init_item_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<(
         bulk REAL NOT NULL,
         base_item TEXT,
         category TEXT,
-        description TEXT NOT NULL,
+        description TEXT NOT NULL COLLATE NOCASE,
         hardness INTEGER NOT NULL,
         hp INTEGER NOT NULL,
         level INTEGER NOT NULL,
@@ -50,7 +50,7 @@ pub async fn init_item_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<(
         size TEXT NOT NULL,
 
         UNIQUE(
-            name, bulk, description, hardness, hp, level, price,
+            name, bulk, description COLLATE NOCASE, hardness, hp, level, price,
             item_type, license, remaster, source, rarity, size
         ) ON CONFLICT ABORT
     );
