@@ -49,6 +49,9 @@ impl SourceCreature {
             .as_str()
             .unwrap()
             .to_string();
+        if name.to_uppercase().starts_with("ELITE ") || name.to_uppercase().starts_with("WEAK ") {
+            return None;
+        }
         Some(SourceCreature {
             name,
             creature_type,
