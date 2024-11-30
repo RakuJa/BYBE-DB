@@ -364,6 +364,7 @@ UPDATE CREATURE_TABLE set aon_id = 2549, cr_type = 'Npc', family = NULL WHERE UP
 UPDATE CREATURE_TABLE set aon_id = 2550, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Endlo Kiver');
 UPDATE CREATURE_TABLE set aon_id = 2551, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Blade Mercenary');
 UPDATE CREATURE_TABLE set aon_id = 2554, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Blade Magus');
+UPDATE CREATURE_TABLE set aon_id = 2607, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Krohan Veldollow');
 UPDATE CREATURE_TABLE set aon_id = 2717, cr_type = 'Npc', family = 'Duergar' WHERE UPPER(name) = UPPER('Hryngar Battlepriest');
 UPDATE CREATURE_TABLE set aon_id = 2718, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Hrungul Ironeye');
 UPDATE CREATURE_TABLE set aon_id = 2719, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Narseigus Wormcaller');
@@ -398,14 +399,12 @@ UPDATE CREATURE_TABLE set aon_id = 3027, cr_type = 'Npc', family = 'Goblin' WHER
 UPDATE CREATURE_TABLE set aon_id = 3072, cr_type = 'Npc', family = 'Kobold' WHERE UPPER(name) = UPPER('Kobold Warrior');
 UPDATE CREATURE_TABLE set aon_id = 3073, cr_type = 'Npc', family = 'Kobold' WHERE UPPER(name) = UPPER('Kobold Scout');
 UPDATE CREATURE_TABLE set aon_id = 3074, cr_type = 'Npc', family = 'Kobold' WHERE UPPER(name) = UPPER('Kobold Cavern Mage');
-UPDATE CREATURE_TABLE set aon_id = 3075, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Kraken');
 UPDATE CREATURE_TABLE set aon_id = 3079, cr_type = 'Npc', family = 'Leshy' WHERE UPPER(name) = UPPER('Leaf Leshy');
 UPDATE CREATURE_TABLE set aon_id = 3080, cr_type = 'Npc', family = 'Leshy' WHERE UPPER(name) = UPPER('Gourd Leshy');
 UPDATE CREATURE_TABLE set aon_id = 3081, cr_type = 'Npc', family = 'Leshy' WHERE UPPER(name) = UPPER('Fungus Leshy');
 UPDATE CREATURE_TABLE set aon_id = 3090, cr_type = 'Npc', family = 'Lizardfolk' WHERE UPPER(name) = UPPER('Lizardfolk Defender');
 UPDATE CREATURE_TABLE set aon_id = 3091, cr_type = 'Npc', family = 'Lizardfolk' WHERE UPPER(name) = UPPER('Lizardfolk Scout');
 UPDATE CREATURE_TABLE set aon_id = 3092, cr_type = 'Npc', family = 'Lizardfolk' WHERE UPPER(name) = UPPER('Lizardfolk Stargazer');
-UPDATE CREATURE_TABLE set aon_id = 3099, cr_type = 'Npc', family = 'Minotaur' WHERE UPPER(name) = UPPER('Minotaur');
 UPDATE CREATURE_TABLE set aon_id = 3129, cr_type = 'Npc', family = 'Orc' WHERE UPPER(name) = UPPER('Orc Scrapper');
 UPDATE CREATURE_TABLE set aon_id = 3130, cr_type = 'Npc', family = 'Orc' WHERE UPPER(name) = UPPER('Orc Veteran');
 UPDATE CREATURE_TABLE set aon_id = 3131, cr_type = 'Npc', family = 'Orc' WHERE UPPER(name) = UPPER('Dromaar Mountaineer');
@@ -427,41 +426,21 @@ UPDATE CREATURE_TABLE set aon_id = 2161, cr_type = 'Npc', family = NULL WHERE UP
 
 UPDATE CREATURE_TABLE set aon_id = 893, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Acolyte of Nethys');
 UPDATE CREATURE_TABLE set aon_id = 893, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Acolyte of Pharasma');
-UPDATE CREATURE_TABLE set aon_id = 895, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Zealot of Asmodeus');
 UPDATE CREATURE_TABLE set aon_id = 896, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Priest of Pharasma');
 UPDATE CREATURE_TABLE set aon_id = 896, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Priest Of Kabriri');
 UPDATE CREATURE_TABLE set aon_id = 896, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Priest of Blackfingers');
-UPDATE CREATURE_TABLE set aon_id = 1028, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Duhgik');
-UPDATE CREATURE_TABLE set aon_id = 1029, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Pr'rall");
 UPDATE CREATURE_TABLE set aon_id = 1030, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Morlibint');
 UPDATE CREATURE_TABLE set aon_id = 1034, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Eleukas');
 UPDATE CREATURE_TABLE set aon_id = 1042, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Lisavet');
-UPDATE CREATURE_TABLE set aon_id = 1052, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('None');
 UPDATE CREATURE_TABLE set aon_id = 1053, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Chea');
-UPDATE CREATURE_TABLE set aon_id = 1391, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Zhang Yong');
 UPDATE CREATURE_TABLE set aon_id = 1444, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Wendlyn');
 UPDATE CREATURE_TABLE set aon_id = 1445, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Tino Tung (Level 9)');
 UPDATE CREATURE_TABLE set aon_id = 1445, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Tino Tung (Level 13)');
 UPDATE CREATURE_TABLE set aon_id = 1445, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Tino (Oni Form)');
-UPDATE CREATURE_TABLE set aon_id = 1473, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Syu Tak-nwa (Level 16)');
-UPDATE CREATURE_TABLE set aon_id = 1473, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Syu Tak-nwa (Level 20)');
-UPDATE CREATURE_TABLE set aon_id = 1474, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Blue Viper (Level 14)');
-UPDATE CREATURE_TABLE set aon_id = 1474, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Blue Viper (Level 16)');
-UPDATE CREATURE_TABLE set aon_id = 1474, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Blue Viper (Level 20)');
 UPDATE CREATURE_TABLE set aon_id = 1475, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Shino Hakusa (Level 14)');
 UPDATE CREATURE_TABLE set aon_id = 1475, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Shino Hakusa (Level 16)');
 UPDATE CREATURE_TABLE set aon_id = 1475, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Shino Hakusa (Level 20)');
-UPDATE CREATURE_TABLE set aon_id = 1476, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ran-to (Level 14)');
-UPDATE CREATURE_TABLE set aon_id = 1476, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ran-to (Level 16)');
-UPDATE CREATURE_TABLE set aon_id = 1476, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ran-to (Level 20)');
 UPDATE CREATURE_TABLE set aon_id = 1477, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Gristleburst');
-UPDATE CREATURE_TABLE set aon_id = 1480, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Sixth Pillar Student');
-UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Arms of Balance (Ranya Shibhatesh)');
-UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Arms of Balance (Pravan Majinapti)');
-UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Arms of Balance (Usvani)');
-UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Arms of Balance (Jivati Rovat)');
-UPDATE CREATURE_TABLE set aon_id = 1488, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Yarrika Mulandez');
--- UPDATE CREATURE_TABLE set aon_id = 1499, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER(''); Phuthi
 UPDATE CREATURE_TABLE set aon_id = 1565, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Corrupt Guard');
 UPDATE CREATURE_TABLE set aon_id = 1638, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Fire-pot Ubanu');
 UPDATE CREATURE_TABLE set aon_id = 1640, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Salathiss');
@@ -500,6 +479,8 @@ UPDATE CREATURE_TABLE set aon_id = 2555, cr_type = 'Npc', family = NULL WHERE UP
 UPDATE CREATURE_TABLE set aon_id = 2574, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('The Prince of Wolves');
 UPDATE CREATURE_TABLE set aon_id = 2735, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Hu Ban-Niang');
 UPDATE CREATURE_TABLE set aon_id = 2736, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Shou Matsuki');
+UPDATE CREATURE_TABLE set aon_id = 3099, cr_type = 'Npc', family = 'Minotaur' WHERE UPPER(name) = UPPER('Minotaur Hunter (BB)');
+UPDATE CREATURE_TABLE set aon_id = 3099, cr_type = 'Npc', family = 'Minotaur' WHERE UPPER(name) = UPPER('Minotaur Hunter');
 UPDATE CREATURE_TABLE set aon_id = 3139, cr_type = 'Npc', family = 'Planar Scion' WHERE UPPER(name) = UPPER('Duskwalker Ghost Hunter');
 
 
@@ -542,6 +523,7 @@ UPDATE CREATURE_TABLE set aon_id = 895, cr_type = 'Npc', family = 'Devotees' WHE
 UPDATE CREATURE_TABLE set aon_id = 1028, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Duhgik');
 UPDATE CREATURE_TABLE set aon_id = 1029, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Pr'rall");
 UPDATE CREATURE_TABLE set aon_id = 1052, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Urok');
+UPDATE CREATURE_TABLE set aon_id = 1391, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Zhang Yong');
 UPDATE CREATURE_TABLE set aon_id = 1473, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Syu Tak-nwa (Level 14)');
 UPDATE CREATURE_TABLE set aon_id = 1473, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Syu Tak-nwa (Level 16)');
 UPDATE CREATURE_TABLE set aon_id = 1473, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Syu Tak-nwa (Level 20)');
@@ -557,7 +539,7 @@ UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UP
 UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Arms of Balance (Ranya Shibhatesh)');
 UPDATE CREATURE_TABLE set aon_id = 1487, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Arms of Balance (Usvani)');
 UPDATE CREATURE_TABLE set aon_id = 1488, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Yarrika Mulandez');
--- UPDATE CREATURE_TABLE set aon_id = 1499, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('None');Phuthi,
+-- UPDATE CREATURE_TABLE set aon_id = 1499, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('None');Phuthi, []
 UPDATE CREATURE_TABLE set aon_id = 1524, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Yabin (White Serpent Form)');
 UPDATE CREATURE_TABLE set aon_id = 1578, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Bshez "Sand Claws" Shak');
 UPDATE CREATURE_TABLE set aon_id = 1591, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ingnovim Tluss');
