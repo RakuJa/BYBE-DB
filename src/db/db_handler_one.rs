@@ -3,6 +3,7 @@ use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, Weap
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::sense::Sense;
 use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::{query_file, Sqlite, SqlitePool, Transaction};
@@ -306,18 +307,25 @@ async fn insert_immunity_and_association<'a>(
 
 async fn insert_sense_and_association<'a>(
     conn: &mut Transaction<'a, Sqlite>,
-    senses: &Vec<String>,
+    senses: &Vec<Sense>,
     id: i64,
 ) -> Result<bool> {
     for el in senses {
-        sqlx::query!("INSERT OR IGNORE INTO SENSE_TABLE (name) VALUES ($1)", el)
-            .execute(&mut **conn)
-            .await?;
+        let sense_id = sqlx::query!(
+            "INSERT OR IGNORE INTO SENSE_TABLE (id, name, range, acuity) VALUES ($1, $2, $3, $4)",
+            None::<i64>,
+            el.name,
+            el.range,
+            el.acuity
+        )
+        .execute(&mut **conn)
+        .await?
+        .last_insert_rowid();
         sqlx::query!(
             "INSERT OR IGNORE INTO SENSE_CREATURE_ASSOCIATION_TABLE
             (creature_id, sense_id) VALUES ($1, $2)",
             id,
-            el
+            sense_id
         )
         .execute(&mut **conn)
         .await?;
@@ -484,7 +492,7 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                 $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-                $31, $32, $33, $34, $35, $36, $37, $38
+                $31, $32, $33, $34, $35, $36, $37, $38, $39
             )",
         None::<i64>, // id, autoincrement
         cr.name,
@@ -507,6 +515,7 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
         cr.initiative_ability,
         cr.perception_mod,
         cr.perception_details,
+        cr.vision,
         cr.fortitude_mod,
         cr.reflex_mod,
         cr.will_mod,
