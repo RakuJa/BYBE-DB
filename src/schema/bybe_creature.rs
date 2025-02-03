@@ -4,6 +4,7 @@ use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
+use crate::schema::source_schema::creature::sense::Sense;
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -45,7 +46,8 @@ pub struct BybeCreature {
     // Awareness/eyes
     pub perception_mod: i64,
     pub perception_details: String,
-    pub senses: Vec<String>,
+    pub vision: bool,
+    pub senses: Vec<Sense>,
 
     // Saves
     pub fortitude_mod: i64,
@@ -103,6 +105,7 @@ impl BybeCreature {
             initiative_ability: source_cr.initiative_ability,
             perception_mod: source_cr.perception.perception_modifier,
             perception_details: source_cr.perception.perception_details,
+            vision: source_cr.perception.vision,
             senses: source_cr.perception.senses,
             fortitude_mod: source_cr.saves.fortitude,
             reflex_mod: source_cr.saves.reflex,

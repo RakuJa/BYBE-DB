@@ -59,6 +59,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
         initiative_ability TEXT NOT NULL,
         perception INTEGER NOT NULL,
         perception_detail TEXT NOT NULL,
+        vision BOOL NOT NULL,
         fortitude INTEGER NOT NULL,
         reflex INTEGER NOT NULL,
         will INTEGER NOT NULL,
@@ -228,7 +229,10 @@ async fn init_sense_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SENSE_TABLE (
-            name TEXT PRIMARY KEY NOT NULL
+            id INTEGER PRIMARY KEY NOT NULL,
+            name TEXT NOT NULL,
+            range INTEGER,
+            acuity TEXT
     );
     ",
     )
@@ -242,10 +246,10 @@ async fn init_sense_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>)
         "
     CREATE TABLE IF NOT EXISTS SENSE_CREATURE_ASSOCIATION_TABLE (
             creature_id INTEGER NOT NULL,
-            sense_id TEXT NOT NULL,
+            sense_id INTEGER NOT NULL,
             PRIMARY KEY (creature_id, sense_id),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (sense_id) REFERENCES SENSE_TABLE(name)
+            FOREIGN KEY (sense_id) REFERENCES SENSE_TABLE(id)
     );
     ",
     )
