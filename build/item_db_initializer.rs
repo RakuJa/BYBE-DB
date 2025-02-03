@@ -2,7 +2,7 @@ use crate::trait_db_initializer::init_trait_table;
 use anyhow::Result;
 use sqlx::{Sqlite, Transaction};
 
-pub async fn init_all_item_related_table<'a>(tx: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_all_item_related_table(tx: &mut Transaction<'_, Sqlite>) -> Result<()> {
     init_item_table(tx).await?;
     init_trait_table(tx).await?;
     init_rune_table(tx).await?;
@@ -21,7 +21,7 @@ pub async fn init_all_item_related_table<'a>(tx: &mut Transaction<'a, Sqlite>) -
     Ok(())
 }
 
-pub async fn init_item_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_item_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS ITEM_TABLE (
@@ -61,7 +61,7 @@ pub async fn init_item_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<(
     Ok(())
 }
 
-async fn init_trait_item_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+async fn init_trait_item_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_ITEM_ASSOCIATION_TABLE (
@@ -78,7 +78,7 @@ async fn init_trait_item_association_table<'a>(conn: &mut Transaction<'a, Sqlite
     Ok(())
 }
 
-async fn init_trait_weapon_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+async fn init_trait_weapon_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_WEAPON_ASSOCIATION_TABLE (
@@ -95,7 +95,7 @@ async fn init_trait_weapon_association_table<'a>(conn: &mut Transaction<'a, Sqli
     Ok(())
 }
 
-async fn init_trait_shield_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+async fn init_trait_shield_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_SHIELD_ASSOCIATION_TABLE (
@@ -112,7 +112,7 @@ async fn init_trait_shield_association_table<'a>(conn: &mut Transaction<'a, Sqli
     Ok(())
 }
 
-async fn init_trait_armor_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+async fn init_trait_armor_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_ARMOR_ASSOCIATION_TABLE (
@@ -129,7 +129,7 @@ async fn init_trait_armor_association_table<'a>(conn: &mut Transaction<'a, Sqlit
     Ok(())
 }
 
-pub async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_weapon_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS WEAPON_TABLE (
@@ -154,7 +154,7 @@ pub async fn init_weapon_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result
     Ok(())
 }
 
-pub async fn init_weapon_damage_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_weapon_damage_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS WEAPON_DAMAGE_TABLE (
@@ -175,7 +175,7 @@ pub async fn init_weapon_damage_table<'a>(conn: &mut Transaction<'a, Sqlite>) ->
     Ok(())
 }
 
-pub async fn init_armor_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_armor_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS ARMOR_TABLE (
@@ -199,7 +199,7 @@ pub async fn init_armor_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<
     Ok(())
 }
 
-pub async fn init_shield_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_shield_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SHIELD_TABLE (
@@ -221,7 +221,7 @@ pub async fn init_shield_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result
     Ok(())
 }
 
-pub async fn init_rune_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<()> {
+pub async fn init_rune_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS RUNE_TABLE (
@@ -234,9 +234,7 @@ pub async fn init_rune_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<(
     Ok(())
 }
 
-pub async fn init_rune_weapon_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<()> {
+pub async fn init_rune_weapon_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS RUNE_WEAPON_ASSOCIATION_TABLE (
@@ -253,9 +251,7 @@ pub async fn init_rune_weapon_association_table<'a>(
     Ok(())
 }
 
-pub async fn init_rune_armor_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<()> {
+pub async fn init_rune_armor_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<()> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS RUNE_ARMOR_ASSOCIATION_TABLE (

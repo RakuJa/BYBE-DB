@@ -2,7 +2,7 @@ use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
-use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
+use crate::schema::source_schema::creature::item::spell_casting_entry::RawSpellCastingEntry;
 use serde_json::Value;
 
 pub struct ItemLinkedToCreature {
@@ -11,7 +11,7 @@ pub struct ItemLinkedToCreature {
     pub armor_list: Vec<BybeArmor>,
     pub item_list: Vec<BybeItem>,
     pub action_list: Vec<Action>,
-    pub spell_casting_entry: Option<SpellCastingEntry>,
+    pub spell_casting_entry: Vec<RawSpellCastingEntry>,
     pub skill_list: Vec<Skill>,
 }
 
@@ -20,7 +20,7 @@ impl ItemLinkedToCreature {
         let json_vec = json
             .as_array()
             .expect("Items entry is not formatted as a vector, Abort.");
-        let mut spell_casting_entry = None;
+        let mut spell_casting_entry = Vec::new();
         let mut spells = Vec::new();
         let mut weapons = Vec::new();
         let mut armors = Vec::new();
@@ -34,10 +34,13 @@ impl ItemLinkedToCreature {
             let curr_type = curr_el_type.as_str().unwrap().to_string();
             match curr_type.to_ascii_lowercase().as_str() {
                 "spellcastingentry" => {
-                    spell_casting_entry = Some(SpellCastingEntry::init_from_json(el.clone()));
+                    spell_casting_entry.push(RawSpellCastingEntry::init_from_json(el));
                 }
                 "spell" => {
-                    spells.push(Spell::init_from_json(el));
+                    // if it has ritual it's a ritual, we should parse differently
+                    if el.get("system").unwrap().get("ritual").is_none() {
+                        spells.push(Spell::init_from_json(el));
+                    }
                 }
                 "melee" | "weapon" => {
                     if let Some(wp) = BybeWeapon::init_from_json(el) {
