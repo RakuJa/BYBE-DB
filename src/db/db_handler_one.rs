@@ -551,8 +551,8 @@ async fn insert_shield(
     .last_insert_rowid())
 }
 
-async fn insert_shield_creature_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_shield_creature_association(
+    conn: &mut Transaction<'_, Sqlite>,
     shield_id: i64,
     cr_id: i64,
     quantity: i64,
