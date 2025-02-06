@@ -51,7 +51,7 @@ impl RawAttributes {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            immunities: json_utils::from_json_vec_of_jsons_convert_to_array_of_str(
+            immunities: json_utils::extract_vec_of_str_from_json_with_vec_of_jsons(
                 &json,
                 "immunities",
                 "type",

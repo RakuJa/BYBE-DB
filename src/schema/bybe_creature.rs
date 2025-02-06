@@ -67,7 +67,7 @@ pub struct BybeCreature {
     pub items: Vec<BybeItem>,
     pub actions: Vec<Action>,
     pub n_of_focus_points: i64,
-    pub spell_casting: Option<SpellCastingEntry>,
+    pub spell_casting: Vec<SpellCastingEntry>,
     pub spells: Vec<Spell>,
     pub skills: Vec<Skill>,
 }
@@ -79,6 +79,23 @@ impl BybeCreature {
         ))
     }
     pub fn init_from_source_creature(source_cr: SourceCreature) -> BybeCreature {
+        let spell_casting_entries = source_cr
+            .items
+            .spell_casting_entry
+            .iter()
+            .map(|sce| {
+                let curr_sce_spells = source_cr
+                    .items
+                    .spell_list
+                    .iter()
+                    .filter(|spell| spell.location_id == sce.raw_foundry_id)
+                    .cloned()
+                    .collect();
+                (sce, curr_sce_spells)
+            })
+            .map(|(sce, spells)| SpellCastingEntry::from((sce, &spells)))
+            .collect();
+
         BybeCreature {
             name: source_cr.name,
             creature_type: None,
@@ -131,7 +148,7 @@ impl BybeCreature {
             items: source_cr.items.item_list,
             actions: source_cr.items.action_list,
             spells: source_cr.items.spell_list,
-            spell_casting: source_cr.items.spell_casting_entry,
+            spell_casting: spell_casting_entries,
             skills: source_cr.items.skill_list,
             n_of_focus_points: source_cr.resource.n_of_focus_points,
         }

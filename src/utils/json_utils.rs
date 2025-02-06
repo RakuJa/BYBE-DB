@@ -8,22 +8,30 @@ pub fn get_field_from_json(json: &Value, field: &str) -> Value {
         .clone()
 }
 
-pub fn from_json_vec_of_jsons_convert_to_array_of_str(
+/// Extract array values from a json with the structure
+///
+/// `json`: {
+///
+/// >"random_field": x, "`vec_parent_key`":{
+///
+/// >>"f1":o1, "f2": o2, "`vec_field_key`": \[obj1, obj2]
+///
+/// >}
+///
+/// }
+///
+/// into \["obj1", "obj2"], extracting the vector and converting its content to string
+pub fn extract_vec_of_str_from_json_with_vec_of_jsons(
     json: &Value,
-    field: &str,
-    vec_field: &str,
+    vec_parent_key: &str,
+    vec_field_key: &str,
 ) -> Vec<String> {
-    // Converts json with the structure
-    // "random_field: x, field:{f1:o1, f2: o2, vec_field:[obj1,obj2]}"  into
-    // ["obj1", "obj2"], extracting the vector and converting its content to string
-    let vec: Vec<String> = get_field_from_json(json, field)
+    let vec: Vec<String> = get_field_from_json(json, vec_parent_key)
         .as_array()
         .unwrap_or(&vec![])
         .iter()
-        .map(|value| match value.get(vec_field) {
-            None => "".to_string(),
-            Some(x) => x.as_str().unwrap().to_string(),
-        })
+        .filter_map(|v| v.get(vec_field_key))
+        .filter_map(|v| v.as_str().map(String::from))
         .collect();
     vec
 }
@@ -31,7 +39,7 @@ pub fn from_json_vec_of_jsons_convert_to_array_of_str(
 pub fn from_json_vec_of_str_to_vec_of_str(json_vec: &[Value]) -> Vec<String> {
     let vec: Vec<String> = json_vec
         .iter()
-        .map(|value| value.as_str().unwrap().to_string().clone())
+        .map(|value| value.as_str().map(String::from).unwrap())
         .collect();
     vec
 }
@@ -47,14 +55,12 @@ pub fn from_json_vec_of_maps_to_map(json: &Value, field: &str) -> Option<HashMap
         map.insert(
             curr_json_map
                 .get("type")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
+                .and_then(|x| x.as_str())
+                .map(|x| x.to_string())
+                .unwrap(),
             curr_json_map
                 .get("value")
-                .unwrap()
-                .as_i64()
+                .and_then(|x| x.as_i64())
                 .expect("Speed value is NaN"),
         );
     }

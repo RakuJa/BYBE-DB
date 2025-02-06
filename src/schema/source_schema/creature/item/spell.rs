@@ -3,8 +3,10 @@ use crate::schema::source_schema::creature::item::saving_throw::SavingThrow;
 use crate::utils::json_utils;
 use serde_json::Value;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Spell {
+    pub raw_foundry_id: String,
+    pub location_id: String,
     pub name: String,
     pub area: Option<Area>,
     pub counteraction: bool,
@@ -46,16 +48,26 @@ impl Spell {
         let defense_json = json_utils::get_field_from_json(&system_json, "defense");
         let duration_json = json_utils::get_field_from_json(&system_json, "duration");
         let level_json = json_utils::get_field_from_json(&system_json, "level");
+        let location_json = json_utils::get_field_from_json(&system_json, "location");
         let publication_json = json_utils::get_field_from_json(&system_json, "publication");
         let range_json = json_utils::get_field_from_json(&system_json, "range");
         let target_json = json_utils::get_field_from_json(&system_json, "target");
         let time_json = json_utils::get_field_from_json(&system_json, "time");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         Spell {
+            raw_foundry_id: json_utils::get_field_from_json(json, "_id")
+                .as_str()
+                .map(String::from)
+                .unwrap(),
+            location_id: location_json
+                .get("value")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .unwrap(),
             name: json_utils::get_field_from_json(json, "name")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .unwrap(),
             area: match system_json.get("area") {
                 Some(x) => Area::init_from_json(x),
                 None => None,
@@ -73,7 +85,7 @@ impl Spell {
                 .unwrap(),
             duration: json_utils::get_field_from_json(&duration_json, "value")
                 .as_str()
-                .map(|x| x.to_string()),
+                .map(String::from),
             //heightened: match system_json.get("heightening") {
             //    Some(x) => Some(HeightenedData::init_from_json(x)),
             //    None => None,
@@ -82,22 +94,22 @@ impl Spell {
             publication_info: PublicationInfo::init_from_json(&publication_json),
             range: json_utils::get_field_from_json(&range_json, "value")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .unwrap(),
             target: json_utils::get_field_from_json(&target_json, "value")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .unwrap(),
             actions: json_utils::get_field_from_json(&time_json, "value")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .unwrap(),
             traits: SpellTraits::init_from_json(&traits_json),
         }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct SpellTraits {
     pub rarity: String,
     pub traditions: Vec<String>,
@@ -162,7 +174,7 @@ impl HeightenedData {
 
  */
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Area {
     pub area_type: String,
     pub area_value: i64,
@@ -185,7 +197,7 @@ impl Area {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct RawDamageData {
     pub category: Option<String>,
     pub formula: String,

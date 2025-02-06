@@ -2,9 +2,7 @@ use crate::trait_db_initializer::init_trait_table;
 use anyhow::Result;
 use sqlx::{Sqlite, Transaction};
 
-pub async fn init_all_creature_related_tables<'a>(
-    tx: &mut Transaction<'a, Sqlite>,
-) -> Result<bool> {
+pub async fn init_all_creature_related_tables(tx: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     init_creature_table(tx).await?;
     init_trait_table(tx).await?;
     init_trait_cr_association_table(tx).await?;
@@ -17,6 +15,7 @@ pub async fn init_all_creature_related_tables<'a>(
     init_speed_table(tx).await?;
     init_resistances_table(tx).await?;
     init_weakness_table(tx).await?;
+    init_spell_casting_entry_table(tx).await?;
     init_spell_table(tx).await?;
     init_trait_spell_association_table(tx).await?;
 
@@ -34,7 +33,7 @@ pub async fn init_all_creature_related_tables<'a>(
     Ok(true)
 }
 
-async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_creature_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS CREATURE_TABLE (
@@ -72,13 +71,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
         cr_type TEXT,
         family TEXT,
 
-        spell_casting_name TEXT,
-        is_spell_casting_flexible BOOL,
         n_of_focus_points INTEGER,
-        type_of_spell_caster TEXT,
-        spell_casting_dc_mod INTEGER,
-        spell_casting_atk_mod INTEGER,
-        spell_casting_tradition TEXT,
 
         UNIQUE(
             name, charisma, constitution, dexterity, intelligence,
@@ -93,7 +86,7 @@ async fn init_creature_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     Ok(true)
 }
 
-async fn init_trait_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_trait_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_CREATURE_ASSOCIATION_TABLE (
@@ -110,7 +103,7 @@ async fn init_trait_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>)
     Ok(true)
 }
 
-async fn init_speed_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_speed_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SPEED_TABLE (
@@ -127,7 +120,7 @@ async fn init_speed_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     Ok(true)
 }
 
-async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_resistances_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS RESISTANCE_TABLE (
@@ -144,7 +137,7 @@ async fn init_resistances_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Resul
     Ok(true)
 }
 
-async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_weakness_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS WEAKNESS_TABLE (
@@ -161,7 +154,7 @@ async fn init_weakness_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     Ok(true)
 }
 
-async fn init_immunity_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_immunity_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS IMMUNITY_TABLE (
@@ -174,9 +167,7 @@ async fn init_immunity_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     Ok(true)
 }
 
-async fn init_immunity_cr_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<bool> {
+async fn init_immunity_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS IMMUNITY_CREATURE_ASSOCIATION_TABLE (
@@ -193,7 +184,7 @@ async fn init_immunity_cr_association_table<'a>(
     Ok(true)
 }
 
-async fn init_language_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_language_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS LANGUAGE_TABLE (
@@ -206,9 +197,7 @@ async fn init_language_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<b
     Ok(true)
 }
 
-async fn init_language_cr_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<bool> {
+async fn init_language_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS LANGUAGE_CREATURE_ASSOCIATION_TABLE (
@@ -225,7 +214,7 @@ async fn init_language_cr_association_table<'a>(
     Ok(true)
 }
 
-async fn init_sense_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_sense_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SENSE_TABLE (
@@ -241,7 +230,7 @@ async fn init_sense_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     Ok(true)
 }
 
-async fn init_sense_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_sense_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SENSE_CREATURE_ASSOCIATION_TABLE (
@@ -258,7 +247,28 @@ async fn init_sense_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>)
     Ok(true)
 }
 
-async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_spell_casting_entry_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS SPELL_CASTING_ENTRY_TABLE (
+        id INTEGER PRIMARY KEY NOT NULL,
+        spell_casting_name TEXT NOT NULL,
+        is_spell_casting_flexible BOOL,
+        type_of_spell_caster TEXT NOT NULL,
+        spell_casting_dc_mod INTEGER,
+        spell_casting_atk_mod INTEGER,
+        spell_casting_tradition TEXT NOT NULL,
+        creature_id INTEGER NOT NULL,
+        FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_spell_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SPELL_TABLE (
@@ -281,8 +291,11 @@ async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
             remaster BOOL NOT NULL,
             source TEXT NOT NULL,
             rarity TEXT NOT NULL,
+            slot INTEGER NOT NULL,
             creature_id INTEGER NOT NULL,
-            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
+            spell_casting_entry_id INTEGER NOT NULL,
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (spell_casting_entry_id) REFERENCES SPELL_CASTING_ENTRY_TABLE(id)
     );
     ",
     )
@@ -291,9 +304,7 @@ async fn init_spell_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     Ok(true)
 }
 
-async fn init_trait_spell_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<bool> {
+async fn init_trait_spell_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_SPELL_ASSOCIATION_TABLE (
@@ -310,7 +321,7 @@ async fn init_trait_spell_association_table<'a>(
     Ok(true)
 }
 
-async fn init_tradition_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_tradition_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRADITION_TABLE (
@@ -323,8 +334,8 @@ async fn init_tradition_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<
     Ok(true)
 }
 
-async fn init_tradition_spell_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn init_tradition_spell_association_table(
+    conn: &mut Transaction<'_, Sqlite>,
 ) -> Result<bool> {
     sqlx::query(
         "
@@ -344,7 +355,7 @@ async fn init_tradition_spell_association_table<'a>(
 // END SPELL
 // BEGIN ACTION
 
-async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_action_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS ACTION_TABLE (
@@ -369,9 +380,7 @@ async fn init_action_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<boo
     Ok(true)
 }
 
-async fn init_trait_action_association_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> Result<bool> {
+async fn init_trait_action_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS TRAIT_ACTION_ASSOCIATION_TABLE (
@@ -391,7 +400,7 @@ async fn init_trait_action_association_table<'a>(
 // END ACTION
 // BEGIN SKILL
 
-async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_skill_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SKILL_TABLE (
@@ -413,7 +422,7 @@ async fn init_skill_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool
     Ok(true)
 }
 
-async fn init_skill_modifier_variant_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_skill_modifier_variant_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS CREATURE_SKILL_LABEL_TABLE (
@@ -431,7 +440,7 @@ async fn init_skill_modifier_variant_table<'a>(conn: &mut Transaction<'a, Sqlite
     Ok(true)
 }
 
-async fn init_item_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_item_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS ITEM_CREATURE_ASSOCIATION_TABLE (
@@ -449,7 +458,7 @@ async fn init_item_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) 
     Ok(true)
 }
 
-async fn init_weapon_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_weapon_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS WEAPON_CREATURE_ASSOCIATION_TABLE (
@@ -467,7 +476,7 @@ async fn init_weapon_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>
     Ok(true)
 }
 
-async fn init_shield_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_shield_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS SHIELD_CREATURE_ASSOCIATION_TABLE (
@@ -485,7 +494,7 @@ async fn init_shield_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>
     Ok(true)
 }
 
-async fn init_armor_cr_association_table<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+async fn init_armor_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS ARMOR_CREATURE_ASSOCIATION_TABLE (

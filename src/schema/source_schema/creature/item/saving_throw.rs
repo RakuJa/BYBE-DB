@@ -1,7 +1,7 @@
 use crate::utils::json_utils;
 use serde_json::Value;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct SavingThrow {
     pub basic: bool,
     pub statistic: String,

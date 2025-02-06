@@ -3,6 +3,7 @@ use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, Weap
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::sense::Sense;
 use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -15,8 +16,8 @@ pub async fn connect(db_path: &str) -> Result<SqlitePool> {
     Ok(SqlitePool::connect_with(options).await?)
 }
 
-pub async fn insert_item_to_db<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+pub async fn insert_item_to_db(
+    conn: &mut Transaction<'_, Sqlite>,
     item: &BybeItem,
     cr_id: Option<i64>,
 ) -> Result<i64> {
@@ -29,8 +30,8 @@ pub async fn insert_item_to_db<'a>(
     Ok(item_id)
 }
 
-pub async fn insert_shield_to_db<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+pub async fn insert_shield_to_db(
+    conn: &mut Transaction<'_, Sqlite>,
     shield: &BybeShield,
     cr_id: Option<i64>,
 ) -> Result<i64> {
@@ -42,7 +43,7 @@ pub async fn insert_shield_to_db<'a>(
     let shield_id = insert_shield(conn, shield, item_id).await?;
 
     if let Some(creature_id) = cr_id {
-        insert_weapon_creature_association(conn, shield_id, creature_id, shield.item_core.quantity)
+        insert_shield_creature_association(conn, shield_id, creature_id, shield.item_core.quantity)
             .await?;
     }
     insert_shield_trait_association(conn, &shield.item_core.traits, shield_id).await?;
@@ -50,8 +51,8 @@ pub async fn insert_shield_to_db<'a>(
     Ok(shield_id)
 }
 
-pub async fn insert_weapon_to_db<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+pub async fn insert_weapon_to_db(
+    conn: &mut Transaction<'_, Sqlite>,
     wp: &BybeWeapon,
     cr_id: Option<i64>,
 ) -> Result<i64> {
@@ -74,8 +75,8 @@ pub async fn insert_weapon_to_db<'a>(
     Ok(wp_id)
 }
 
-pub async fn insert_armor_to_db<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+pub async fn insert_armor_to_db(
+    conn: &mut Transaction<'_, Sqlite>,
     armor: &BybeArmor,
     cr_id: Option<i64>,
 ) -> Result<i64> {
@@ -98,8 +99,8 @@ pub async fn insert_armor_to_db<'a>(
     Ok(arm_id)
 }
 
-pub async fn insert_creature_to_db<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+pub async fn insert_creature_to_db(
+    conn: &mut Transaction<'_, Sqlite>,
     cr: BybeCreature,
 ) -> Result<bool> {
     let cr_id = insert_creature(conn, &cr).await?;
@@ -117,11 +118,16 @@ pub async fn insert_creature_to_db<'a>(
     for el in &cr.armors {
         insert_armor_to_db(conn, el, Some(cr_id)).await?;
     }
-    for el in &cr.spells {
-        let spell_id = insert_spell(conn, el, cr_id).await?;
-        insert_traits(conn, &el.traits.traits).await?;
-        insert_spell_trait_association(conn, &el.traits.traits, spell_id).await?;
-        insert_tradition_and_association(conn, &el.traits.traditions, spell_id).await?;
+    for el in &cr.spell_casting {
+        let sc_entry_id = insert_spell_casting_entry(conn, el, cr_id).await?;
+        for (slot, spells) in el.spell_slots.clone() {
+            for spell in spells {
+                let spell_id = insert_spell(conn, &spell, slot, cr_id, sc_entry_id).await?;
+                insert_traits(conn, &spell.traits.traits).await?;
+                insert_spell_trait_association(conn, &spell.traits.traits, spell_id).await?;
+                insert_tradition_and_association(conn, &spell.traits.traditions, spell_id).await?;
+            }
+        }
     }
     for el in &cr.actions {
         let action_id = insert_action(conn, el, cr_id).await?;
@@ -138,7 +144,7 @@ pub async fn insert_creature_to_db<'a>(
     Ok(true)
 }
 
-pub async fn update_with_aon_data<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+pub async fn update_with_aon_data(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     query_file!("src/db/raw_queries/update_mon_w_aon_data.sql")
         .execute(&mut **conn)
         .await?;
@@ -148,17 +154,14 @@ pub async fn update_with_aon_data<'a>(conn: &mut Transaction<'a, Sqlite>) -> Res
     Ok(true)
 }
 
-pub async fn insert_scales_values_to_db<'a>(conn: &mut Transaction<'a, Sqlite>) -> Result<bool> {
+pub async fn insert_scales_values_to_db(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     query_file!("src/db/raw_queries/scales.sql")
         .execute(&mut **conn)
         .await?;
     Ok(true)
 }
 
-async fn insert_traits<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-    traits: &Vec<String>,
-) -> Result<bool> {
+async fn insert_traits(conn: &mut Transaction<'_, Sqlite>, traits: &Vec<String>) -> Result<bool> {
     for el in traits {
         sqlx::query!("INSERT OR IGNORE INTO TRAIT_TABLE (name) VALUES ($1)", el)
             .execute(&mut **conn)
@@ -167,8 +170,8 @@ async fn insert_traits<'a>(
     Ok(true)
 }
 
-async fn insert_weapon_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_weapon_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -185,8 +188,8 @@ async fn insert_weapon_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_shield_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_shield_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -203,8 +206,8 @@ async fn insert_shield_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_armor_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_armor_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -221,8 +224,8 @@ async fn insert_armor_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_item_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_item_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -239,8 +242,8 @@ async fn insert_item_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_cr_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_cr_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -257,8 +260,8 @@ async fn insert_cr_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_language_and_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_language_and_association(
+    conn: &mut Transaction<'_, Sqlite>,
     languages: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -281,8 +284,8 @@ async fn insert_language_and_association<'a>(
     Ok(true)
 }
 
-async fn insert_immunity_and_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_immunity_and_association(
+    conn: &mut Transaction<'_, Sqlite>,
     immunities: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -305,8 +308,8 @@ async fn insert_immunity_and_association<'a>(
     Ok(true)
 }
 
-async fn insert_sense_and_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_sense_and_association(
+    conn: &mut Transaction<'_, Sqlite>,
     senses: &Vec<Sense>,
     id: i64,
 ) -> Result<bool> {
@@ -333,8 +336,8 @@ async fn insert_sense_and_association<'a>(
     Ok(true)
 }
 
-async fn insert_speeds<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_speeds(
+    conn: &mut Transaction<'_, Sqlite>,
     speed: &HashMap<String, i64>,
     id: i64,
 ) -> Result<bool> {
@@ -351,8 +354,8 @@ async fn insert_speeds<'a>(
     Ok(true)
 }
 
-async fn insert_resistances<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_resistances(
+    conn: &mut Transaction<'_, Sqlite>,
     resistances: &HashMap<String, i64>,
     id: i64,
 ) -> Result<bool> {
@@ -369,8 +372,8 @@ async fn insert_resistances<'a>(
     Ok(true)
 }
 
-async fn insert_weaknesses<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_weaknesses(
+    conn: &mut Transaction<'_, Sqlite>,
     weaknesses: &HashMap<String, i64>,
     id: i64,
 ) -> Result<bool> {
@@ -387,7 +390,7 @@ async fn insert_weaknesses<'a>(
     Ok(true)
 }
 
-async fn insert_item<'a>(conn: &mut Transaction<'a, Sqlite>, item: &BybeItem) -> Result<i64> {
+async fn insert_item(conn: &mut Transaction<'_, Sqlite>, item: &BybeItem) -> Result<i64> {
     let size = item.size.to_string();
     let rarity = item.rarity.to_string();
     // we check if a similar base item is already present
@@ -456,8 +459,8 @@ async fn insert_item<'a>(conn: &mut Transaction<'a, Sqlite>, item: &BybeItem) ->
     }
 }
 
-async fn insert_item_creature_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_item_creature_association(
+    conn: &mut Transaction<'_, Sqlite>,
     item_id: i64,
     cr_id: i64,
     quantity: i64,
@@ -474,25 +477,16 @@ async fn insert_item_creature_association<'a>(
     Ok(true)
 }
 
-async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreature) -> Result<i64> {
+async fn insert_creature(conn: &mut Transaction<'_, Sqlite>, cr: &BybeCreature) -> Result<i64> {
     let size = cr.size.to_string();
     let rarity = cr.rarity.to_string();
-    let spell_casting_entry = cr.spell_casting.clone();
-
-    let spell_casting_name = spell_casting_entry.clone().map(|x| x.name);
-    let spell_casting_flexible = spell_casting_entry.clone().and_then(|x| x.is_flexible);
-    let spell_casting_type = spell_casting_entry.clone().map(|x| x.type_of_spell_caster);
-    let spell_casting_dc = spell_casting_entry.clone().and_then(|x| x.dc_modifier);
-    let spell_casting_atk_mod = spell_casting_entry.clone().and_then(|x| x.atk_modifier);
-    let spell_casting_tradition = spell_casting_entry.clone().map(|x| x.tradition);
-
     Ok(sqlx::query!(
         "
             INSERT INTO CREATURE_TABLE VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
                 $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-                $31, $32, $33, $34, $35, $36, $37, $38, $39
+                $31, $32, $33
             )",
         None::<i64>, // id, autoincrement
         cr.name,
@@ -526,13 +520,7 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
         size,
         None::<String>, // type, source says NPC always..
         None::<String>, // family, source does not have it
-        spell_casting_name,
-        spell_casting_flexible,
         cr.n_of_focus_points,
-        spell_casting_type,
-        spell_casting_dc,
-        spell_casting_atk_mod,
-        spell_casting_tradition,
     )
     .execute(&mut **conn)
     .await?
@@ -542,8 +530,8 @@ async fn insert_creature<'a>(conn: &mut Transaction<'a, Sqlite>, cr: &BybeCreatu
 // CREATURE CORE DONE
 // SHIELD CORE START
 
-async fn insert_shield<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_shield(
+    conn: &mut Transaction<'_, Sqlite>,
     shield: &BybeShield,
     item_id: i64,
 ) -> Result<i64> {
@@ -563,8 +551,8 @@ async fn insert_shield<'a>(
     .last_insert_rowid())
 }
 
-async fn insert_shield_creature_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_shield_creature_association(
+    conn: &mut Transaction<'_, Sqlite>,
     shield_id: i64,
     cr_id: i64,
     quantity: i64,
@@ -582,8 +570,8 @@ async fn insert_shield_creature_association<'a>(
 }
 
 // WEAPON CORE START
-async fn insert_weapon<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_weapon(
+    conn: &mut Transaction<'_, Sqlite>,
     wp: &BybeWeapon,
     item_id: i64,
 ) -> Result<i64> {
@@ -607,8 +595,8 @@ async fn insert_weapon<'a>(
     .last_insert_rowid())
 }
 
-async fn insert_weapon_damage<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_weapon_damage(
+    conn: &mut Transaction<'_, Sqlite>,
     dmg_data: &Vec<WeaponDamageData>,
     wp_id: i64,
 ) -> Result<()> {
@@ -631,8 +619,8 @@ async fn insert_weapon_damage<'a>(
     Ok(())
 }
 
-async fn insert_weapon_creature_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_weapon_creature_association(
+    conn: &mut Transaction<'_, Sqlite>,
     weapon_id: i64,
     cr_id: i64,
     quantity: i64,
@@ -653,8 +641,8 @@ async fn insert_weapon_creature_association<'a>(
 
 // ARMOR CORE START
 
-async fn insert_armor<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_armor(
+    conn: &mut Transaction<'_, Sqlite>,
     armor: &BybeArmor,
     item_id: i64,
 ) -> Result<i64> {
@@ -677,8 +665,8 @@ async fn insert_armor<'a>(
     .await?
     .last_insert_rowid())
 }
-async fn insert_armor_creature_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_armor_creature_association(
+    conn: &mut Transaction<'_, Sqlite>,
     armor_id: i64,
     cr_id: i64,
     quantity: i64,
@@ -698,8 +686,31 @@ async fn insert_armor_creature_association<'a>(
 // ARMOR CORE END
 // SPELL CORE START
 
-async fn insert_spell_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_spell_casting_entry(
+    conn: &mut Transaction<'_, Sqlite>,
+    spell_casting_entry: &SpellCastingEntry,
+    id: i64,
+) -> Result<i64> {
+    Ok(sqlx::query!(
+        "INSERT INTO SPELL_CASTING_ENTRY_TABLE VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8
+        )",
+        None::<i64>, // id, autoincrement
+        spell_casting_entry.name,
+        spell_casting_entry.is_flexible,
+        spell_casting_entry.type_of_spell_caster,
+        spell_casting_entry.dc_modifier,
+        spell_casting_entry.atk_modifier,
+        spell_casting_entry.tradition,
+        id
+    )
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
+}
+
+async fn insert_spell_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -716,8 +727,8 @@ async fn insert_spell_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_tradition_and_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_tradition_and_association(
+    conn: &mut Transaction<'_, Sqlite>,
     tradition: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -740,10 +751,12 @@ async fn insert_tradition_and_association<'a>(
     Ok(true)
 }
 
-async fn insert_spell<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_spell(
+    conn: &mut Transaction<'_, Sqlite>,
     spell: &Spell,
+    slot: i64,
     cr_id: i64,
+    spell_casting_entry_id: i64,
 ) -> Result<i64> {
     let (area_type, area_value) = match spell.area.clone() {
         Some(data) => (Some(data.area_type), Some(data.area_value)),
@@ -757,7 +770,7 @@ async fn insert_spell<'a>(
         "
             INSERT INTO SPELL_TABLE VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14, $15, $16, $17, $18
+                $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
             )",
         None::<i64>, // id, autoincrement
         spell.name,
@@ -776,7 +789,9 @@ async fn insert_spell<'a>(
         spell.publication_info.remastered,
         spell.publication_info.source,
         spell.traits.rarity,
-        cr_id
+        slot,
+        cr_id,
+        spell_casting_entry_id
     )
     .execute(&mut **conn)
     .await?
@@ -785,8 +800,8 @@ async fn insert_spell<'a>(
 
 // ACTION
 
-async fn insert_action<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_action(
+    conn: &mut Transaction<'_, Sqlite>,
     action: &Action,
     cr_id: i64,
 ) -> Result<i64> {
@@ -813,8 +828,8 @@ async fn insert_action<'a>(
     .last_insert_rowid())
 }
 
-async fn insert_action_trait_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_action_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
@@ -831,8 +846,8 @@ async fn insert_action_trait_association<'a>(
     Ok(true)
 }
 
-async fn insert_skill<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_skill(
+    conn: &mut Transaction<'_, Sqlite>,
     skill: &Skill,
     cr_id: i64,
 ) -> Result<i64> {
@@ -856,8 +871,8 @@ async fn insert_skill<'a>(
     .last_insert_rowid())
 }
 
-async fn insert_skill_modifier_variant_table<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_skill_modifier_variant_table(
+    conn: &mut Transaction<'_, Sqlite>,
     skill_labels: &Vec<String>,
     cr_id: i64,
     skill_id: i64,
@@ -876,10 +891,7 @@ async fn insert_skill_modifier_variant_table<'a>(
     Ok(true)
 }
 
-async fn insert_runes<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-    traits: &Vec<String>,
-) -> Result<bool> {
+async fn insert_runes(conn: &mut Transaction<'_, Sqlite>, traits: &Vec<String>) -> Result<bool> {
     for el in traits {
         sqlx::query!("INSERT OR IGNORE INTO RUNE_TABLE (name) VALUES ($1)", el)
             .execute(&mut **conn)
@@ -888,8 +900,8 @@ async fn insert_runes<'a>(
     Ok(true)
 }
 
-async fn insert_weapon_rune_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_weapon_rune_association(
+    conn: &mut Transaction<'_, Sqlite>,
     runes: &Vec<String>,
     wp_id: i64,
 ) -> Result<bool> {
@@ -906,8 +918,8 @@ async fn insert_weapon_rune_association<'a>(
     Ok(true)
 }
 
-async fn insert_armor_rune_association<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
+async fn insert_armor_rune_association(
+    conn: &mut Transaction<'_, Sqlite>,
     runes: &Vec<String>,
     arm_id: i64,
 ) -> Result<bool> {

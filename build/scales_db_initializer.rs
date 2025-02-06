@@ -1,7 +1,7 @@
 use sqlx::{Sqlite, Transaction};
 
-pub async fn init_creature_builder_tables<'a>(
-    tx: &mut Transaction<'a, Sqlite>,
+pub async fn init_creature_builder_tables(
+    tx: &mut Transaction<'_, Sqlite>,
 ) -> anyhow::Result<bool> {
     init_ability_mod_scales(tx).await?;
     init_perception_scales(tx).await?;
@@ -18,7 +18,7 @@ pub async fn init_creature_builder_tables<'a>(
     Ok(true)
 }
 
-async fn init_ability_mod_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_ability_mod_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS ABILITY_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -33,7 +33,7 @@ async fn init_ability_mod_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyh
     Ok(true)
 }
 
-async fn init_perception_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_perception_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS PERCEPTION_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -49,7 +49,7 @@ async fn init_perception_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyho
     Ok(true)
 }
 
-async fn init_skill_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_skill_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS SKILL_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -65,7 +65,7 @@ async fn init_skill_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Re
     Ok(true)
 }
 
-async fn init_item_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_item_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS ITEM_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -77,7 +77,7 @@ async fn init_item_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Res
     Ok(true)
 }
 
-async fn init_ac_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_ac_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS AC_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -92,7 +92,7 @@ async fn init_ac_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Resul
     Ok(true)
 }
 
-async fn init_saving_throw_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_saving_throw_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS SAVING_THROW_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -108,7 +108,7 @@ async fn init_saving_throw_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> any
     Ok(true)
 }
 
-async fn init_hp_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_hp_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS HP_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -125,7 +125,7 @@ async fn init_hp_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Resul
     Ok(true)
 }
 
-async fn init_res_weak_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_res_weak_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS RES_WEAK_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -138,7 +138,7 @@ async fn init_res_weak_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow:
     Ok(true)
 }
 
-async fn init_strike_bonus_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_strike_bonus_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS STRIKE_BONUS_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -153,7 +153,7 @@ async fn init_strike_bonus_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> any
     Ok(true)
 }
 
-async fn init_strike_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_strike_dmg_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS STRIKE_DAMAGE_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -168,9 +168,7 @@ async fn init_strike_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyho
     Ok(true)
 }
 
-async fn init_spell_dc_and_atk_scales<'a>(
-    conn: &mut Transaction<'a, Sqlite>,
-) -> anyhow::Result<bool> {
+async fn init_spell_dc_and_atk_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS SPELL_DC_AND_ATTACK_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
@@ -187,7 +185,7 @@ async fn init_spell_dc_and_atk_scales<'a>(
     Ok(true)
 }
 
-async fn init_area_dmg_scales<'a>(conn: &mut Transaction<'a, Sqlite>) -> anyhow::Result<bool> {
+async fn init_area_dmg_scales(conn: &mut Transaction<'_, Sqlite>) -> anyhow::Result<bool> {
     let query = r#"
     CREATE TABLE IF NOT EXISTS AREA_DAMAGE_SCALES_TABLE (
             id INTEGER PRIMARY KEY NOT NULL,
