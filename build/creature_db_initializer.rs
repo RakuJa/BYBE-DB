@@ -22,6 +22,7 @@ pub async fn init_all_creature_related_tables(tx: &mut Transaction<'_, Sqlite>) 
     init_item_cr_association_table(tx).await?;
     init_weapon_cr_association_table(tx).await?;
     init_armor_cr_association_table(tx).await?;
+    init_shield_cr_association_table(tx).await?;
 
     init_tradition_table(tx).await?;
     init_tradition_spell_association_table(tx).await?;
@@ -251,12 +252,12 @@ async fn init_spell_casting_entry_table(conn: &mut Transaction<'_, Sqlite>) -> R
         "
     CREATE TABLE IF NOT EXISTS SPELL_CASTING_ENTRY_TABLE (
         id INTEGER PRIMARY KEY NOT NULL,
-        spell_casting_name TEXT,
+        spell_casting_name TEXT NOT NULL,
         is_spell_casting_flexible BOOL,
-        type_of_spell_caster TEXT,
+        type_of_spell_caster TEXT NOT NULL,
         spell_casting_dc_mod INTEGER,
         spell_casting_atk_mod INTEGER,
-        spell_casting_tradition TEXT,
+        spell_casting_tradition TEXT NOT NULL,
         creature_id INTEGER NOT NULL,
         FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
@@ -467,6 +468,24 @@ async fn init_weapon_cr_association_table(conn: &mut Transaction<'_, Sqlite>) ->
             PRIMARY KEY (creature_id, weapon_id, quantity),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
             FOREIGN KEY (weapon_id) REFERENCES WEAPON_TABLE(id) ON UPDATE CASCADE
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_shield_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS SHIELD_CREATURE_ASSOCIATION_TABLE (
+            creature_id INTEGER NOT NULL,
+            shield_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL,
+            PRIMARY KEY (creature_id, shield_id, quantity),
+            FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
+            FOREIGN KEY (shield_id) REFERENCES SHIELD_TABLE(id) ON UPDATE CASCADE
     );
     ",
     )

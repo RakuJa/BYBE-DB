@@ -43,7 +43,7 @@ pub async fn insert_shield_to_db(
     let shield_id = insert_shield(conn, shield, item_id).await?;
 
     if let Some(creature_id) = cr_id {
-        insert_weapon_creature_association(conn, shield_id, creature_id, shield.item_core.quantity)
+        insert_shield_creature_association(conn, shield_id, creature_id, shield.item_core.quantity)
             .await?;
     }
     insert_shield_trait_association(conn, &shield.item_core.traits, shield_id).await?;
@@ -549,6 +549,24 @@ async fn insert_shield(
     .execute(&mut **conn)
     .await?
     .last_insert_rowid())
+}
+
+async fn insert_shield_creature_association<'a>(
+    conn: &mut Transaction<'a, Sqlite>,
+    shield_id: i64,
+    cr_id: i64,
+    quantity: i64,
+) -> Result<bool> {
+    sqlx::query!(
+        "INSERT OR IGNORE INTO SHIELD_CREATURE_ASSOCIATION_TABLE
+            (shield_id, creature_id, quantity) VALUES ($1, $2, $3)",
+        shield_id,
+        cr_id,
+        quantity
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
 }
 
 // WEAPON CORE START
