@@ -8,7 +8,7 @@ pub struct SpellCastingEntry {
     pub name: String,
 
     pub is_flexible: Option<bool>,
-    pub type_of_spell_caster: String,
+    pub type_of_spellcaster: String,
 
     pub dc_modifier: Option<i64>,
     pub atk_modifier: Option<i64>,
@@ -44,7 +44,7 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
         Self {
             name: raw.name.to_string(),
             is_flexible: raw.is_flexible,
-            type_of_spell_caster: raw.type_of_spell_caster.to_string(),
+            type_of_spellcaster: raw.type_of_spellcaster.to_string(),
             dc_modifier: raw.dc_modifier,
             atk_modifier: raw.atk_modifier,
             tradition: raw.tradition.to_string(),
@@ -60,7 +60,7 @@ pub struct RawSpellCastingEntry {
     pub name: String,
 
     pub is_flexible: Option<bool>,
-    pub type_of_spell_caster: String,
+    pub type_of_spellcaster: String,
 
     pub dc_modifier: Option<i64>,
     pub atk_modifier: Option<i64>,
@@ -84,7 +84,7 @@ impl RawSpellCastingEntry {
                 .unwrap()
                 .to_string(),
             is_flexible: json_utils::get_field_from_json(&prepared_json, "flexible").as_bool(),
-            type_of_spell_caster: json_utils::get_field_from_json(&prepared_json, "value")
+            type_of_spellcaster: json_utils::get_field_from_json(&prepared_json, "value")
                 .as_str()
                 .unwrap()
                 .to_string(),

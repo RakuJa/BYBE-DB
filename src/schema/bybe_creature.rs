@@ -3,7 +3,7 @@ use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
-use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
+use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::sense::Sense;
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use serde_json::Value;
@@ -67,7 +67,7 @@ pub struct BybeCreature {
     pub items: Vec<BybeItem>,
     pub actions: Vec<Action>,
     pub n_of_focus_points: i64,
-    pub spell_casting: Vec<SpellCastingEntry>,
+    pub spellcasting: Vec<SpellCastingEntry>,
     pub spells: Vec<Spell>,
     pub skills: Vec<Skill>,
 }
@@ -79,9 +79,9 @@ impl BybeCreature {
         ))
     }
     pub fn init_from_source_creature(source_cr: SourceCreature) -> BybeCreature {
-        let spell_casting_entries = source_cr
+        let spellcasting_entries = source_cr
             .items
-            .spell_casting_entry
+            .spellcasting_entry
             .iter()
             .map(|sce| {
                 let curr_sce_spells = source_cr
@@ -148,7 +148,7 @@ impl BybeCreature {
             items: source_cr.items.item_list,
             actions: source_cr.items.action_list,
             spells: source_cr.items.spell_list,
-            spell_casting: spell_casting_entries,
+            spellcasting: spellcasting_entries,
             skills: source_cr.items.skill_list,
             n_of_focus_points: source_cr.resource.n_of_focus_points,
         }
