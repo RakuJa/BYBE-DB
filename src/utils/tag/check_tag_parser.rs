@@ -34,12 +34,12 @@ fn _clean_description_from_check_tag(description: &str) -> String {
                 "".to_string()
             };
             let dc_value = if !is_unsolvable_tag && !dc.is_empty() {
-                let dc_value = dc.trim();//.parse::<i64>().unwrap();
-                /* we should handle substitutions
-                .unwrap_or_else(|_| {
-                    0 //convert string with tags into value (substitution))}
-                });
-                 */
+                let dc_value = dc.trim(); //.parse::<i64>().unwrap();
+                                          /* we should handle substitutions
+                                          .unwrap_or_else(|_| {
+                                              0 //convert string with tags into value (substitution))}
+                                          });
+                                           */
                 format!("DC {dc_value} ")
             } else {
                 "".to_string()
