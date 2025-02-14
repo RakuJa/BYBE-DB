@@ -10,8 +10,8 @@ pub struct SpellCastingEntry {
     pub is_flexible: Option<bool>,
     pub type_of_spellcaster: String,
 
-    pub dc_modifier: Option<i64>,
-    pub atk_modifier: Option<i64>,
+    pub dc_modifier: i64,
+    pub atk_modifier: i64,
     pub tradition: String,
     pub spell_slots: HashMap<i64, Vec<Spell>>,
 }
@@ -35,12 +35,24 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
             .collect();
 
         let used_spells: Vec<_> = spell_slots.values().flatten().collect();
-        let unused_spells = spells
-            .clone()
-            .into_iter()
-            .filter(|spell| !used_spells.contains(&spell))
+        let unused_spells: Vec<_> = spells
+            .iter()
+            .filter(|spell| !used_spells.contains(spell))
             .collect();
-        spell_slots.insert(-1, unused_spells);
+        for spell in unused_spells {
+            let slot = if spell.traits.traits.contains(&String::from("cantrip")) {
+                0
+            } else if let Some(x) = spell.heightened_level {
+                x
+            } else {
+                spell.level
+            };
+
+            spell_slots
+                .entry(slot)
+                .and_modify(|v| v.push(spell.clone()));
+        }
+
         Self {
             name: raw.name.to_string(),
             is_flexible: raw.is_flexible,
@@ -62,8 +74,8 @@ pub struct RawSpellCastingEntry {
     pub is_flexible: Option<bool>,
     pub type_of_spellcaster: String,
 
-    pub dc_modifier: Option<i64>,
-    pub atk_modifier: Option<i64>,
+    pub dc_modifier: i64,
+    pub atk_modifier: i64,
     pub tradition: String,
     pub raw_spell_slots: HashMap<i64, Vec<String>>,
 }
@@ -88,8 +100,17 @@ impl RawSpellCastingEntry {
                 .as_str()
                 .unwrap()
                 .to_string(),
-            dc_modifier: json_utils::get_field_from_json(&spell_dc, "dc").as_i64(),
-            atk_modifier: json_utils::get_field_from_json(&spell_dc, "value").as_i64(),
+            dc_modifier: json_utils::get_field_from_json(&spell_dc, "dc")
+                .as_i64()
+                .unwrap_or_else(|| {
+                    json_utils::get_field_from_json(&spell_dc, "dc")
+                        .as_str()
+                        .and_then(|v| v.parse().ok())
+                        .unwrap()
+                }),
+            atk_modifier: json_utils::get_field_from_json(&spell_dc, "value")
+                .as_i64()
+                .unwrap(),
             tradition: json_utils::get_field_from_json(&system_json, "type")
                 .as_str()
                 .unwrap()

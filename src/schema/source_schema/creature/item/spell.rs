@@ -22,6 +22,7 @@ pub struct Spell {
     // because there are multiple ways to heighten data
     //pub heightened: Option<HeightenedData>,
     pub level: i64,
+    pub heightened_level: Option<i64>,
     pub range: String,
     pub target: String,
     pub actions: String,
@@ -64,6 +65,9 @@ impl Spell {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
                 .unwrap(),
+            heightened_level: location_json
+                .get("heightenedLevel")
+                .and_then(|v| v.as_i64()),
             name: json_utils::get_field_from_json(json, "name")
                 .as_str()
                 .map(String::from)
