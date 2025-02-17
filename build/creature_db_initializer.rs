@@ -71,7 +71,7 @@ async fn init_creature_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool>
         cr_type TEXT,
         family TEXT,
 
-        n_of_focus_points INTEGER,
+        n_of_focus_points INTEGER NOT NULL,
 
         UNIQUE(
             name, charisma, constitution, dexterity, intelligence,

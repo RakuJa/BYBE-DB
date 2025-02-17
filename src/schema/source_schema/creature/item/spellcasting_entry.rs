@@ -47,10 +47,9 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
             } else {
                 spell.level
             };
-
             spell_slots
                 .entry(slot)
-                .and_modify(|v| v.push(spell.clone()));
+                .and_modify(|v| v.push(spell.clone())).or_insert(vec![spell.clone()]);
         }
 
         Self {
@@ -102,12 +101,7 @@ impl RawSpellCastingEntry {
                 .to_string(),
             dc_modifier: json_utils::get_field_from_json(&spell_dc, "dc")
                 .as_i64()
-                .unwrap_or_else(|| {
-                    json_utils::get_field_from_json(&spell_dc, "dc")
-                        .as_str()
-                        .and_then(|v| v.parse().ok())
-                        .unwrap()
-                }),
+                .unwrap(),
             atk_modifier: json_utils::get_field_from_json(&spell_dc, "value")
                 .as_i64()
                 .unwrap(),
@@ -118,16 +112,18 @@ impl RawSpellCastingEntry {
             raw_spell_slots: json_utils::get_field_from_json(&system_json, "slots")
                 .as_object()
                 .unwrap()
-                .values()
-                .map(|array_of_spells| {
-                    json_utils::extract_vec_of_str_from_json_with_vec_of_jsons(
-                        array_of_spells,
-                        "prepared",
-                        "id",
+                .iter()
+                .map(|(key, array_of_spells)| {
+                    let (_, v) = key.split_at(4);
+                    (
+                        v.parse::<i64>().unwrap(),
+                        json_utils::extract_vec_of_str_from_json_with_vec_of_jsons(
+                            array_of_spells,
+                            "prepared",
+                            "id",
+                        ),
                     )
                 })
-                .enumerate()
-                .map(|(idx, spells)| (idx as i64, spells))
                 .collect(),
         }
     }

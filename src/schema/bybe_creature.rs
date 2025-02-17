@@ -91,9 +91,8 @@ impl BybeCreature {
                     .filter(|spell| spell.location_id == sce.raw_foundry_id)
                     .cloned()
                     .collect();
-                (sce, curr_sce_spells)
+                SpellCastingEntry::from((sce, &curr_sce_spells))
             })
-            .map(|(sce, spells)| SpellCastingEntry::from((sce, &spells)))
             .collect();
 
         BybeCreature {
