@@ -49,7 +49,8 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
             };
             spell_slots
                 .entry(slot)
-                .and_modify(|v| v.push(spell.clone())).or_insert(vec![spell.clone()]);
+                .and_modify(|v| v.push(spell.clone()))
+                .or_insert(vec![spell.clone()]);
         }
 
         Self {
