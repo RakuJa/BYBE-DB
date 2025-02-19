@@ -50,6 +50,7 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>, i64)> for SpellCastingEntry {
             } else {
                 spell.level
             };
+
             spell_slots
                 .entry(slot)
                 .and_modify(|v| v.push(spell.clone()))
