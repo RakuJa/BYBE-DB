@@ -15,7 +15,7 @@ pub async fn init_all_creature_related_tables(tx: &mut Transaction<'_, Sqlite>) 
     init_speed_table(tx).await?;
     init_resistances_table(tx).await?;
     init_weakness_table(tx).await?;
-    init_spell_casting_entry_table(tx).await?;
+    init_spellcasting_entry_table(tx).await?;
     init_spell_table(tx).await?;
     init_trait_spell_association_table(tx).await?;
 
@@ -247,17 +247,18 @@ async fn init_sense_cr_association_table(conn: &mut Transaction<'_, Sqlite>) -> 
     Ok(true)
 }
 
-async fn init_spell_casting_entry_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
+async fn init_spellcasting_entry_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
     sqlx::query(
         "
-    CREATE TABLE IF NOT EXISTS SPELL_CASTING_ENTRY_TABLE (
+    CREATE TABLE IF NOT EXISTS SPELLCASTING_ENTRY_TABLE (
         id INTEGER PRIMARY KEY NOT NULL,
-        spell_casting_name TEXT NOT NULL,
-        is_spell_casting_flexible BOOL,
-        type_of_spell_caster TEXT NOT NULL,
-        spell_casting_dc_mod INTEGER,
-        spell_casting_atk_mod INTEGER,
-        spell_casting_tradition TEXT NOT NULL,
+        spellcasting_name TEXT NOT NULL,
+        is_spellcasting_flexible BOOL,
+        type_of_spellcaster TEXT NOT NULL,
+        spellcasting_dc_mod INTEGER NOT NULL,
+        spellcasting_atk_mod INTEGER NOT NULL,
+        spellcasting_tradition TEXT NOT NULL,
+        heighten_level INTEGER NOT NULL,
         creature_id INTEGER NOT NULL,
         FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
@@ -293,9 +294,9 @@ async fn init_spell_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
             rarity TEXT NOT NULL,
             slot INTEGER NOT NULL,
             creature_id INTEGER NOT NULL,
-            spell_casting_entry_id INTEGER NOT NULL,
+            spellcasting_entry_id INTEGER NOT NULL,
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id),
-            FOREIGN KEY (spell_casting_entry_id) REFERENCES SPELL_CASTING_ENTRY_TABLE(id)
+            FOREIGN KEY (spellcasting_entry_id) REFERENCES SPELLCASTING_ENTRY_TABLE(id)
     );
     ",
     )

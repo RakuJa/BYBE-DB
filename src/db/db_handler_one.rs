@@ -3,7 +3,7 @@ use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, Weap
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
-use crate::schema::source_schema::creature::item::spell_casting_entry::SpellCastingEntry;
+use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::sense::Sense;
 use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -118,8 +118,8 @@ pub async fn insert_creature_to_db(
     for el in &cr.armors {
         insert_armor_to_db(conn, el, Some(cr_id)).await?;
     }
-    for el in &cr.spell_casting {
-        let sc_entry_id = insert_spell_casting_entry(conn, el, cr_id).await?;
+    for el in &cr.spellcasting {
+        let sc_entry_id = insert_spellcasting_entry(conn, el, cr_id).await?;
         for (slot, spells) in el.spell_slots.clone() {
             for spell in spells {
                 let spell_id = insert_spell(conn, &spell, slot, cr_id, sc_entry_id).await?;
@@ -686,22 +686,23 @@ async fn insert_armor_creature_association(
 // ARMOR CORE END
 // SPELL CORE START
 
-async fn insert_spell_casting_entry(
+async fn insert_spellcasting_entry(
     conn: &mut Transaction<'_, Sqlite>,
-    spell_casting_entry: &SpellCastingEntry,
+    spellcasting_entry: &SpellCastingEntry,
     id: i64,
 ) -> Result<i64> {
     Ok(sqlx::query!(
-        "INSERT INTO SPELL_CASTING_ENTRY_TABLE VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8
+        "INSERT INTO SPELLCASTING_ENTRY_TABLE VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         )",
         None::<i64>, // id, autoincrement
-        spell_casting_entry.name,
-        spell_casting_entry.is_flexible,
-        spell_casting_entry.type_of_spell_caster,
-        spell_casting_entry.dc_modifier,
-        spell_casting_entry.atk_modifier,
-        spell_casting_entry.tradition,
+        spellcasting_entry.name,
+        spellcasting_entry.is_flexible,
+        spellcasting_entry.type_of_spellcaster,
+        spellcasting_entry.dc_modifier,
+        spellcasting_entry.atk_modifier,
+        spellcasting_entry.tradition,
+        spellcasting_entry.heighten_level,
         id
     )
     .execute(&mut **conn)
@@ -756,7 +757,7 @@ async fn insert_spell(
     spell: &Spell,
     slot: i64,
     cr_id: i64,
-    spell_casting_entry_id: i64,
+    spellcasting_entry_id: i64,
 ) -> Result<i64> {
     let (area_type, area_value) = match spell.area.clone() {
         Some(data) => (Some(data.area_type), Some(data.area_value)),
@@ -791,7 +792,7 @@ async fn insert_spell(
         spell.traits.rarity,
         slot,
         cr_id,
-        spell_casting_entry_id
+        spellcasting_entry_id
     )
     .execute(&mut **conn)
     .await?

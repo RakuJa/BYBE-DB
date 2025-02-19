@@ -17,7 +17,7 @@ fn _clean_description_from_check_tag(description: &str) -> String {
             let square_content = curr_match.get(1).map(|x| x.as_str()).unwrap_or("");
 
             let dc = get_content_inside_square_brackets(square_content, "dc:");
-            let is_unsolvable_tag = dc.contains("resolve");
+            let is_unsolvable_tag = dc.contains("resolve"); //|| dc.contains("@");
 
             let curly_content = if is_unsolvable_tag {
                 "".to_string()
@@ -34,13 +34,13 @@ fn _clean_description_from_check_tag(description: &str) -> String {
                 "".to_string()
             };
             let dc_value = if !is_unsolvable_tag && !dc.is_empty() {
-                let dc_int_value = dc.trim().parse::<i64>().unwrap();
-                /* we should ignore substitutions
-                .unwrap_or_else(|_| {
-                    0 //convert string with tags into value (substitution))}
-                });
-                 */
-                format!("DC {dc_int_value} ")
+                let dc_value = dc.trim(); //.parse::<i64>().unwrap();
+                                          /* we should handle substitutions
+                                          .unwrap_or_else(|_| {
+                                              0 //convert string with tags into value (substitution))}
+                                          });
+                                           */
+                format!("DC {dc_value} ")
             } else {
                 "".to_string()
             };
