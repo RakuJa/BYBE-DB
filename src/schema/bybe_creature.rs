@@ -93,7 +93,6 @@ impl BybeCreature {
                     .collect();
                 SpellCastingEntry::from((sce, &curr_sce_spells, source_cr.details.level))
             })
-            .map(|(sce, spells)| SpellCastingEntry::from((sce, &spells)))
             .collect();
 
         BybeCreature {
