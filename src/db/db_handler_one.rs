@@ -693,7 +693,7 @@ async fn insert_spellcasting_entry(
 ) -> Result<i64> {
     Ok(sqlx::query!(
         "INSERT INTO SPELLCASTING_ENTRY_TABLE VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         )",
         None::<i64>, // id, autoincrement
         spellcasting_entry.name,
@@ -702,6 +702,7 @@ async fn insert_spellcasting_entry(
         spellcasting_entry.dc_modifier,
         spellcasting_entry.atk_modifier,
         spellcasting_entry.tradition,
+        spellcasting_entry.heighten_level,
         id
     )
     .execute(&mut **conn)

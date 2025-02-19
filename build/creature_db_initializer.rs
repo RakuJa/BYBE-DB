@@ -258,6 +258,7 @@ async fn init_spellcasting_entry_table(conn: &mut Transaction<'_, Sqlite>) -> Re
         spellcasting_dc_mod INTEGER NOT NULL,
         spellcasting_atk_mod INTEGER NOT NULL,
         spellcasting_tradition TEXT NOT NULL,
+        heighten_level INTEGER NOT NULL,
         creature_id INTEGER NOT NULL,
         FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
     );
