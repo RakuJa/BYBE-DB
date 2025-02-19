@@ -14,12 +14,15 @@ pub struct SpellCastingEntry {
     pub atk_modifier: i64,
     pub tradition: String,
     pub spell_slots: HashMap<i64, Vec<Spell>>,
+
+    pub heighten_level: i64,
 }
 
-impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
-    fn from(tuple: (&RawSpellCastingEntry, &Vec<Spell>)) -> Self {
+impl From<(&RawSpellCastingEntry, &Vec<Spell>, i64)> for SpellCastingEntry {
+    fn from(tuple: (&RawSpellCastingEntry, &Vec<Spell>, i64)) -> Self {
         let raw = tuple.0;
         let spells = tuple.1;
+        let cr_lvl = tuple.2;
 
         let mut spell_slots: HashMap<_, _> = raw
             .raw_spell_slots
@@ -50,9 +53,12 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
 
             spell_slots
                 .entry(slot)
-                .and_modify(|v| v.push(spell.clone()));
+                .and_modify(|v| v.push(spell.clone()))
+                .or_insert(vec![spell.clone()]);
         }
-
+        let level = raw
+            .heighten_level
+            .unwrap_or_else(|| 10.min((cr_lvl as f64 / 2.).ceil() as i64));
         Self {
             name: raw.name.to_string(),
             is_flexible: raw.is_flexible,
@@ -60,6 +66,7 @@ impl From<(&RawSpellCastingEntry, &Vec<Spell>)> for SpellCastingEntry {
             dc_modifier: raw.dc_modifier,
             atk_modifier: raw.atk_modifier,
             tradition: raw.tradition.to_string(),
+            heighten_level: level,
             spell_slots,
         }
     }
@@ -78,6 +85,8 @@ pub struct RawSpellCastingEntry {
     pub atk_modifier: i64,
     pub tradition: String,
     pub raw_spell_slots: HashMap<i64, Vec<String>>,
+
+    pub heighten_level: Option<i64>,
 }
 
 impl RawSpellCastingEntry {
@@ -85,6 +94,7 @@ impl RawSpellCastingEntry {
         let system_json = json_utils::get_field_from_json(json, "system");
         let prepared_json = json_utils::get_field_from_json(&system_json, "prepared");
         let spell_dc = json_utils::get_field_from_json(&system_json, "spelldc");
+        let heighten_level = json_utils::get_field_from_json(&system_json, "autoHeightenLevel");
 
         RawSpellCastingEntry {
             raw_foundry_id: json_utils::get_field_from_json(json, "_id")
@@ -96,6 +106,7 @@ impl RawSpellCastingEntry {
                 .unwrap()
                 .to_string(),
             is_flexible: json_utils::get_field_from_json(&prepared_json, "flexible").as_bool(),
+            heighten_level: json_utils::get_field_from_json(&heighten_level, "value").as_i64(),
             type_of_spellcaster: json_utils::get_field_from_json(&prepared_json, "value")
                 .as_str()
                 .unwrap()
