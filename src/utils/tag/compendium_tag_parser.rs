@@ -66,8 +66,8 @@ mod tests {
 
     #[rstest]
     #[case(
-    "@UUID[Compendium.pf2e.actionspf2e.Item.Pick a Lock]{Pick the Lock} @UUID[Compendium.pf2e.actionspf2e.Item.Pick a Lock]{Pick the Lock}",
-    "Pick the Lock Pick the Lock"
+        "@UUID[Compendium.pf2e.actionspf2e.Item.Pick a Lock]{Pick the Lock} @UUID[Compendium.pf2e.actionspf2e.Item.Pick a Lock]{Pick the Lock}",
+        "Pick the Lock Pick the Lock"
     )]
     fn clean_compendium_with_curly_brackets_and_multiple_compendium_tag(
         #[case] input: &str,

@@ -99,8 +99,8 @@ mod tests {
 
     #[rstest]
     #[case(
-    "@Template[type:burst|distance:5]{5-foot radius} @Template[type:burst|distance:10]{10 feet}",
-    "5-foot radius 10 feet"
+        "@Template[type:burst|distance:5]{5-foot radius} @Template[type:burst|distance:10]{10 feet}",
+        "5-foot radius 10 feet"
     )]
     #[case(
         "@Template[type:burst|distance:5]{5-foot radius}@Template[type:burst|distance:10]{10 feet}",

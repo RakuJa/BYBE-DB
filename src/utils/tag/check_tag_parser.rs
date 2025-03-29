@@ -35,11 +35,12 @@ fn _clean_description_from_check_tag(description: &str) -> String {
             };
             let dc_value = if !is_unsolvable_tag && !dc.is_empty() {
                 let dc_value = dc.trim(); //.parse::<i64>().unwrap();
-                                          /* we should handle substitutions
-                                          .unwrap_or_else(|_| {
-                                              0 //convert string with tags into value (substitution))}
-                                          });
-                                           */
+
+                /* we should handle substitutions
+                .unwrap_or_else(|_| {
+                    0 //convert string with tags into value (substitution))}
+                });
+                 */
                 format!("DC {dc_value} ")
             } else {
                 "".to_string()
@@ -105,8 +106,8 @@ mod tests {
 
     #[rstest]
     #[case(
-    "@Check[type:reflex|dc:27|basic:true|name:Sizzlers Follypop|traits:uncommon,electricity|showDC:all]",
-    "DC 27 basic Reflex"
+        "@Check[type:reflex|dc:27|basic:true|name:Sizzlers Follypop|traits:uncommon,electricity|showDC:all]",
+        "DC 27 basic Reflex"
     )]
     fn clean_check_with_type_and_dc_and_basic_and_curly_bracket_and_name_with_blank_spaces(
         #[case] input: &str,

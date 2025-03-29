@@ -293,8 +293,8 @@ mod tests {
 
     #[rstest]
     #[case(
-    "@Damage[6d6[fire]|traits:area-damage] damage and two @Damage[4d6[fire]|traits:area-damage]]",
-    "6d6 fire damage and two 4d6 fire"
+        "@Damage[6d6[fire]|traits:area-damage] damage and two @Damage[4d6[fire]|traits:area-damage]]",
+        "6d6 fire damage and two 4d6 fire"
     )]
     fn multiple_damage_entry_in_one(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description(input, None);
@@ -303,8 +303,8 @@ mod tests {
 
     #[rstest]
     #[case(
-    "dealing @Damage[1d8[piercing]] damage plus @Damage[1d4[bleed]]{1d4 persistent bleed damage} to the wielder. If the weapon has a striking rune, this damage increases to @Damage[1d8[piercing]] damage per damage die and @Damage[1d4[bleed]]{1d4 persistent damage} per damage die;",
-    "dealing 1d8 piercing damage plus 1d4 persistent bleed damage to the wielder. If the weapon has a striking rune, this damage increases to 1d8 piercing damage per damage die and 1d4 persistent damage per damage die;"
+        "dealing @Damage[1d8[piercing]] damage plus @Damage[1d4[bleed]]{1d4 persistent bleed damage} to the wielder. If the weapon has a striking rune, this damage increases to @Damage[1d8[piercing]] damage per damage die and @Damage[1d4[bleed]]{1d4 persistent damage} per damage die;",
+        "dealing 1d8 piercing damage plus 1d4 persistent bleed damage to the wielder. If the weapon has a striking rune, this damage increases to 1d8 piercing damage per damage die and 1d4 persistent damage per damage die;"
     )]
     fn multiple_damage_entry_in_one_and_one_curly_brackets(
         #[case] input: &str,

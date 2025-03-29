@@ -7,7 +7,7 @@ use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCasti
 use crate::schema::source_schema::creature::sense::Sense;
 use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{query_file, Sqlite, SqlitePool, Transaction};
+use sqlx::{Sqlite, SqlitePool, Transaction, query_file};
 use std::collections::HashMap;
 use std::str::FromStr;
 
