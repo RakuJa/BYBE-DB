@@ -279,13 +279,13 @@ impl WeaponDamageData {
             dmg_type: get_field_from_json(json, "damageType")
                 .as_str()
                 .map(|x| x.to_string()),
-            n_of_dice: n_dices.parse::<i64>().ok(),
+            n_of_dice: n_dices.trim().parse::<i64>().ok(),
             bonus_dmg: bonus_dmg
                 .parse()
-                .map(|x: String| x.parse::<i64>().unwrap_or(0))
+                .map(|x: String| x.trim().parse::<i64>().unwrap_or(0))
                 .ok()
                 .unwrap_or(0),
-            die_size: die.parse::<i64>().ok(),
+            die_size: die.trim().parse::<i64>().ok(),
         })
     }
 }
