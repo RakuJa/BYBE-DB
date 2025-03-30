@@ -170,11 +170,21 @@ impl BybeWeapon {
         let hit_bonus_json = get_field_from_json(&system_json, "bonus");
         let wp_type_json = get_field_from_json(&system_json, "weaponType");
 
-        let weapon_type = get_field_from_json(&wp_type_json, "value")
+        let tmp_weapon_type = get_field_from_json(&wp_type_json, "value")
             .as_str()
             .unwrap_or("")
-            .to_string()
-            .to_uppercase();
+            .to_string();
+
+        let weapon_type = if tmp_weapon_type.is_empty() {
+            String::from(if item_type.eq("melee") {
+                "melee"
+            } else {
+                "generic"
+            })
+        } else {
+            tmp_weapon_type
+        };
+
         Some(BybeWeapon {
             item_core: BybeItem::init_from_source_item(SourceItem::init_from_json(json)?),
             splash_dmg: get_field_from_json(&get_field_from_json(json, "splashDamage"), "value")
@@ -194,11 +204,7 @@ impl BybeWeapon {
                 .as_str()
                 .map(|x| x.to_string()),
             to_hit_bonus: get_field_from_json(&hit_bonus_json, "value").as_i64(),
-            weapon_type: if weapon_type.is_empty() {
-                String::from("GENERIC")
-            } else {
-                weapon_type
-            },
+            weapon_type: weapon_type.to_uppercase(),
             damage_data: WeaponDamageData::init_vec_from_json(&system_json),
         })
     }
