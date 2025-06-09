@@ -1,5 +1,5 @@
 use crate::utils::tag::{
-    check_tag_parser, compendium_tag_parser, dmg_tag_parser, template_tag_parser,
+    check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser, template_tag_parser,
 };
 use {once_cell::sync::Lazy, regex::Regex};
 
@@ -55,11 +55,14 @@ pub fn get_content_inside_square_brackets(content: &str, start_delimiter: &str) 
 
 pub fn clean_description_from_all_tags(description: &str, item_lvl: Option<i64>) -> String {
     clean_description_from_generic_bracket(
-        template_tag_parser::clean_description(
-            check_tag_parser::clean_description(
-                dmg_tag_parser::clean_description(
-                    compendium_tag_parser::clean_description(description).as_str(),
-                    item_lvl,
+        dm_roll_parser::clean_description(
+            template_tag_parser::clean_description(
+                check_tag_parser::clean_description(
+                    dmg_tag_parser::clean_description(
+                        compendium_tag_parser::clean_description(description).as_str(),
+                        item_lvl,
+                    )
+                    .as_str(),
                 )
                 .as_str(),
             )

@@ -1,6 +1,6 @@
 [package]
 name = "bybe-db"
-version = "2.6.0"
+version = "2.6.1"
 authors = ["RakuJa"]
 
 # Compiler info
@@ -37,14 +37,14 @@ git2 = "0.20"
 
 strum = {version= "0.27.1", features = ["derive"]}
 
-sqlx = { version = "0.8.3", features = ["runtime-async-std", "sqlite"] }
+sqlx = { version = "0.8.6", features = ["runtime-async-std", "sqlite"] }
 dotenvy = "0.15.7"
 log = "0.4"
 
 [build-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt"] }
 anyhow = "1.0.95"
-sqlx = { version = "0.8.3", features = ["runtime-async-std", "sqlite"] }
+sqlx = { version = "0.8.6", features = ["runtime-async-std", "sqlite"] }
 dotenv = "0.15.0"
 
 [dev-dependencies]

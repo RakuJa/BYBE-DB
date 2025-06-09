@@ -13,6 +13,7 @@ use crate::schema::source_schema::creature::source_creature::SourceCreature;
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
 use git2::Repository;
+use log::warn;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::path::Path;
 use std::{env, fs};
@@ -136,7 +137,7 @@ fn fetch_source_data(source_url: &str, source_path: &str) {
             Err(e) => panic!("failed to clone: {}", e),
         };
     } else {
-        println!("Warning: Path already exists, won't clone source dataset.")
+        warn!("Path already exists, won't clone source dataset.")
     }
 }
 
