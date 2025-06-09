@@ -4,8 +4,10 @@ use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
+use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::creature::sense::Sense;
 use crate::schema::source_schema::creature::source_creature::SourceCreature;
+use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -29,7 +31,7 @@ pub struct BybeCreature {
     pub ac_details: String,
     pub speed: HashMap<String, i64>,
     pub immunities: Vec<String>,
-    pub resistances: HashMap<String, i64>,
+    pub resistances: Vec<Resistance>,
     pub weaknesses: HashMap<String, i64>,
 
     // details
@@ -94,7 +96,6 @@ impl BybeCreature {
                 SpellCastingEntry::from((sce, &curr_sce_spells, source_cr.details.level))
             })
             .collect();
-
         BybeCreature {
             name: source_cr.name,
             creature_type: None,
@@ -109,7 +110,10 @@ impl BybeCreature {
             hp_details: source_cr.attributes.hp_details,
             ac_details: source_cr.attributes.ac_details,
             speed: source_cr.attributes.speed,
-            immunities: source_cr.attributes.immunities,
+            immunities: get_full_immunities_including_implicit(
+                source_cr.attributes.immunities,
+                &source_cr.traits.traits,
+            ),
             resistances: source_cr.attributes.resistances,
             weaknesses: source_cr.attributes.weakness,
             languages_details: source_cr.details.languages_details,
@@ -152,4 +156,56 @@ impl BybeCreature {
             n_of_focus_points: source_cr.resource.n_of_focus_points,
         }
     }
+}
+
+fn get_full_immunities_including_implicit(
+    immunities: Vec<String>,
+    traits: &[String],
+) -> Vec<String> {
+    let mut result = immunities.clone();
+
+    result.extend(get_implicit_immunities_from_traits(traits));
+    result.into_iter().unique().collect()
+}
+fn get_implicit_immunities_from_traits(traits: &[String]) -> Vec<String> {
+    //Check out foundry logic in actor/creature/helper.ts
+    let mut result = vec![];
+    /*
+    "Constructs are often mindless; they're immune to bleed damage, death effects, disease, healing,
+    nonlethal attacks, poison, vitality, void, and the doomed, drained, fatigued, paralyzed, sickened, and
+    unconscious conditions; and they might have Hardness based on the materials used to construct their bodies."
+    – GMC pg. 328
+     */
+    if traits.contains(&"construct".to_string()) && !traits.contains(&"eidolon".to_string()) {
+        result.extend(vec![
+            "bleed".to_string(),
+            "death-effects".to_string(),
+            "disease".to_string(),
+            "doomed".to_string(),
+            "drained".to_string(),
+            "fatigued".to_string(),
+            "healing".to_string(),
+            "nonlethal-attacks".to_string(),
+            "paralyzed".to_string(),
+            "poison".to_string(),
+            "sickened".to_string(),
+            "spirit".to_string(),
+            "unconscious".to_string(),
+            "vitality".to_string(),
+            "void".to_string(),
+        ]);
+    }
+    // "They are immune to all mental effects." – GMC pg. 331
+    if traits.contains(&"mindless".to_string()) && !traits.contains(&"mental".to_string()) {
+        result.extend(vec!["mental".to_string()]);
+    }
+    // "Swarms are immune to the grappled [sic], prone, and restrained conditions." – GMC pg. 334
+    if traits.contains(&"swarm".to_string()) {
+        result.extend(vec![
+            "grabbed".to_string(),
+            "prone".to_string(),
+            "restrained".to_string(),
+        ]);
+    }
+    result
 }

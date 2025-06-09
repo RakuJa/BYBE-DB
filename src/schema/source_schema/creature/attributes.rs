@@ -1,3 +1,4 @@
+use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::hp_values::RawHpValues;
 use crate::utils::json_utils;
 use serde_json::Value;
@@ -12,7 +13,7 @@ pub struct RawAttributes {
     pub hp_details: String,
     pub speed: HashMap<String, i64>,
     pub immunities: Vec<String>,
-    pub resistances: HashMap<String, i64>,
+    pub resistances: Vec<Resistance>,
     pub weakness: HashMap<String, i64>,
 }
 
@@ -30,7 +31,6 @@ impl RawAttributes {
                 .as_i64()
                 .unwrap_or(0),
         );
-        let resistances_map = json_utils::from_json_vec_of_maps_to_map(&json, "resistances");
         let weaknesses_map = json_utils::from_json_vec_of_maps_to_map(&json, "weaknesses");
         RawAttributes {
             ac: ac_json
@@ -56,7 +56,13 @@ impl RawAttributes {
                 "immunities",
                 "type",
             ),
-            resistances: resistances_map.unwrap_or_default(),
+            resistances: json
+                .get("resistances")
+                .and_then(|r| r.as_array())
+                .unwrap_or(&vec![])
+                .iter()
+                .map(|x| Resistance::init_from_json(x))
+                .collect(),
             speed: speed_map,
             weakness: weaknesses_map.unwrap_or_default(),
         }

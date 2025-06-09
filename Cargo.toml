@@ -15,7 +15,7 @@ license = "MIT"
 keywords = ["database", "pathfinder"]
 publish = false
 
-build="build/main.rs"
+build = "build/main.rs"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -35,15 +35,16 @@ serde = { version = "1.0", features = ["derive"] }
 
 git2 = "0.20"
 
-strum = {version= "0.27.1", features = ["derive"]}
+strum = { version = "0.27.1", features = ["derive"] }
 
 sqlx = { version = "0.8.6", features = ["runtime-async-std", "sqlite"] }
 dotenvy = "0.15.7"
 log = "0.4"
+itertools = "0.14.0"
 
 [build-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt"] }
-anyhow = "1.0.95"
+anyhow = "1.0"
 sqlx = { version = "0.8.6", features = ["runtime-async-std", "sqlite"] }
 dotenv = "0.15.0"
 
