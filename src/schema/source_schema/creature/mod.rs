@@ -3,6 +3,7 @@ mod attributes;
 mod details;
 pub mod item;
 mod perception;
+pub mod resistance;
 mod resources;
 mod saves;
 pub mod sense;

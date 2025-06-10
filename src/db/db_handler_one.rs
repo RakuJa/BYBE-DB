@@ -4,6 +4,7 @@ use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
+use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::creature::sense::Sense;
 use anyhow::Result;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -356,15 +357,53 @@ async fn insert_speeds(
 
 async fn insert_resistances(
     conn: &mut Transaction<'_, Sqlite>,
-    resistances: &HashMap<String, i64>,
+    resistances: &Vec<Resistance>,
     id: i64,
 ) -> Result<bool> {
-    for (res_type, res_value) in resistances {
-        sqlx::query!(
-            "INSERT INTO RESISTANCE_TABLE (creature_id, name, value) VALUES ($1, $2, $3)",
+    for res in resistances {
+        let res_id = sqlx::query!(
+            "INSERT INTO RESISTANCE_TABLE (id, creature_id, name, value) VALUES ($1, $2, $3, $4)",
+            None::<i64>,
             id,
-            res_type,
-            res_value
+            res.name,
+            res.value,
+        )
+        .execute(&mut **conn)
+        .await?
+        .last_insert_rowid();
+        insert_resistance_double_vs(conn, res_id, res.double_vs.clone()).await?;
+        insert_resistance_exception_vs(conn, res_id, res.exceptions.clone()).await?;
+    }
+    Ok(true)
+}
+
+async fn insert_resistance_double_vs(
+    conn: &mut Transaction<'_, Sqlite>,
+    res_id: i64,
+    double_vs: Vec<String>,
+) -> Result<bool> {
+    for vs in double_vs {
+        sqlx::query!(
+            "INSERT INTO RESISTANCE_DOUBLE_VS_TABLE (resistance_id, vs_name) VALUES ($1, $2)",
+            res_id,
+            vs
+        )
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_resistance_exception_vs(
+    conn: &mut Transaction<'_, Sqlite>,
+    res_id: i64,
+    exception_vs: Vec<String>,
+) -> Result<bool> {
+    for vs in exception_vs {
+        sqlx::query!(
+            "INSERT INTO RESISTANCE_EXCEPTION_VS_TABLE (resistance_id, vs_name) VALUES ($1, $2)",
+            res_id,
+            vs
         )
         .execute(&mut **conn)
         .await?;

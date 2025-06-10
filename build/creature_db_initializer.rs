@@ -14,6 +14,8 @@ pub async fn init_all_creature_related_tables(tx: &mut Transaction<'_, Sqlite>) 
     init_sense_cr_association_table(tx).await?;
     init_speed_table(tx).await?;
     init_resistances_table(tx).await?;
+    init_resistances_double_vs_table(tx).await?;
+    init_resistances_exception_vs_table(tx).await?;
     init_weakness_table(tx).await?;
     init_spellcasting_entry_table(tx).await?;
     init_spell_table(tx).await?;
@@ -124,11 +126,44 @@ async fn init_resistances_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bo
     sqlx::query(
         "
     CREATE TABLE IF NOT EXISTS RESISTANCE_TABLE (
+            id INTEGER PRIMARY KEY NOT NULL,
             creature_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             value INTEGER NOT NULL,
-            PRIMARY KEY (creature_id, name),
+            UNIQUE (creature_id, name),
             FOREIGN KEY (creature_id) REFERENCES CREATURE_TABLE(id)
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_resistances_double_vs_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS RESISTANCE_DOUBLE_VS_TABLE (
+            resistance_id INTEGER NOT NULL,
+            vs_name TEXT NOT NULL,
+            PRIMARY KEY (resistance_id, vs_name),
+            FOREIGN KEY (resistance_id) REFERENCES RESISTANCE_TABLE(id)
+    );
+    ",
+    )
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn init_resistances_exception_vs_table(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
+    sqlx::query(
+        "
+    CREATE TABLE IF NOT EXISTS RESISTANCE_EXCEPTION_VS_TABLE (
+            resistance_id INTEGER NOT NULL,
+            vs_name TEXT NOT NULL,
+            PRIMARY KEY (resistance_id, vs_name),
+            FOREIGN KEY (resistance_id) REFERENCES RESISTANCE_TABLE(id)
     );
     ",
     )
