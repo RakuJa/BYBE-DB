@@ -39,8 +39,9 @@ impl TryFrom<&Value> for Skill {
         // let rules_json = json_utils::get_field_from_json(&system_json, "rules");
         let variants_json = json_utils::get_field_from_json(&system_json, "variants");
         Ok(Skill {
-            name: json_utils::get_field_from_json(json, "name")
-                .as_str()
+            name: json
+                .get("name")
+                .and_then(Value::as_str)
                 .map(String::from)
                 .ok_or(SkillParsingError::NameParsing)?,
             description: json_utils::get_field_from_json(&description_json, "value")

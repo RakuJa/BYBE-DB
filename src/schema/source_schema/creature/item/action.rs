@@ -44,8 +44,9 @@ impl TryFrom<&Value> for Action {
         let slug_json = json_utils::get_field_from_json(&system_json, "slug");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         Ok(Action {
-            name: json_utils::get_field_from_json(json, "name")
-                .as_str()
+            name: json
+                .get("name")
+                .and_then(Value::as_str)
                 .map(String::from)
                 .ok_or(ActionParsingError::Name)?,
             action_type: json_utils::get_field_from_json(&action_type_json, "value")

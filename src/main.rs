@@ -8,20 +8,22 @@ extern crate git2;
 
 use crate::db::db_handler_one;
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon};
-use crate::schema::source_schema::creature::source_creature::SourceCreature;
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon};
+use crate::schema::source_schema::creature::source_creature::{
+    SourceCreature, SourceCreatureParsingError,
+};
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
 use git2::Repository;
-use log::{debug, warn};
+use log::warn;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::path::Path;
-use std::{env, fs};
+use std::{backtrace, env, fs};
 
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // use dotenv env variables
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("warn"));
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("error"));
     let source_url = &env::var("SOURCE_URL")
         .expect("SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
     let source_path = &env::var("SOURCE_DOWNLOAD_PATH").expect(
@@ -72,7 +74,15 @@ fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
                 .expect("JSON was not well-formatted"),
         ) {
             Ok(creature) => creatures.push(BybeCreature::from(creature)),
-            Err(e) => debug!("{}", e),
+            Err(e) => match e {
+                SourceCreatureParsingError::DuplicatedCreature
+                | SourceCreatureParsingError::InvalidCreatureType => {}
+                _ => panic!(
+                    "Error parsing creature {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     creatures
@@ -86,7 +96,15 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
                 .expect("JSON was not well-formatted"),
         ) {
             Ok(item) => items.push(item),
-            Err(e) => debug!("{}", e),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     items
@@ -100,7 +118,15 @@ fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
                 .expect("JSON was not well-formatted"),
         ) {
             Ok(item) => weapons.push(item),
-            Err(e) => debug!("{}", e),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     weapons
@@ -114,7 +140,15 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
                 .expect("JSON was not well-formatted"),
         ) {
             Ok(item) => armors.push(item),
-            Err(e) => debug!("{}", e),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     armors
@@ -128,7 +162,15 @@ fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
                 .expect("JSON was not well-formatted"),
         ) {
             Ok(item) => shields.push(item),
-            Err(e) => debug!("{}", e),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     shields

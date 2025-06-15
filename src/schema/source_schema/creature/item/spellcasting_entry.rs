@@ -121,8 +121,9 @@ impl TryFrom<&Value> for RawSpellCastingEntry {
                 .as_str()
                 .map(String::from)
                 .ok_or(RawSpellCastingParsingError::FoundryID)?,
-            name: json_utils::get_field_from_json(json, "name")
-                .as_str()
+            name: json
+                .get("name")
+                .and_then(Value::as_str)
                 .map(String::from)
                 .ok_or(RawSpellCastingParsingError::Name)?,
             is_flexible: json_utils::get_field_from_json(&prepared_json, "flexible").as_bool(),

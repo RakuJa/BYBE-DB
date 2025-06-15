@@ -77,8 +77,9 @@ impl TryFrom<&Value> for SourceCreature {
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         let items_json = json_utils::get_field_from_json(json, "items");
 
-        let name = json_utils::get_field_from_json(json, "name")
-            .as_str()
+        let name = json
+            .get("name")
+            .and_then(Value::as_str)
             .map(String::from)
             .ok_or(SourceCreatureParsingError::NameFormat)?;
         if name.to_uppercase().starts_with("ELITE ") || name.to_uppercase().starts_with("WEAK ") {

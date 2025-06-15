@@ -105,8 +105,9 @@ impl TryFrom<&Value> for Spell {
             heightened_level: location_json
                 .get("heightenedLevel")
                 .and_then(|v| v.as_i64()),
-            name: json_utils::get_field_from_json(json, "name")
-                .as_str()
+            name: json
+                .get("name")
+                .and_then(Value::as_str)
                 .map(String::from)
                 .ok_or(SpellParsingError::Name)?,
             area: match system_json.get("area") {
