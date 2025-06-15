@@ -8,8 +8,8 @@ pub struct PriceStruct {
     cp: i64,
 }
 
-impl PriceStruct {
-    pub fn init_from_json(json: &Value) -> PriceStruct {
+impl From<&Value> for PriceStruct {
+    fn from(json: &Value) -> Self {
         let prices = json_utils::get_field_from_json(json, "value");
         PriceStruct {
             pp: json_utils::get_field_from_json(&prices, "pp")
@@ -26,7 +26,9 @@ impl PriceStruct {
                 .unwrap_or(0),
         }
     }
+}
 
+impl PriceStruct {
     pub fn to_cp(&self) -> i64 {
         self.pp * 1000 + self.gp * 100 + self.sp * 10 + self.cp
     }

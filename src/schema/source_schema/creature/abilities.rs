@@ -1,5 +1,6 @@
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RawAbilities {
@@ -11,22 +12,39 @@ pub struct RawAbilities {
     pub wisdom: i64,
 }
 
-impl RawAbilities {
-    pub fn init_from_json(json: Value) -> RawAbilities {
-        RawAbilities {
-            charisma: get_ability_modifier(json_utils::get_field_from_json(&json, "cha"))
-                .expect("Cha Modifier is NaN"),
-            constitution: get_ability_modifier(json_utils::get_field_from_json(&json, "con"))
-                .expect("Con Modifier is NaN"),
-            dexterity: get_ability_modifier(json_utils::get_field_from_json(&json, "dex"))
-                .expect("Dex Modifier is NaN"),
-            intelligence: get_ability_modifier(json_utils::get_field_from_json(&json, "int"))
-                .expect("Int Modifier is NaN"),
-            strength: get_ability_modifier(json_utils::get_field_from_json(&json, "str"))
-                .expect("Str Modifier is NaN"),
-            wisdom: get_ability_modifier(json_utils::get_field_from_json(&json, "wis"))
-                .expect("Wis Modifier is NaN"),
-        }
+#[derive(Debug, Error)]
+pub enum AbilityParsingError {
+    #[error("Charisma modifier is NaN")]
+    Charisma,
+    #[error("Constitution  modifier is NaN")]
+    Constitution,
+    #[error("Dexterity modifier is NaN")]
+    Dexterity,
+    #[error("Intelligence  modifier is NaN")]
+    Intelligence,
+    #[error("Strength modifier is NaN")]
+    Strength,
+    #[error("Wisdom modifier is NaN")]
+    Wisdom,
+}
+
+impl TryFrom<&Value> for RawAbilities {
+    type Error = AbilityParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        Ok(RawAbilities {
+            charisma: get_ability_modifier(json_utils::get_field_from_json(json, "cha"))
+                .ok_or(AbilityParsingError::Charisma)?,
+            constitution: get_ability_modifier(json_utils::get_field_from_json(json, "con"))
+                .ok_or(AbilityParsingError::Constitution)?,
+            dexterity: get_ability_modifier(json_utils::get_field_from_json(json, "dex"))
+                .ok_or(AbilityParsingError::Dexterity)?,
+            intelligence: get_ability_modifier(json_utils::get_field_from_json(json, "int"))
+                .ok_or(AbilityParsingError::Intelligence)?,
+            strength: get_ability_modifier(json_utils::get_field_from_json(json, "str"))
+                .ok_or(AbilityParsingError::Strength)?,
+            wisdom: get_ability_modifier(json_utils::get_field_from_json(json, "wis"))
+                .ok_or(AbilityParsingError::Wisdom)?,
+        })
     }
 }
 

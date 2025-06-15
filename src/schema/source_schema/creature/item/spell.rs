@@ -1,7 +1,9 @@
-use crate::schema::publication_info::PublicationInfo;
+use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::creature::item::saving_throw::SavingThrow;
+use crate::schema::source_schema::creature::resistance::ResistanceParserError;
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Spell {
@@ -31,18 +33,53 @@ pub struct Spell {
     pub traits: SpellTraits,
 }
 
-impl Spell {
-    pub fn init_from_json(json: &Value) -> Spell {
+#[derive(Debug, Error)]
+pub enum SpellParsingError {
+    #[error("Foundry ID cannot be parsed")]
+    FoundryId,
+    #[error("Spell slot location cannot be parsed")]
+    SlotId,
+    #[error("Mandatory Name field is missing from json")]
+    Name,
+    #[error("Mandatory sustained field is missing from json")]
+    Sustained,
+    #[error("Mandatory level field is missing from json")]
+    Level,
+    #[error("Mandatory sustained field is missing from json")]
+    Range,
+    #[error("Mandatory target field is missing from json")]
+    Target,
+    #[error("Mandatory action field is missing from json")]
+    Action,
+    #[error("Area field is missing from json")]
+    AreaMissingField,
+    #[error("Area type field is missing from json")]
+    AreaType,
+    #[error("Area value is missing from json")]
+    AreaValue,
+    #[error("Rarity field is missing from json")]
+    Rarity,
+    #[error("Damage type field is missing from json")]
+    DamageType,
+    #[error("Damage formula field is missing from json")]
+    DamageFormula,
+    #[error("Damage kind field is missing from json")]
+    DamageKind,
+    #[error("Resistance could not be parsed")]
+    Resistance(#[from] ResistanceParserError),
+    #[error("Publication info could not be parsed")]
+    Publication(#[from] PublicationParsingError),
+}
+
+impl TryFrom<&Value> for Spell {
+    type Error = SpellParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let system_json = json_utils::get_field_from_json(json, "system");
         let mut damage_data = Vec::new();
         let mut i = 0;
         let damage_json = json_utils::get_field_from_json(&system_json, "damage");
-        loop {
-            let dmg_data_json = damage_json.get(i.to_string().as_str());
-            if dmg_data_json.is_none() {
-                break;
-            }
-            damage_data.push(RawDamageData::init_from_json(dmg_data_json.unwrap()));
+        while let Some(dmg_data_json) = damage_json.get(i.to_string().as_str()) {
+            damage_data.push(RawDamageData::try_from(dmg_data_json)?);
             i += 1;
         }
 
@@ -55,38 +92,39 @@ impl Spell {
         let target_json = json_utils::get_field_from_json(&system_json, "target");
         let time_json = json_utils::get_field_from_json(&system_json, "time");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
-        Spell {
+        Ok(Spell {
             raw_foundry_id: json_utils::get_field_from_json(json, "_id")
                 .as_str()
                 .map(String::from)
-                .unwrap(),
+                .ok_or(SpellParsingError::FoundryId)?,
             location_id: location_json
                 .get("value")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
-                .unwrap(),
+                .ok_or(SpellParsingError::SlotId)?,
             heightened_level: location_json
                 .get("heightenedLevel")
                 .and_then(|v| v.as_i64()),
             name: json_utils::get_field_from_json(json, "name")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .ok_or(SpellParsingError::Name)?,
             area: match system_json.get("area") {
-                Some(x) => Area::init_from_json(x),
+                Some(x) => Area::try_from(x).ok(),
                 None => None,
             },
             counteraction: json_utils::get_field_from_json(&system_json, "counteraction")
                 .as_bool()
                 .unwrap_or(false),
             damage: damage_data,
-            saving_throw: SavingThrow::init_from_json(&json_utils::get_field_from_json(
+            saving_throw: SavingThrow::try_from(&json_utils::get_field_from_json(
                 &defense_json,
                 "save",
-            )),
+            ))
+            .ok(),
             sustained: json_utils::get_field_from_json(&duration_json, "sustained")
                 .as_bool()
-                .unwrap(),
+                .ok_or(SpellParsingError::Sustained)?,
             duration: json_utils::get_field_from_json(&duration_json, "value")
                 .as_str()
                 .map(String::from),
@@ -94,22 +132,25 @@ impl Spell {
             //    Some(x) => Some(HeightenedData::init_from_json(x)),
             //    None => None,
             //},
-            level: level_json.get("value").unwrap().as_i64().unwrap(),
-            publication_info: PublicationInfo::init_from_json(&publication_json),
+            level: level_json
+                .get("value")
+                .and_then(|x| x.as_i64())
+                .ok_or(SpellParsingError::Level)?,
+            publication_info: PublicationInfo::try_from(&publication_json)?,
             range: json_utils::get_field_from_json(&range_json, "value")
                 .as_str()
                 .map(String::from)
-                .unwrap(),
+                .ok_or(SpellParsingError::Range)?,
             target: json_utils::get_field_from_json(&target_json, "value")
                 .as_str()
                 .map(String::from)
-                .unwrap(),
+                .ok_or(SpellParsingError::Target)?,
             actions: json_utils::get_field_from_json(&time_json, "value")
                 .as_str()
                 .map(String::from)
-                .unwrap(),
-            traits: SpellTraits::init_from_json(&traits_json),
-        }
+                .ok_or(SpellParsingError::Action)?,
+            traits: SpellTraits::try_from(&traits_json)?,
+        })
     }
 }
 
@@ -120,13 +161,14 @@ pub struct SpellTraits {
     pub traits: Vec<String>,
 }
 
-impl SpellTraits {
-    pub fn init_from_json(json: &Value) -> SpellTraits {
-        SpellTraits {
+impl TryFrom<&Value> for SpellTraits {
+    type Error = SpellParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        Ok(SpellTraits {
             rarity: json_utils::get_field_from_json(json, "rarity")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .ok_or(SpellParsingError::Rarity)?,
             traditions: json_utils::from_json_vec_of_str_to_vec_of_str(
                 json_utils::get_field_from_json(json, "traditions")
                     .as_array()
@@ -137,7 +179,7 @@ impl SpellTraits {
                     .as_array()
                     .unwrap_or(&Vec::new()),
             ),
-        }
+        })
     }
 }
 
@@ -184,19 +226,21 @@ pub struct Area {
     pub area_value: i64,
 }
 
-impl Area {
-    pub fn init_from_json(json: &Value) -> Option<Area> {
+impl TryFrom<&Value> for Area {
+    type Error = SpellParsingError;
+
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         match json.as_object().is_none() {
-            false => Some(Area {
+            false => Ok(Area {
                 area_type: json_utils::get_field_from_json(json, "type")
                     .as_str()
-                    .unwrap()
-                    .to_string(),
+                    .map(String::from)
+                    .ok_or(SpellParsingError::AreaType)?,
                 area_value: json_utils::get_field_from_json(json, "value")
                     .as_i64()
-                    .unwrap(),
+                    .ok_or(SpellParsingError::AreaValue)?,
             }),
-            true => None,
+            true => Err(SpellParsingError::AreaMissingField),
         }
     }
 }
@@ -209,25 +253,26 @@ pub struct RawDamageData {
     pub dmg_type: String,
 }
 
-impl RawDamageData {
-    pub fn init_from_json(json: &Value) -> RawDamageData {
-        RawDamageData {
+impl TryFrom<&Value> for RawDamageData {
+    type Error = SpellParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        Ok(RawDamageData {
             category: json_utils::get_field_from_json(json, "category")
                 .as_str()
                 .map(|x| x.to_string()),
             formula: json_utils::get_field_from_json(json, "formula")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .ok_or(SpellParsingError::DamageFormula)?,
             kinds: json_utils::from_json_vec_of_str_to_vec_of_str(
                 json_utils::get_field_from_json(json, "kinds")
                     .as_array()
-                    .unwrap(),
+                    .ok_or(SpellParsingError::DamageKind)?,
             ),
             dmg_type: json_utils::get_field_from_json(json, "type")
                 .as_str()
-                .unwrap()
-                .to_string(),
-        }
+                .map(String::from)
+                .ok_or(SpellParsingError::DamageType)?,
+        })
     }
 }
