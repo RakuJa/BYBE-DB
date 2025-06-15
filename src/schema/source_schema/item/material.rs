@@ -6,8 +6,8 @@ pub struct RawMaterial {
     pub m_type: Option<String>,
 }
 
-impl RawMaterial {
-    pub fn init_from_json(json: &Value) -> RawMaterial {
+impl From<&Value> for RawMaterial {
+    fn from(json: &Value) -> Self {
         RawMaterial {
             grade: json_utils::get_field_from_json(json, "grade")
                 .as_str()

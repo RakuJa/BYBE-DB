@@ -1,8 +1,9 @@
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
-use crate::schema::source_schema::item::source_item::SourceItem;
+use crate::schema::source_schema::item::source_item::{SourceItem, SourceItemParsingError};
 use crate::utils::json_utils;
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Clone)]
 pub struct BybeItem {
@@ -33,21 +34,45 @@ pub struct BybeItem {
     pub traits: Vec<String>,
 }
 
-impl BybeItem {
-    pub fn init_from_json(json: &Value) -> Option<BybeItem> {
+#[derive(Debug, Error)]
+pub enum BybeItemParsingError {
+    #[error("Unsupported item type")]
+    UnsupportedItemType,
+    #[error("Invalid item type")]
+    InvalidItemType,
+    #[error("Missing item type")]
+    MissingItemType,
+    #[error("Property runes is not an Array")]
+    PropertyRunes,
+    #[error("Ac bonus is NaN")]
+    AcBonus,
+    #[error("Check penalty is NaN")]
+    CheckPenalty,
+    #[error("Dexterity cap is NaN")]
+    DexterityCap,
+    #[error("Speed penalty is NaN")]
+    SpeedPenalty,
+    #[error("Damage data is not in a valid format")]
+    DamageData,
+    #[error("Source item could not be parsed")]
+    SourceItemError(#[from] SourceItemParsingError),
+}
+impl TryFrom<&Value> for BybeItem {
+    type Error = BybeItemParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let item_type = get_field_from_json(json, "type")
             .as_str()
-            .unwrap()
-            .to_string()
-            .to_ascii_lowercase();
+            .map(|x| x.to_ascii_lowercase())
+            .ok_or(BybeItemParsingError::MissingItemType)?;
         if !(item_type.eq("equipment") | item_type.eq("consumable")) {
-            return None;
+            return Err(BybeItemParsingError::UnsupportedItemType);
         }
-        Some(Self::init_from_source_item(SourceItem::init_from_json(
-            json,
-        )?))
+        Ok(Self::from(SourceItem::try_from(json)?))
     }
-    pub fn init_from_source_item(source_item: SourceItem) -> BybeItem {
+}
+
+impl From<SourceItem> for BybeItem {
+    fn from(source_item: SourceItem) -> Self {
         BybeItem {
             name: source_item.name,
             bulk: source_item.bulk,
@@ -98,44 +123,44 @@ pub struct BybeArmor {
     pub strength_required: Option<i64>,
 }
 
-impl BybeArmor {
-    pub fn init_from_json(json: &Value) -> Option<BybeArmor> {
+impl TryFrom<&Value> for BybeArmor {
+    type Error = BybeItemParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let item_type = get_field_from_json(json, "type")
             .as_str()
-            .unwrap()
-            .to_string()
-            .to_ascii_lowercase();
+            .map(|x| x.to_ascii_lowercase())
+            .ok_or(BybeItemParsingError::MissingItemType)?;
         if !item_type.eq("armor") {
-            return None;
+            return Err(BybeItemParsingError::InvalidItemType);
         }
         let system_json = get_field_from_json(json, "system");
-        let item_core = BybeItem::init_from_source_item(SourceItem::init_from_json(json)?);
+        let item_core = BybeItem::from(SourceItem::try_from(json)?);
         let rune_json = get_field_from_json(&system_json, "runes");
-        Some(BybeArmor {
+        Ok(BybeArmor {
             item_core,
             ac_bonus: get_field_from_json(&system_json, "acBonus")
                 .as_i64()
-                .unwrap(),
+                .ok_or(BybeItemParsingError::AcBonus)?,
             check_penalty: get_field_from_json(&system_json, "checkPenalty")
                 .as_i64()
-                .unwrap(),
+                .ok_or(BybeItemParsingError::CheckPenalty)?,
             dex_cap: get_field_from_json(&system_json, "dexCap")
                 .as_i64()
-                .unwrap(),
+                .ok_or(BybeItemParsingError::DexterityCap)?,
             n_of_potency_runes: get_field_from_json(&rune_json, "potency")
                 .as_i64()
                 .unwrap_or(0),
             property_runes: json_utils::from_json_vec_of_str_to_vec_of_str(
                 get_field_from_json(&rune_json, "property")
                     .as_array()
-                    .unwrap(),
+                    .ok_or(BybeItemParsingError::PropertyRunes)?,
             ),
             n_of_resilient_runes: get_field_from_json(&rune_json, "resilient")
                 .as_i64()
                 .unwrap_or(0),
             speed_penalty: get_field_from_json(&system_json, "speedPenalty")
                 .as_i64()
-                .unwrap(),
+                .ok_or(BybeItemParsingError::SpeedPenalty)?,
             strength_required: get_field_from_json(&system_json, "strength").as_i64(),
         })
     }
@@ -155,15 +180,15 @@ pub struct BybeWeapon {
     pub weapon_type: String,
 }
 
-impl BybeWeapon {
-    pub fn init_from_json(json: &Value) -> Option<BybeWeapon> {
+impl TryFrom<&Value> for BybeWeapon {
+    type Error = BybeItemParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let item_type = get_field_from_json(json, "type")
             .as_str()
-            .unwrap()
-            .to_string()
-            .to_ascii_lowercase();
+            .map(|x| x.to_ascii_lowercase())
+            .ok_or(BybeItemParsingError::MissingItemType)?;
         if !(item_type.eq("weapon") | item_type.eq("melee")) {
-            return None;
+            return Err(BybeItemParsingError::InvalidItemType);
         }
         let system_json = get_field_from_json(json, "system");
         let runes_data = get_field_from_json(&system_json, "runes");
@@ -185,8 +210,8 @@ impl BybeWeapon {
             tmp_weapon_type
         };
 
-        Some(BybeWeapon {
-            item_core: BybeItem::init_from_source_item(SourceItem::init_from_json(json)?),
+        Ok(BybeWeapon {
+            item_core: BybeItem::from(SourceItem::try_from(json)?),
             splash_dmg: get_field_from_json(&get_field_from_json(json, "splashDamage"), "value")
                 .as_i64(),
             n_of_potency_runes: get_field_from_json(&runes_data, "potency")
@@ -196,7 +221,9 @@ impl BybeWeapon {
                 .as_i64()
                 .unwrap_or(0),
             property_runes: match runes_data.get("property") {
-                Some(x) => json_utils::from_json_vec_of_str_to_vec_of_str(x.as_array().unwrap()),
+                Some(x) => json_utils::from_json_vec_of_str_to_vec_of_str(
+                    x.as_array().ok_or(BybeItemParsingError::PropertyRunes)?,
+                ),
                 None => vec![],
             },
             range: get_field_from_json(&system_json, "range").as_i64(),
@@ -216,6 +243,49 @@ pub struct WeaponDamageData {
     pub n_of_dice: Option<i64>,
     pub die_size: Option<i64>,
     pub bonus_dmg: i64,
+}
+
+impl TryFrom<&Value> for WeaponDamageData {
+    type Error = BybeItemParsingError;
+
+    /// parses a single item of a "DamageRolls"-like json
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        if let Some(dmg) = json.get("damage").and_then(|x| x.as_str()) {
+            let (n_dices, dmg_data) = if let Some(x) = dmg.split_once('d') {
+                x
+            } else {
+                // we have a single number, so we put in dmg that will put it in the die size
+                // aka 1 => 1d1 | 3 => 3d1
+                (dmg, "1")
+            };
+            let (die, bonus_dmg) = if dmg_data.contains('+') {
+                let (die, dmg) = dmg_data
+                    .split_once('+')
+                    .ok_or(BybeItemParsingError::DamageData)?;
+                (die, dmg.to_string())
+            } else if dmg_data.contains('-') {
+                let (die, dmg) = dmg_data
+                    .split_once('-')
+                    .ok_or(BybeItemParsingError::DamageData)?;
+                (die, format!("-{dmg}"))
+            } else {
+                (dmg_data, "".to_string())
+            };
+            Ok(WeaponDamageData {
+                dmg_type: get_field_from_json(json, "damageType")
+                    .as_str()
+                    .map(|x| x.to_string()),
+                n_of_dice: n_dices.trim().parse::<i64>().ok(),
+                bonus_dmg: bonus_dmg
+                    .parse()
+                    .map(|x: String| x.trim().parse::<i64>().unwrap_or(0))
+                    .unwrap_or(0),
+                die_size: die.trim().parse::<i64>().ok(),
+            })
+        } else {
+            Err(BybeItemParsingError::InvalidItemType)
+        }
+    }
 }
 
 impl WeaponDamageData {
@@ -240,7 +310,7 @@ impl WeaponDamageData {
                 let mut weapon_dmg_vec = Vec::new();
                 if let Some(key_value_map) = json.get("damageRolls").and_then(|x| x.as_object()) {
                     for (_key, value) in key_value_map {
-                        if let Some(dmg_data) = Self::parse_dmg_json(value) {
+                        if let Ok(dmg_data) = Self::try_from(value) {
                             weapon_dmg_vec.push(dmg_data);
                         }
                     }
@@ -261,39 +331,6 @@ impl WeaponDamageData {
             result_vec
         }
     }
-
-    /// parses a single item of a "DamageRolls"-like json
-    fn parse_dmg_json(json: &Value) -> Option<WeaponDamageData> {
-        let dmg = json.get("damage")?.as_str()?;
-        let (n_dices, dmg_data) = if let Some(x) = dmg.split_once('d') {
-            x
-        } else {
-            // we have a single number, so we put in dmg that will put it in the die size
-            // aka 1 => 1d1 | 3 => 3d1
-            (dmg, "1")
-        };
-        let (die, bonus_dmg) = if dmg_data.contains('+') {
-            let (die, dmg) = dmg_data.split_once('+').unwrap();
-            (die, dmg.to_string())
-        } else if dmg_data.contains('-') {
-            let (die, dmg) = dmg_data.split_once('-').unwrap();
-            (die, format!("-{dmg}"))
-        } else {
-            (dmg_data, "".to_string())
-        };
-        Some(WeaponDamageData {
-            dmg_type: get_field_from_json(json, "damageType")
-                .as_str()
-                .map(|x| x.to_string()),
-            n_of_dice: n_dices.trim().parse::<i64>().ok(),
-            bonus_dmg: bonus_dmg
-                .parse()
-                .map(|x: String| x.trim().parse::<i64>().unwrap_or(0))
-                .ok()
-                .unwrap_or(0),
-            die_size: die.trim().parse::<i64>().ok(),
-        })
-    }
 }
 
 #[derive(Clone)]
@@ -304,22 +341,23 @@ pub struct BybeShield {
     pub speed_penalty: i64,
 }
 
-impl BybeShield {
-    pub fn init_from_json(json: &Value) -> Option<BybeShield> {
+impl TryFrom<&Value> for BybeShield {
+    type Error = BybeItemParsingError;
+
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let item_type = get_field_from_json(json, "type")
             .as_str()
-            .unwrap()
-            .to_string()
-            .to_ascii_lowercase();
+            .map(|x| x.to_ascii_lowercase())
+            .ok_or(BybeItemParsingError::MissingItemType)?;
         if !item_type.eq("shield") {
-            return None;
+            return Err(BybeItemParsingError::InvalidItemType);
         }
 
         let system_json = get_field_from_json(json, "system");
-        let item_core = BybeItem::init_from_source_item(SourceItem::init_from_json(json)?);
+        let item_core = BybeItem::from(SourceItem::try_from(json)?);
         let specific_json = get_field_from_json(json, "specific");
 
-        Some(BybeShield {
+        Ok(BybeShield {
             item_core,
             n_of_reinforcing_runes: get_field_from_json(
                 &get_field_from_json(&specific_json, "runes"),

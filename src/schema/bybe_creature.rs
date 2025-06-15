@@ -6,10 +6,13 @@ use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::creature::sense::Sense;
-use crate::schema::source_schema::creature::source_creature::SourceCreature;
+use crate::schema::source_schema::creature::source_creature::{
+    SourceCreature, SourceCreatureParsingError,
+};
 use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;
+use thiserror::Error;
 
 #[derive(Clone)]
 pub struct BybeCreature {
@@ -74,13 +77,21 @@ pub struct BybeCreature {
     pub skills: Vec<Skill>,
 }
 
-impl BybeCreature {
-    pub fn init_from_json(json: &Value) -> Option<BybeCreature> {
-        Some(Self::init_from_source_creature(
-            SourceCreature::init_from_json(json)?,
-        ))
+#[derive(Debug, Error)]
+pub enum BybeCreatureParsingError {
+    #[error("Source item could not be parsed")]
+    SourceCreatureError(#[from] SourceCreatureParsingError),
+}
+
+impl TryFrom<&Value> for BybeCreature {
+    type Error = BybeCreatureParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        Ok(Self::from(SourceCreature::try_from(json)?))
     }
-    pub fn init_from_source_creature(source_cr: SourceCreature) -> BybeCreature {
+}
+
+impl From<SourceCreature> for BybeCreature {
+    fn from(source_cr: SourceCreature) -> Self {
         let spellcasting_entries = source_cr
             .items
             .spellcasting_entry

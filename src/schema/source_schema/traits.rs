@@ -1,5 +1,6 @@
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RawTraits {
@@ -8,25 +9,36 @@ pub struct RawTraits {
     pub traits: Vec<String>,
 }
 
-impl RawTraits {
-    pub fn init_from_json(json: Value) -> RawTraits {
-        RawTraits {
-            rarity: json_utils::get_field_from_json(&json, "rarity")
+#[derive(Debug, Error)]
+pub enum TraitParsingError {
+    #[error("Rarity field could not be parsed")]
+    Rarity,
+    #[error("Size field could not be parsed")]
+    Size,
+    #[error("Traits field could not be parsed")]
+    Traits,
+}
+
+impl TryFrom<&Value> for RawTraits {
+    type Error = TraitParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        Ok(RawTraits {
+            rarity: json_utils::get_field_from_json(json, "rarity")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .ok_or(TraitParsingError::Rarity)?,
             size: json_utils::get_field_from_json(
-                &json_utils::get_field_from_json(&json, "size"),
+                &json_utils::get_field_from_json(json, "size"),
                 "value",
             )
             .as_str()
-            .unwrap()
-            .to_string(),
+            .map(String::from)
+            .ok_or(TraitParsingError::Size)?,
             traits: json_utils::from_json_vec_of_str_to_vec_of_str(
-                json_utils::get_field_from_json(&json, "value")
+                json_utils::get_field_from_json(json, "value")
                     .as_array()
-                    .unwrap(),
+                    .ok_or(TraitParsingError::Traits)?,
             ),
-        }
+        })
     }
 }

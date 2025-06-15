@@ -1,11 +1,12 @@
-use crate::schema::publication_info::PublicationInfo;
+use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::description::Description;
-use crate::schema::source_schema::hp_values::RawHpValues;
+use crate::schema::source_schema::hp_values::{HpParsingError, RawHpValues};
 use crate::schema::source_schema::item::material::RawMaterial;
 use crate::schema::source_schema::price_struct::PriceStruct;
-use crate::schema::source_schema::traits::RawTraits;
+use crate::schema::source_schema::traits::{RawTraits, TraitParsingError};
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
+use thiserror::Error;
 
 pub struct SourceItem {
     pub name: String,
@@ -28,13 +29,29 @@ pub struct SourceItem {
     pub uses: Option<i64>, // for consumables, for equip set as null.
 }
 
-impl SourceItem {
-    pub fn init_from_json(json: &Value) -> Option<SourceItem> {
+#[derive(Debug, Error)]
+pub enum SourceItemParsingError {
+    #[error("Category field is not a string")]
+    CategoryFieldMissing,
+    #[error("Mandatory Name field is missing from json")]
+    NameFieldMissing,
+    #[error("Publication info could not be parsed")]
+    PublicationError(#[from] PublicationParsingError),
+    #[error("Error while parsing type field")]
+    TypeFieldError,
+    #[error("Hp Value could not be parsed")]
+    HpError(#[from] HpParsingError),
+    #[error("Trait values could not be parsed")]
+    TraitError(#[from] TraitParsingError),
+}
+
+impl TryFrom<&Value> for SourceItem {
+    type Error = SourceItemParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let item_type = get_field_from_json(json, "type")
             .as_str()
-            .unwrap()
-            .to_string()
-            .to_ascii_lowercase();
+            .map(|x| x.to_ascii_lowercase())
+            .ok_or(SourceItemParsingError::TypeFieldError)?;
         let system_json = get_field_from_json(json, "system");
         let hp_json = get_field_from_json(&system_json, "hp");
         let price_json = get_field_from_json(&system_json, "price");
@@ -46,9 +63,9 @@ impl SourceItem {
         let uses_json = get_field_from_json(&system_json, "uses");
         let name = get_field_from_json(json, "name")
             .as_str()
-            .unwrap()
-            .to_string();
-        Some(SourceItem {
+            .map(|x| x.to_string())
+            .ok_or(SourceItemParsingError::NameFieldMissing)?;
+        Ok(SourceItem {
             name,
             bulk: get_field_from_json(&get_field_from_json(&system_json, "bulk"), "value")
                 .as_f64()
@@ -64,19 +81,19 @@ impl SourceItem {
                 "value",
             )
             .as_str()
-            .map(Description::initialize)
+            .map(Description::from)
             .unwrap_or_default()
             .to_string(),
             hardness: get_field_from_json(&system_json, "hardness")
                 .as_i64()
                 .unwrap_or(0),
-            hp_values: RawHpValues::init_from_json(&hp_json),
+            hp_values: RawHpValues::try_from(&hp_json)?,
             level: get_field_from_json(&get_field_from_json(&system_json, "level"), "value")
                 .as_i64()
                 .unwrap_or(0),
-            price: PriceStruct::init_from_json(&price_json),
-            publication_info: PublicationInfo::init_from_json(&publication_json),
-            traits: RawTraits::init_from_json(traits_json),
+            price: PriceStruct::from(&price_json),
+            publication_info: PublicationInfo::try_from(&publication_json)?,
+            traits: RawTraits::try_from(&traits_json)?,
             usage: get_field_from_json(&get_field_from_json(&system_json, "usage"), "value")
                 .as_str()
                 .map(|x| x.to_string()),
@@ -88,10 +105,15 @@ impl SourceItem {
             group: get_field_from_json(&system_json, "group")
                 .as_str()
                 .map(|x| x.to_string()),
-            category: system_json
-                .get("category")
-                .map(|x| String::from(x.as_str().unwrap())),
-            material: RawMaterial::init_from_json(material_json),
+            category: match system_json.get("category") {
+                Some(x) => Some(
+                    x.as_str()
+                        .ok_or(SourceItemParsingError::CategoryFieldMissing)?
+                        .to_string(),
+                ),
+                _ => None,
+            },
+            material: RawMaterial::from(material_json),
             uses: get_field_from_json(&uses_json, "max").as_i64(),
         })
     }

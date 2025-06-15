@@ -6,8 +6,8 @@ pub struct Description {
     raw_description: String,
 }
 
-impl Description {
-    pub fn initialize(description: &str) -> Description {
+impl From<&str> for Description {
+    fn from(description: &str) -> Self {
         Description {
             raw_description: description.to_string(),
         }

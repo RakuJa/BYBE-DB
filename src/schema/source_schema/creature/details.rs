@@ -1,6 +1,7 @@
-use crate::schema::publication_info::PublicationInfo;
+use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RawDetails {
@@ -10,26 +11,40 @@ pub struct RawDetails {
     pub publication_info: PublicationInfo,
 }
 
-impl RawDetails {
-    pub fn init_from_json(json: Value) -> RawDetails {
-        let languages_json = &json_utils::get_field_from_json(&json, "languages");
-        let publication_json = &json_utils::get_field_from_json(&json, "publication");
-        RawDetails {
-            level: json_utils::get_field_from_json(&json, "level")
+#[derive(Debug, Error)]
+pub enum DetailsParsingError {
+    #[error("Level field missing")]
+    LevelMissing,
+    #[error("Level value is NaN")]
+    LevelNaN,
+    #[error("Mandatory language details field is missing from json")]
+    LanguageDetailsFieldMissing,
+    #[error("Mandatory language field is missing from json")]
+    LanguageFieldMissing,
+    #[error("Publication info could not be parsed")]
+    PublicationError(#[from] PublicationParsingError),
+}
+impl TryFrom<&Value> for RawDetails {
+    type Error = DetailsParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        let languages_json = &json_utils::get_field_from_json(json, "languages");
+        let publication_json = &json_utils::get_field_from_json(json, "publication");
+        Ok(RawDetails {
+            level: json_utils::get_field_from_json(json, "level")
                 .get("value")
-                .unwrap()
+                .ok_or(DetailsParsingError::LevelMissing)?
                 .as_i64()
-                .expect("Level field NaN"),
+                .ok_or(DetailsParsingError::LevelNaN)?,
             languages_details: json_utils::get_field_from_json(languages_json, "details")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .ok_or(DetailsParsingError::LanguageDetailsFieldMissing)?,
             languages: json_utils::from_json_vec_of_str_to_vec_of_str(
                 json_utils::get_field_from_json(languages_json, "value")
                     .as_array()
-                    .unwrap(),
+                    .ok_or(DetailsParsingError::LanguageFieldMissing)?,
             ),
-            publication_info: PublicationInfo::init_from_json(publication_json),
-        }
+            publication_info: PublicationInfo::try_from(publication_json)?,
+        })
     }
 }

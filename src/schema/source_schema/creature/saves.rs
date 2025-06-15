@@ -1,5 +1,6 @@
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RawSaves {
@@ -11,40 +12,54 @@ pub struct RawSaves {
     pub will_detail: String,
 }
 
-impl RawSaves {
-    pub fn init_from_json(json: Value) -> RawSaves {
-        let fortitude_json = json_utils::get_field_from_json(&json, "fortitude");
-        let reflex_json = json_utils::get_field_from_json(&json, "reflex");
-        let will_json = json_utils::get_field_from_json(&json, "will");
+#[derive(Debug, Error)]
+pub enum SaveParsingError {
+    #[error("Fortitude save is NaN")]
+    Fortitude,
+    #[error("Fortitude detail field could not be parsed")]
+    FortitudeDetail,
+    #[error("Reflex save is NaN")]
+    Reflex,
+    #[error("Reflex detail field could not be parsed")]
+    ReflexDetail,
+    #[error("Will save is NaN")]
+    Will,
+    #[error("Will detail field could not be parsed")]
+    WillDetail,
+}
 
-        RawSaves {
+impl TryFrom<&Value> for RawSaves {
+    type Error = SaveParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        let fortitude_json = json_utils::get_field_from_json(json, "fortitude");
+        let reflex_json = json_utils::get_field_from_json(json, "reflex");
+        let will_json = json_utils::get_field_from_json(json, "will");
+
+        Ok(RawSaves {
             fortitude: json_utils::get_field_from_json(&fortitude_json, "value")
                 .as_i64()
-                .expect("Fortitude save is NaN"),
+                .ok_or(SaveParsingError::Fortitude)?,
             fortitude_detail: fortitude_json
                 .get("saveDetail")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
+                .and_then(|x| x.as_str())
+                .map(String::from)
+                .ok_or(SaveParsingError::FortitudeDetail)?,
             reflex: json_utils::get_field_from_json(&reflex_json, "value")
                 .as_i64()
-                .expect("Reflex save is NaN"),
+                .ok_or(SaveParsingError::Reflex)?,
             reflex_detail: reflex_json
                 .get("saveDetail")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
+                .and_then(|x| x.as_str())
+                .map(String::from)
+                .ok_or(SaveParsingError::ReflexDetail)?,
             will: json_utils::get_field_from_json(&will_json, "value")
                 .as_i64()
-                .expect("Will save is NaN"),
+                .ok_or(SaveParsingError::Will)?,
             will_detail: will_json
                 .get("saveDetail")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-        }
+                .and_then(|x| x.as_str())
+                .map(String::from)
+                .ok_or(SaveParsingError::WillDetail)?,
+        })
     }
 }

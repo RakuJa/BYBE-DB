@@ -1,5 +1,6 @@
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct PublicationInfo {
@@ -8,20 +9,31 @@ pub struct PublicationInfo {
     pub source: String,
 }
 
-impl PublicationInfo {
-    pub fn init_from_json(json: &Value) -> PublicationInfo {
-        PublicationInfo {
+#[derive(Debug, Error)]
+pub enum PublicationParsingError {
+    #[error("Missing source field")]
+    Source,
+    #[error("Missing remastered field")]
+    Remastered,
+    #[error("Missing license field")]
+    License,
+}
+
+impl TryFrom<&Value> for PublicationInfo {
+    type Error = PublicationParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        Ok(PublicationInfo {
             license: json_utils::get_field_from_json(json, "license")
                 .as_str()
-                .unwrap()
-                .to_string(),
+                .map(String::from)
+                .ok_or(PublicationParsingError::License)?,
             remastered: json_utils::get_field_from_json(json, "remaster")
                 .as_bool()
-                .unwrap(),
+                .ok_or(PublicationParsingError::Remastered)?,
             source: json_utils::get_field_from_json(json, "title")
                 .as_str()
-                .unwrap()
-                .to_string(),
-        }
+                .map(String::from)
+                .ok_or(PublicationParsingError::Source)?,
+        })
     }
 }
