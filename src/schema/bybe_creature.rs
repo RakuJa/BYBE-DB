@@ -188,15 +188,24 @@ fn get_resistances_adding_iwr_rules(
     resistances: Vec<Resistance>,
     rules: &[Rule],
 ) -> Vec<Resistance> {
-    resistances
-        .into_iter()
-        .map(|res| {
-            rules
-                .iter()
-                .find(|rule| rule.key == Iwr::Resistance && rule.name == res.name)
-                .map_or(res, |rule| Resistance::try_from(rule).unwrap())
-        })
-        .collect()
+    if resistances.is_empty() {
+        rules
+            .iter()
+            .filter(|r| r.key == Iwr::Resistance)
+            .map(|r| Resistance::try_from(r).unwrap())
+            .unique()
+            .collect()
+    } else {
+        resistances
+            .into_iter()
+            .map(|res| {
+                rules
+                    .iter()
+                    .find(|rule| rule.key == Iwr::Resistance && rule.name == res.name)
+                    .map_or(res, |rule| Resistance::try_from(rule).unwrap())
+            })
+            .collect()
+    }
 }
 
 fn get_weaknesses_adding_iwr_rules(

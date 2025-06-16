@@ -2,7 +2,7 @@ use crate::schema::source_schema::rules::{Iwr, Rule};
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Resistance {
     pub name: String,
     pub value: i64,

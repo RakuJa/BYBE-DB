@@ -362,7 +362,7 @@ async fn insert_resistances(
 ) -> Result<bool> {
     for res in resistances {
         let res_id = sqlx::query!(
-            "INSERT INTO RESISTANCE_TABLE (id, creature_id, name, value) VALUES ($1, $2, $3, $4)",
+            "INSERT OR IGNORE INTO RESISTANCE_TABLE (id, creature_id, name, value) VALUES ($1, $2, $3, $4)",
             None::<i64>,
             id,
             res.name,
