@@ -47,7 +47,6 @@ impl TryFrom<&Value> for RawAttributes {
                 .as_i64()
                 .unwrap_or(0),
         );
-        let weaknesses_map = json_utils::from_json_vec_of_maps_to_map(json, "weaknesses");
         Ok(RawAttributes {
             ac: ac_json
                 .get("value")
@@ -75,9 +74,10 @@ impl TryFrom<&Value> for RawAttributes {
                 .unwrap_or(&vec![])
                 .iter()
                 .map(Resistance::try_from)
-                .collect::<Result<_, _>>()?,
+                .collect::<Result<Vec<_>, _>>()?,
             speed: speed_map,
-            weakness: weaknesses_map.unwrap_or_default(),
+            weakness: json_utils::from_json_vec_of_maps_to_map(json, "weaknesses")
+                .unwrap_or_default(),
         })
     }
 }
