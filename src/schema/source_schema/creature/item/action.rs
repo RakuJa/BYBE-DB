@@ -1,5 +1,6 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::description::Description;
+use crate::schema::source_schema::rules::{Rule, RuleParseError};
 use crate::utils::json_utils;
 use serde_json::Value;
 use thiserror::Error;
@@ -11,6 +12,7 @@ pub struct Action {
     pub n_of_actions: Option<i64>,
     pub category: Option<String>,
     pub description: String,
+    pub rules: Vec<Rule>,
     pub publication_info: PublicationInfo,
     pub slug: Option<String>,
     pub traits: ActionTraits,
@@ -30,6 +32,8 @@ pub enum ActionParsingError {
     Trait,
     #[error("publication could not be parsed")]
     PublicationError(#[from] PublicationParsingError),
+    #[error("Rule could not be parsed")]
+    RuleError(#[from] RuleParseError),
 }
 
 impl TryFrom<&Value> for Action {
@@ -41,6 +45,7 @@ impl TryFrom<&Value> for Action {
         let action_json = json_utils::get_field_from_json(&system_json, "actions");
         let category_json = json_utils::get_field_from_json(&system_json, "category");
         let description_json = json_utils::get_field_from_json(&system_json, "description");
+        let rule_json = json_utils::get_field_from_json(&system_json, "rules");
         let slug_json = json_utils::get_field_from_json(&system_json, "slug");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         Ok(Action {
@@ -60,6 +65,13 @@ impl TryFrom<&Value> for Action {
                 .map(Description::from)
                 .map(|x| x.to_string())
                 .ok_or(ActionParsingError::Description)?,
+            rules: rule_json
+                .as_array()
+                .unwrap_or(&vec![])
+                .iter()
+                .map(Rule::try_from)
+                .filter(|x| x.is_ok())
+                .collect::<Result<Vec<Rule>, _>>()?,
             publication_info: PublicationInfo::try_from(&publication_json)?,
             slug: slug_json.as_str().map(|x| x.to_string()),
             traits: ActionTraits::try_from(&traits_json)?,

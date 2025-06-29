@@ -9,6 +9,7 @@ use crate::schema::source_schema::creature::sense::Sense;
 use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
 };
+use crate::schema::source_schema::rules::{Iwr, Rule};
 use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -107,6 +108,12 @@ impl From<SourceCreature> for BybeCreature {
                 SpellCastingEntry::from((sce, &curr_sce_spells, source_cr.details.level))
             })
             .collect();
+        let rules: Vec<Rule> = source_cr
+            .items
+            .action_list
+            .iter()
+            .flat_map(|x| x.rules.clone())
+            .collect();
         BybeCreature {
             name: source_cr.name,
             creature_type: None,
@@ -121,12 +128,13 @@ impl From<SourceCreature> for BybeCreature {
             hp_details: source_cr.attributes.hp_details,
             ac_details: source_cr.attributes.ac_details,
             speed: source_cr.attributes.speed,
-            immunities: get_full_immunities_including_implicit(
+            immunities: get_all_immunities(
                 source_cr.attributes.immunities,
+                &rules,
                 &source_cr.traits.traits,
             ),
-            resistances: source_cr.attributes.resistances,
-            weaknesses: source_cr.attributes.weakness,
+            resistances: get_resistances_adding_iwr_rules(source_cr.attributes.resistances, &rules),
+            weaknesses: get_weaknesses_adding_iwr_rules(source_cr.attributes.weakness, &rules),
             languages_details: source_cr.details.languages_details,
             languages: source_cr.details.languages,
             level: source_cr.details.level,
@@ -169,15 +177,63 @@ impl From<SourceCreature> for BybeCreature {
     }
 }
 
-fn get_full_immunities_including_implicit(
-    immunities: Vec<String>,
-    traits: &[String],
-) -> Vec<String> {
+fn get_all_immunities(immunities: Vec<String>, rules: &[Rule], traits: &[String]) -> Vec<String> {
     let mut result = immunities.clone();
 
     result.extend(get_implicit_immunities_from_traits(traits));
-    result.into_iter().unique().collect()
+    get_immunities_adding_iwr_rules(result, rules)
 }
+
+fn get_resistances_adding_iwr_rules(
+    resistances: Vec<Resistance>,
+    rules: &[Rule],
+) -> Vec<Resistance> {
+    if resistances.is_empty() {
+        rules
+            .iter()
+            .filter(|r| r.key == Iwr::Resistance)
+            .map(|r| Resistance::try_from(r).unwrap())
+            .unique()
+            .collect()
+    } else {
+        resistances
+            .into_iter()
+            .map(|res| {
+                rules
+                    .iter()
+                    .find(|rule| rule.key == Iwr::Resistance && rule.name == res.name)
+                    .map_or(res, |rule| Resistance::try_from(rule).unwrap())
+            })
+            .collect()
+    }
+}
+
+fn get_weaknesses_adding_iwr_rules(
+    weaknesses: HashMap<String, i64>,
+    rules: &[Rule],
+) -> HashMap<String, i64> {
+    let mut wk = weaknesses.clone();
+    rules
+        .iter()
+        .filter(|r| r.key == Iwr::Weakness)
+        .for_each(|rule| {
+            wk.entry(rule.name.clone())
+                .and_modify(|v| *v = rule.value)
+                .or_insert(rule.value);
+        });
+    wk
+}
+
+fn get_immunities_adding_iwr_rules(immunities: Vec<String>, rules: &[Rule]) -> Vec<String> {
+    rules
+        .iter()
+        .filter(|x| x.key == Iwr::Immunity)
+        .map(|x| x.name.clone())
+        .chain(immunities)
+        .unique()
+        .collect()
+}
+
 fn get_implicit_immunities_from_traits(traits: &[String]) -> Vec<String> {
     //Check out foundry logic in actor/creature/helper.ts
     let mut result = vec![];
