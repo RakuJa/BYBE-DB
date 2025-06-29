@@ -65,6 +65,7 @@ impl TryFrom<&Value> for SourceItem {
             .as_str()
             .map(|x| x.to_string())
             .ok_or(SourceItemParsingError::NameFieldMissing)?;
+
         Ok(SourceItem {
             name,
             bulk: get_field_from_json(&get_field_from_json(&system_json, "bulk"), "value")

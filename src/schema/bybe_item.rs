@@ -32,6 +32,8 @@ pub struct BybeItem {
     pub rarity: RarityEnum,
     pub size: SizeEnum,
     pub traits: Vec<String>,
+
+    pub is_derived: bool,
 }
 
 #[derive(Debug, Error)]
@@ -57,9 +59,10 @@ pub enum BybeItemParsingError {
     #[error("Source item could not be parsed")]
     SourceItemError(#[from] SourceItemParsingError),
 }
-impl TryFrom<&Value> for BybeItem {
+impl TryFrom<(&Value, bool)> for BybeItem {
     type Error = BybeItemParsingError;
-    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+    fn try_from(args: (&Value, bool)) -> Result<Self, Self::Error> {
+        let (json, is_derived) = args;
         let item_type = get_field_from_json(json, "type")
             .as_str()
             .map(|x| x.to_ascii_lowercase())
@@ -67,12 +70,13 @@ impl TryFrom<&Value> for BybeItem {
         if !(item_type.eq("equipment") | item_type.eq("consumable")) {
             return Err(BybeItemParsingError::UnsupportedItemType);
         }
-        Ok(Self::from(SourceItem::try_from(json)?))
+        Ok(Self::from((SourceItem::try_from(json)?, is_derived)))
     }
 }
 
-impl From<SourceItem> for BybeItem {
-    fn from(source_item: SourceItem) -> Self {
+impl From<(SourceItem, bool)> for BybeItem {
+    fn from(args: (SourceItem, bool)) -> Self {
+        let (source_item, is_derived) = args;
         BybeItem {
             name: source_item.name,
             bulk: source_item.bulk,
@@ -106,6 +110,7 @@ impl From<SourceItem> for BybeItem {
                 .parse()
                 .unwrap_or(SizeEnum::Medium),
             traits: source_item.traits.traits,
+            is_derived,
         }
     }
 }
@@ -123,9 +128,10 @@ pub struct BybeArmor {
     pub strength_required: Option<i64>,
 }
 
-impl TryFrom<&Value> for BybeArmor {
+impl TryFrom<(&Value, bool)> for BybeArmor {
     type Error = BybeItemParsingError;
-    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+    fn try_from(args: (&Value, bool)) -> Result<Self, Self::Error> {
+        let (json, is_derived) = args;
         let item_type = get_field_from_json(json, "type")
             .as_str()
             .map(|x| x.to_ascii_lowercase())
@@ -134,7 +140,7 @@ impl TryFrom<&Value> for BybeArmor {
             return Err(BybeItemParsingError::InvalidItemType);
         }
         let system_json = get_field_from_json(json, "system");
-        let item_core = BybeItem::from(SourceItem::try_from(json)?);
+        let item_core = BybeItem::from((SourceItem::try_from(json)?, is_derived));
         let rune_json = get_field_from_json(&system_json, "runes");
         Ok(BybeArmor {
             item_core,
@@ -180,9 +186,10 @@ pub struct BybeWeapon {
     pub weapon_type: String,
 }
 
-impl TryFrom<&Value> for BybeWeapon {
+impl TryFrom<(&Value, bool)> for BybeWeapon {
     type Error = BybeItemParsingError;
-    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+    fn try_from(args: (&Value, bool)) -> Result<Self, Self::Error> {
+        let (json, is_derived) = args;
         let item_type = get_field_from_json(json, "type")
             .as_str()
             .map(|x| x.to_ascii_lowercase())
@@ -211,7 +218,7 @@ impl TryFrom<&Value> for BybeWeapon {
         };
 
         Ok(BybeWeapon {
-            item_core: BybeItem::from(SourceItem::try_from(json)?),
+            item_core: BybeItem::from((SourceItem::try_from(json)?, is_derived)),
             splash_dmg: get_field_from_json(&get_field_from_json(json, "splashDamage"), "value")
                 .as_i64(),
             n_of_potency_runes: get_field_from_json(&runes_data, "potency")
@@ -341,10 +348,11 @@ pub struct BybeShield {
     pub speed_penalty: i64,
 }
 
-impl TryFrom<&Value> for BybeShield {
+impl TryFrom<(&Value, bool)> for BybeShield {
     type Error = BybeItemParsingError;
 
-    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+    fn try_from(args: (&Value, bool)) -> Result<Self, Self::Error> {
+        let (json, is_derived) = args;
         let item_type = get_field_from_json(json, "type")
             .as_str()
             .map(|x| x.to_ascii_lowercase())
@@ -354,7 +362,7 @@ impl TryFrom<&Value> for BybeShield {
         }
 
         let system_json = get_field_from_json(json, "system");
-        let item_core = BybeItem::from(SourceItem::try_from(json)?);
+        let item_core = BybeItem::from((SourceItem::try_from(json)?, is_derived));
         let specific_json = get_field_from_json(json, "specific");
 
         Ok(BybeShield {

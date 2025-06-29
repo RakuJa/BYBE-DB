@@ -91,10 +91,11 @@ fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
 fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
     let mut items = Vec::new();
     for file in json_files {
-        match BybeItem::try_from(
+        match BybeItem::try_from((
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
-        ) {
+            false,
+        )) {
             Ok(item) => items.push(item),
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
@@ -113,10 +114,11 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
 fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
     let mut weapons = Vec::new();
     for file in json_files {
-        match BybeWeapon::try_from(
+        match BybeWeapon::try_from((
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
-        ) {
+            false,
+        )) {
             Ok(item) => weapons.push(item),
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
@@ -135,10 +137,11 @@ fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
 fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
     let mut armors = Vec::new();
     for file in json_files {
-        match BybeArmor::try_from(
+        match BybeArmor::try_from((
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
-        ) {
+            false,
+        )) {
             Ok(item) => armors.push(item),
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
@@ -157,10 +160,11 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
 fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
     let mut shields = Vec::new();
     for file in json_files {
-        match BybeShield::try_from(
+        match BybeShield::try_from((
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
-        ) {
+            false,
+        )) {
             Ok(item) => shields.push(item),
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
@@ -182,7 +186,7 @@ fn fetch_source_data(source_url: &str, source_path: &str) {
     if !Path::new(source_path).exists() {
         match Repository::clone(source_url, source_path) {
             Ok(repo) => repo,
-            Err(e) => panic!("failed to clone: {}", e),
+            Err(e) => panic!("failed to clone: {e}"),
         };
     } else {
         warn!("Path already exists, won't clone source dataset.")
@@ -191,5 +195,5 @@ fn fetch_source_data(source_url: &str, source_path: &str) {
 
 fn read_from_file_to_string(creature_file: &str) -> String {
     fs::read_to_string(creature_file)
-        .unwrap_or_else(|_| panic!("Unable to read file {}", creature_file))
+        .unwrap_or_else(|_| panic!("Unable to read file {creature_file}"))
 }
