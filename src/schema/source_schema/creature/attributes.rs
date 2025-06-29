@@ -1,8 +1,9 @@
-use crate::schema::source_schema::creature::resistance::Resistance;
-use crate::schema::source_schema::hp_values::RawHpValues;
+use crate::schema::source_schema::creature::resistance::{Resistance, ResistanceParserError};
+use crate::schema::source_schema::hp_values::{HpParsingError, RawHpValues};
 use crate::utils::json_utils;
 use serde_json::Value;
 use std::collections::HashMap;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RawAttributes {
@@ -17,12 +18,27 @@ pub struct RawAttributes {
     pub weakness: HashMap<String, i64>,
 }
 
-impl RawAttributes {
-    pub fn init_from_json(json: Value) -> RawAttributes {
-        let ac_json = json_utils::get_field_from_json(&json, "ac");
-        let hp_json = json_utils::get_field_from_json(&json, "hp");
+#[derive(Debug, Error)]
+pub enum AttributeParsingError {
+    #[error("AC field is missing or NaN")]
+    AC,
+    #[error("Mandatory Name field is missing from json")]
+    HPDetail,
+    #[error("Mandatory Name field is missing from json")]
+    ACDetail,
+    #[error("Source item could not be parsed")]
+    ResistanceError(#[from] ResistanceParserError),
+    #[error("Hp Value could not be parsed")]
+    HpError(#[from] HpParsingError),
+}
 
-        let speed_json = json_utils::get_field_from_json(&json, "speed");
+impl TryFrom<&Value> for RawAttributes {
+    type Error = AttributeParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        let ac_json = json_utils::get_field_from_json(json, "ac");
+        let hp_json = json_utils::get_field_from_json(json, "hp");
+
+        let speed_json = json_utils::get_field_from_json(json, "speed");
         let tmp_speed_map = json_utils::from_json_vec_of_maps_to_map(&speed_json, "otherSpeeds");
         let mut speed_map = tmp_speed_map.unwrap_or_default();
         speed_map.insert(
@@ -31,28 +47,25 @@ impl RawAttributes {
                 .as_i64()
                 .unwrap_or(0),
         );
-        let weaknesses_map = json_utils::from_json_vec_of_maps_to_map(&json, "weaknesses");
-        RawAttributes {
+        let weaknesses_map = json_utils::from_json_vec_of_maps_to_map(json, "weaknesses");
+        Ok(RawAttributes {
             ac: ac_json
                 .get("value")
-                .unwrap()
-                .as_i64()
-                .expect("AC field NaN"),
+                .and_then(|x| x.as_i64())
+                .ok_or(AttributeParsingError::AC)?,
             ac_details: ac_json
                 .get("details")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
-            hp_values: RawHpValues::init_from_json(&hp_json),
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string())
+                .ok_or(AttributeParsingError::ACDetail)?,
+            hp_values: RawHpValues::try_from(&hp_json)?,
             hp_details: hp_json
                 .get("details")
-                .unwrap()
-                .as_str()
-                .unwrap()
-                .to_string(),
+                .and_then(|s| s.as_str())
+                .map(|s| s.to_string())
+                .ok_or(AttributeParsingError::HPDetail)?,
             immunities: json_utils::extract_vec_of_str_from_json_with_vec_of_jsons(
-                &json,
+                json,
                 "immunities",
                 "type",
             ),
@@ -61,10 +74,10 @@ impl RawAttributes {
                 .and_then(|r| r.as_array())
                 .unwrap_or(&vec![])
                 .iter()
-                .map(|x| Resistance::init_from_json(x))
-                .collect(),
+                .map(Resistance::try_from)
+                .collect::<Result<_, _>>()?,
             speed: speed_map,
             weakness: weaknesses_map.unwrap_or_default(),
-        }
+        })
     }
 }

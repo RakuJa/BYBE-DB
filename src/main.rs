@@ -8,19 +8,22 @@ extern crate git2;
 
 use crate::db::db_handler_one;
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon};
-use crate::schema::source_schema::creature::source_creature::SourceCreature;
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon};
+use crate::schema::source_schema::creature::source_creature::{
+    SourceCreature, SourceCreatureParsingError,
+};
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
 use git2::Repository;
 use log::warn;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::path::Path;
-use std::{env, fs};
+use std::{backtrace, env, fs};
 
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // use dotenv env variables
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("error"));
     let source_url = &env::var("SOURCE_URL")
         .expect("SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
     let source_path = &env::var("SOURCE_DOWNLOAD_PATH").expect(
@@ -66,11 +69,20 @@ async fn db_update(conn: &SqlitePool, json_paths: Vec<String>) -> anyhow::Result
 fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
     let mut creatures = Vec::new();
     for file in json_files {
-        if let Some(creature) = SourceCreature::init_from_json(
+        match SourceCreature::try_from(
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            creatures.push(BybeCreature::init_from_source_creature(creature));
+            Ok(creature) => creatures.push(BybeCreature::from(creature)),
+            Err(e) => match e {
+                SourceCreatureParsingError::DuplicatedCreature
+                | SourceCreatureParsingError::InvalidCreatureType => {}
+                _ => panic!(
+                    "Error parsing creature {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     creatures
@@ -79,11 +91,20 @@ fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
 fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
     let mut items = Vec::new();
     for file in json_files {
-        if let Some(item) = BybeItem::init_from_json(
+        match BybeItem::try_from(
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            items.push(item);
+            Ok(item) => items.push(item),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     items
@@ -92,11 +113,20 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
 fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
     let mut weapons = Vec::new();
     for file in json_files {
-        if let Some(item) = BybeWeapon::init_from_json(
+        match BybeWeapon::try_from(
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            weapons.push(item);
+            Ok(item) => weapons.push(item),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     weapons
@@ -105,11 +135,20 @@ fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
 fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
     let mut armors = Vec::new();
     for file in json_files {
-        if let Some(item) = BybeArmor::init_from_json(
+        match BybeArmor::try_from(
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            armors.push(item);
+            Ok(item) => armors.push(item),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     armors
@@ -118,11 +157,20 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
 fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
     let mut shields = Vec::new();
     for file in json_files {
-        if let Some(item) = BybeShield::init_from_json(
+        match BybeShield::try_from(
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            shields.push(item);
+            Ok(item) => shields.push(item),
+            Err(e) => match e {
+                BybeItemParsingError::InvalidItemType
+                | BybeItemParsingError::UnsupportedItemType => {}
+                _ => panic!(
+                    "Error parsing weapon {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
         }
     }
     shields

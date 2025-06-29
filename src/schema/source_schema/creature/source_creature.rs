@@ -1,13 +1,16 @@
-use crate::schema::source_schema::creature::abilities::RawAbilities;
-use crate::schema::source_schema::creature::attributes::RawAttributes;
-use crate::schema::source_schema::creature::details::RawDetails;
-use crate::schema::source_schema::creature::item::items::ItemLinkedToCreature;
-use crate::schema::source_schema::creature::perception::RawPerception;
+use crate::schema::source_schema::creature::abilities::{AbilityParsingError, RawAbilities};
+use crate::schema::source_schema::creature::attributes::{AttributeParsingError, RawAttributes};
+use crate::schema::source_schema::creature::details::{DetailsParsingError, RawDetails};
+use crate::schema::source_schema::creature::item::items::{
+    CreatureItemParsingError, ItemLinkedToCreature,
+};
+use crate::schema::source_schema::creature::perception::{PerceptionParsingError, RawPerception};
 use crate::schema::source_schema::creature::resources::RawResource;
-use crate::schema::source_schema::creature::saves::RawSaves;
-use crate::schema::source_schema::traits::RawTraits;
+use crate::schema::source_schema::creature::saves::{RawSaves, SaveParsingError};
+use crate::schema::source_schema::traits::{RawTraits, TraitParsingError};
 use crate::utils::json_utils;
 use serde_json::Value;
+use thiserror::Error;
 
 pub struct SourceCreature {
     pub name: String,
@@ -24,14 +27,43 @@ pub struct SourceCreature {
     pub items: ItemLinkedToCreature,
 }
 
-impl SourceCreature {
-    pub fn init_from_json(json: &Value) -> Option<SourceCreature> {
+#[derive(Debug, Error)]
+pub enum SourceCreatureParsingError {
+    #[error("Duplicated creature, elite and weak are calculated in runtime")]
+    DuplicatedCreature,
+    #[error("Creature type could not be parsed")]
+    CreatureTypeFormat,
+    #[error("Invalid creature type")]
+    InvalidCreatureType,
+    #[error("Mandatory name field could not be parsed")]
+    NameFormat,
+    #[error("Initiative ability could not be parsed")]
+    InitiativeAbilityFormat,
+    #[error("Source item could not be parsed")]
+    ResistanceError(#[from] AttributeParsingError),
+    #[error("Item related to creature could not be parsed")]
+    CreatureItemError(#[from] CreatureItemParsingError),
+    #[error("Creature details could not be parsed")]
+    CreatureDetailError(#[from] DetailsParsingError),
+    #[error("Creature ability could not be parsed")]
+    CreatureAbilityError(#[from] AbilityParsingError),
+    #[error("Creature perception could not be parsed")]
+    CreaturePerceptionError(#[from] PerceptionParsingError),
+    #[error("Creature traits could not be parsed")]
+    CreatureTraitParsingError(#[from] TraitParsingError),
+    #[error("Creature saves could not be parsed")]
+    CreatureSaveParsingError(#[from] SaveParsingError),
+}
+
+impl TryFrom<&Value> for SourceCreature {
+    type Error = SourceCreatureParsingError;
+    fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let creature_type = json_utils::get_field_from_json(json, "type")
             .as_str()
-            .unwrap()
-            .to_string();
+            .map(String::from)
+            .ok_or(SourceCreatureParsingError::CreatureTypeFormat)?;
         if !creature_type.eq_ignore_ascii_case("npc") {
-            return None;
+            return Err(SourceCreatureParsingError::InvalidCreatureType);
         }
 
         let system_json = json_utils::get_field_from_json(json, "system");
@@ -45,29 +77,30 @@ impl SourceCreature {
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         let items_json = json_utils::get_field_from_json(json, "items");
 
-        let name = json_utils::get_field_from_json(json, "name")
-            .as_str()
-            .unwrap()
-            .to_string();
+        let name = json
+            .get("name")
+            .and_then(Value::as_str)
+            .map(String::from)
+            .ok_or(SourceCreatureParsingError::NameFormat)?;
         if name.to_uppercase().starts_with("ELITE ") || name.to_uppercase().starts_with("WEAK ") {
-            return None;
+            return Err(SourceCreatureParsingError::DuplicatedCreature);
         }
-        Some(SourceCreature {
+        Ok(SourceCreature {
             name,
             creature_type,
 
-            abilities: RawAbilities::init_from_json(abilities_json),
-            attributes: RawAttributes::init_from_json(attributes_json),
-            details: RawDetails::init_from_json(details_json),
+            abilities: RawAbilities::try_from(&abilities_json)?,
+            attributes: RawAttributes::try_from(&attributes_json)?,
+            details: RawDetails::try_from(&details_json)?,
             initiative_ability: json_utils::get_field_from_json(&initiative_json, "statistic")
                 .as_str()
-                .unwrap()
-                .to_string(),
-            perception: RawPerception::init_from_json(perception_json),
-            resource: RawResource::init_from_json(resource_json),
-            saves: RawSaves::init_from_json(saves_json),
-            traits: RawTraits::init_from_json(traits_json),
-            items: ItemLinkedToCreature::init_from_json(items_json),
+                .map(String::from)
+                .ok_or(SourceCreatureParsingError::InitiativeAbilityFormat)?,
+            perception: RawPerception::try_from(&perception_json)?,
+            resource: RawResource::from(&resource_json),
+            saves: RawSaves::try_from(&saves_json)?,
+            traits: RawTraits::try_from(&traits_json)?,
+            items: ItemLinkedToCreature::try_from(&items_json)?,
         })
     }
 }
