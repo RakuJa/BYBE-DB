@@ -401,7 +401,7 @@ async fn insert_resistance_exception_vs(
 ) -> Result<bool> {
     for vs in exception_vs {
         sqlx::query!(
-            "INSERT INTO RESISTANCE_EXCEPTION_VS_TABLE (resistance_id, vs_name) VALUES ($1, $2)",
+            "INSERT OR IGNORE INTO RESISTANCE_EXCEPTION_VS_TABLE (resistance_id, vs_name) VALUES ($1, $2)",
             res_id,
             vs
         )

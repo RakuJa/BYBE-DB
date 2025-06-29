@@ -22,11 +22,11 @@ pub struct RawAttributes {
 pub enum AttributeParsingError {
     #[error("AC field is missing or NaN")]
     AC,
-    #[error("Mandatory Name field is missing from json")]
+    #[error("Mandatory HP field is missing from json")]
     HPDetail,
-    #[error("Mandatory Name field is missing from json")]
+    #[error("Mandatory AC detail is missing from json")]
     ACDetail,
-    #[error("Source item could not be parsed")]
+    #[error("Resistance could not be parsed")]
     ResistanceError(#[from] ResistanceParserError),
     #[error("Hp Value could not be parsed")]
     HpError(#[from] HpParsingError),
