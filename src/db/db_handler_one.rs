@@ -439,7 +439,7 @@ async fn insert_item(conn: &mut Transaction<'_, Sqlite>, item: &BybeItem) -> Res
         INSERT INTO ITEM_TABLE VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-            $21
+            $21, $22
         );
     ",
         None::<i64>, // id, autoincrement
@@ -455,6 +455,7 @@ async fn insert_item(conn: &mut Transaction<'_, Sqlite>, item: &BybeItem) -> Res
         item.usage,
         item.group,
         item.item_type,
+        item.is_derived,
         item.material_grade,
         item.material_type,
         item.number_of_uses,

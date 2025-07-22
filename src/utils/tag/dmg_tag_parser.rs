@@ -59,7 +59,7 @@ fn _clean_item_rank_description_from_dmg_tag(description: &str, item_lvl: i64) -
                     curr_match.get(3).map(|x| x.as_str()).unwrap_or("rank")
                 );
                 let to_evaluate = remove_all_dices_from_description(
-                    format!("{}{}", filler, match_str)
+                    format!("{filler}{match_str}")
                         .replace(to_replace.as_str(), item_lvl.to_string().as_str())
                         .as_str(),
                 );
@@ -96,7 +96,7 @@ fn parse_dmg_type(raw_dmg_type: &str) -> String {
     } else {
         cleaned_dmg_type.split('[')
     } {
-        clean_dmg_type.push_str(format!("{} ", dmg_type).as_str())
+        clean_dmg_type.push_str(format!("{dmg_type} ").as_str())
     }
     clean_dmg_type.trim_end().replace(&['[', ']', ']'][..], "")
 }

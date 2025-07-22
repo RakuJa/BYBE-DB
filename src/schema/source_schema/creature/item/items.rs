@@ -52,7 +52,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
             {
                 "spellcastingentry" => match RawSpellCastingEntry::try_from(el) {
                     Ok(se) => spellcasting_entry.push(se),
-                    Err(e) => debug!("{}", e),
+                    Err(e) => debug!("{e}"),
                 },
                 "spell" => {
                     // if it has ritual it's a ritual, we should parse differently
@@ -66,26 +66,26 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                         }
                     }
                 }
-                "melee" | "weapon" => match BybeWeapon::try_from(el) {
+                "melee" | "weapon" => match BybeWeapon::try_from((el, true)) {
                     Ok(wp) => weapons.push(wp),
-                    Err(e) => debug!("{}", e),
+                    Err(e) => debug!("{e}"),
                 },
-                "armor" => match BybeArmor::try_from(el) {
+                "armor" => match BybeArmor::try_from((el, true)) {
                     Ok(armor) => armors.push(armor),
-                    Err(e) => debug!("{}", e),
+                    Err(e) => debug!("{e}"),
                 },
                 "action" => match Action::try_from(el) {
                     Ok(action) => actions.push(action),
-                    Err(e) => debug!("{}", e),
+                    Err(e) => debug!("{e}"),
                 },
                 "lore" => match Skill::try_from(el) {
                     Ok(skill) => skills.push(skill),
-                    Err(e) => debug!("{}", e),
+                    Err(e) => debug!("{e}"),
                 },
                 // "real" items, like the one for the shop
-                "consumable" | "equipment" => match BybeItem::try_from(el) {
+                "consumable" | "equipment" => match BybeItem::try_from((el, true)) {
                     Ok(item) => items.push(item),
-                    Err(e) => debug!("{}", e),
+                    Err(e) => debug!("{e}"),
                 },
                 // there are other options
                 _ => {

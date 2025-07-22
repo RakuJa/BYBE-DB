@@ -2,7 +2,7 @@ use log::info;
 use std::fs;
 
 pub fn get_json_paths(source_path: &str) -> Vec<String> {
-    get_manuals_paths(format!("{}/packs", source_path))
+    get_manuals_paths(format!("{source_path}/packs"))
 }
 
 fn get_manuals_paths(source_path: String) -> Vec<String> {
@@ -23,7 +23,7 @@ fn get_manuals_paths(source_path: String) -> Vec<String> {
                     }
                 }
             }
-            Err(err) => info!("Skipping path with error: {}", err),
+            Err(err) => info!("Skipping path with error: {err}"),
         };
     }
     bestiary_folders
