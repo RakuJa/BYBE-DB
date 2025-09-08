@@ -21,24 +21,26 @@ Built using:
 ## Installation guide - Local
 
 1. Install [Rust](https://www.rust-lang.org/tools/install) on your machine.
-2. Build the project:
+2. Setup .env correctly (for sane defaults rename .env.example -> .env)
 
-```
+3. Build the project:
+
+```bash
 cargo build
 ```
-3. Run the database initializer in development mode:
+4. Run the database initializer in development mode:
 
-```
+```bash
 cargo run
 ```
 
-4. To instead deploy the production build, run:
+To instead deploy the production build, run:
 
-```
+```bash
 cargo build --release
 ```
 
-```
+```bash
 cargo run
 ```
 It should be quick (~1 minute) if the foundry data is already cloned, otherwise it can last a long time.

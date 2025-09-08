@@ -229,7 +229,13 @@ impl TryFrom<(&Value, bool)> for BybeWeapon {
                 .unwrap_or(0),
             property_runes: match runes_data.get("property") {
                 Some(x) => json_utils::from_json_vec_of_str_to_vec_of_str(
-                    x.as_array().ok_or(BybeItemParsingError::PropertyRunes)?,
+                    &x.as_array()
+                        .map(|v| v.to_vec())
+                        .or_else(|| {
+                            x.as_object()
+                                .map(|d| d.values().cloned().collect::<Vec<_>>())
+                        })
+                        .ok_or(BybeItemParsingError::PropertyRunes)?,
                 ),
                 None => vec![],
             },

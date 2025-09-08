@@ -18,7 +18,10 @@ fn get_manuals_paths(source_path: String) -> Vec<String> {
                     ));
                 } else if dir_path.path().is_file() {
                     let path = dir_path.path().to_str().unwrap().to_string();
-                    if !path.is_empty() && path.ends_with(".json") && !path.eq("_folders.json") {
+                    if !path.is_empty()
+                        && path.ends_with(".json")
+                        && !path.ends_with("_folders.json")
+                    {
                         bestiary_folders.push(path);
                     }
                 }
