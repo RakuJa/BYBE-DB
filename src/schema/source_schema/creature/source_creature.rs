@@ -13,6 +13,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 pub struct SourceCreature {
+    pub foundry_id: String,
     pub name: String,
     pub creature_type: String,
 
@@ -29,6 +30,8 @@ pub struct SourceCreature {
 
 #[derive(Debug, Error)]
 pub enum SourceCreatureParsingError {
+    #[error("Missing source id, invalid creature")]
+    MissingId,
     #[error("Duplicated creature, elite and weak are calculated in runtime")]
     DuplicatedCreature,
     #[error("Creature type could not be parsed")]
@@ -66,6 +69,11 @@ impl TryFrom<&Value> for SourceCreature {
             return Err(SourceCreatureParsingError::InvalidCreatureType);
         }
 
+        let foundry_id = json_utils::get_field_from_json(json, "_id")
+            .as_str()
+            .map(String::from)
+            .ok_or(SourceCreatureParsingError::MissingId)?;
+
         let system_json = json_utils::get_field_from_json(json, "system");
         let abilities_json = json_utils::get_field_from_json(&system_json, "abilities");
         let attributes_json = json_utils::get_field_from_json(&system_json, "attributes");
@@ -88,7 +96,7 @@ impl TryFrom<&Value> for SourceCreature {
         Ok(SourceCreature {
             name,
             creature_type,
-
+            foundry_id,
             abilities: RawAbilities::try_from(&abilities_json)?,
             attributes: RawAttributes::try_from(&attributes_json)?,
             details: RawDetails::try_from(&details_json)?,

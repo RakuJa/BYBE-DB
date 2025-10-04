@@ -36,12 +36,6 @@ async fn main() {
         .expect("Failed to run migration");
 
     conn.close().await;
-
-    /*
-    init_tables(&conn)
-        .await
-        .expect("Failed to initialize common tables");
-        */
 }
 
 pub async fn init_tables(conn: &SqlitePool) -> anyhow::Result<()> {

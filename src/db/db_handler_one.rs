@@ -25,7 +25,7 @@ pub async fn insert_item_to_db(
     item: &BybeItem,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item(conn, gs, item).await?;
+    let item_id = insert_item(conn, gs, item).await.unwrap();
     insert_traits(conn, gs, &item.traits).await?;
     insert_item_trait_association(conn, gs, &item.traits, item_id).await?;
     if let Some(creature_id) = cr_id {
@@ -493,16 +493,39 @@ async fn insert_item(
     // if it is then we return the id without inserting a new entry
     match sqlx::query(
         format!(
-            "INSERT INTO {gs}_item_table VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?
-        );
+        "INSERT INTO {gs}_item_table VALUES (
+            id, foundry_id, name, bulk, base_item, category, description,
+            hardness, hp, level, price, usage, item_group, item_type,
+            is_derived, material_grade, material_type, number_of_uses,
+            license, remaster, source, rarity, size
+        ) ON CONFLICT (foundry_id) DO UPDATE SET
+            name = excluded.name,
+            bulk = excluded.bulk,
+            base_item = excluded.base_item,
+            category = excluded.category,
+            description = excluded.description,
+            hardness = excluded.hardness,
+            hp = excluded.hp,
+            level = excluded.level,
+            price = excluded.price,
+            usage = excluded.usage,
+            item_group = excluded.item_group,
+            item_type = excluded.item_type,
+            is_derived = excluded.is_derived,
+            material_grade = excluded.material_grade,
+            material_type = excluded.material_type,
+            number_of_uses = excluded.number_of_uses,
+            license = excluded.license,
+            remaster = excluded.remaster,
+            source = excluded.source,
+            rarity = excluded.rarity,
+            size = excluded.size;
     "
         )
         .as_str(),
     )
     .bind(None::<i64>) // id, autoincrement
+    .bind(&item.foundry_id)
     .bind(&item.name)
     .bind(item.bulk)
     .bind(&item.base_item)
@@ -532,13 +555,14 @@ async fn insert_item(
             let x: Option<i64> = sqlx::query_scalar(
                 format!(
                     "SELECT id FROM {gs}_item_table WHERE
-                    name = ? AND bulk = ? AND description = ? AND hardness = ? AND
+                    foundry_id = ? AND name = ? AND bulk = ? AND description = ? AND hardness = ? AND
                     hp = ? AND level = ? AND price = ? AND item_type = ? AND license = ? AND
                     remaster = ? AND source = ? AND rarity = ? AND size = ?
                 "
                 )
                 .as_str(),
             )
+            .bind(&item.foundry_id)
             .bind(&item.name)
             .bind(item.bulk)
             .bind(&item.description)
@@ -553,7 +577,7 @@ async fn insert_item(
             .bind(&rarity)
             .bind(&size)
             .fetch_optional(&mut **conn)
-            .await?;
+            .await.unwrap();
             match x {
                 Some(i) => Ok(i),
                 None => anyhow::bail!("Could not fetch id"),
@@ -598,12 +622,45 @@ async fn insert_creature(
                 ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?
-            )"
+                ?, ?, ?, ?, ?
+            ) ON CONFLICT (foundry_id) DO UPDATE SET
+            name = excluded.name,
+            aon_id = excluded.aon_id,
+            charisma = excluded.charisma,
+            constitution = excluded.constitution,
+            dexterity = excluded.dexterity,
+            intelligence = excluded.intelligence,
+            strength = excluded.strength,
+            wisdom = excluded.wisdom,
+            ac = excluded.ac,
+            hp = excluded.hp,
+            hp_detail = excluded.hp_detail,
+            ac_detail = excluded.ac_detail,
+            language_detail = excluded.language_detail,
+            level = excluded.level,
+            license = excluded.license,
+            remaster = excluded.remaster,
+            source = excluded.source,
+            initiative_ability = excluded.initiative_ability,
+            perception = excluded.perception,
+            perception_detail = excluded.perception_detail,
+            vision = excluded.vision,
+            fortitude = excluded.fortitude,
+            reflex = excluded.reflex,
+            will = excluded.will,
+            fortitude_detail = excluded.fortitude_detail,
+            reflex_detail = excluded.reflex_detail,
+            will_detail = excluded.will_detail,
+            rarity = excluded.rarity,
+            size = excluded.size,
+            cr_type = excluded.cr_type,
+            family = excluded.family,
+            n_of_focus_points = excluded.n_of_focus_points;"
         )
         .as_str(),
     )
     .bind(None::<i64>) // id, autoincrement
+    .bind(&cr.foundry_id)
     .bind(&cr.name)
     .bind(None::<i64>) //aon_id, need to fetch it manually
     .bind(cr.charisma)

@@ -8,6 +8,7 @@ use thiserror::Error;
 #[derive(Clone)]
 pub struct BybeItem {
     pub name: String,
+    pub foundry_id: String,
     pub bulk: f64,
     pub quantity: i64,
     pub base_item: Option<String>,
@@ -79,6 +80,7 @@ impl From<(SourceItem, bool)> for BybeItem {
         let (source_item, is_derived) = args;
         BybeItem {
             name: source_item.name,
+            foundry_id: source_item.foundry_id,
             bulk: source_item.bulk,
             quantity: source_item.quantity,
             base_item: source_item.base_item,

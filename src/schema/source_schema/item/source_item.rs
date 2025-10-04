@@ -10,6 +10,7 @@ use thiserror::Error;
 
 pub struct SourceItem {
     pub name: String,
+    pub foundry_id: String,
     pub bulk: f64,
     pub quantity: i64,
     pub base_item: Option<String>,
@@ -31,6 +32,8 @@ pub struct SourceItem {
 
 #[derive(Debug, Error)]
 pub enum SourceItemParsingError {
+    #[error("Source id missing")]
+    IdMissing,
     #[error("Category field is not a string")]
     CategoryFieldMissing,
     #[error("Mandatory Name field is missing from json")]
@@ -52,6 +55,10 @@ impl TryFrom<&Value> for SourceItem {
             .as_str()
             .map(|x| x.to_ascii_lowercase())
             .ok_or(SourceItemParsingError::TypeFieldError)?;
+        let foundry_id = get_field_from_json(json, "_id")
+            .as_str()
+            .map(String::from)
+            .ok_or(SourceItemParsingError::IdMissing)?;
         let system_json = get_field_from_json(json, "system");
         let hp_json = get_field_from_json(&system_json, "hp");
         let price_json = get_field_from_json(&system_json, "price");
@@ -68,6 +75,7 @@ impl TryFrom<&Value> for SourceItem {
 
         Ok(SourceItem {
             name,
+            foundry_id,
             bulk: get_field_from_json(&get_field_from_json(&system_json, "bulk"), "value")
                 .as_f64()
                 .unwrap_or(0.0),

@@ -17,6 +17,7 @@ use thiserror::Error;
 
 #[derive(Clone)]
 pub struct BybeCreature {
+    pub foundry_id: String,
     pub name: String,
     pub creature_type: Option<String>,
 
@@ -115,6 +116,7 @@ impl From<SourceCreature> for BybeCreature {
             .flat_map(|x| x.rules.clone())
             .collect();
         BybeCreature {
+            foundry_id: source_cr.foundry_id,
             name: source_cr.name,
             creature_type: None,
             charisma: source_cr.abilities.charisma,

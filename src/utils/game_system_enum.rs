@@ -2,8 +2,8 @@ use std::fmt::{Display, Formatter};
 
 #[derive(PartialEq)]
 pub enum GameSystem {
-    Pathfinder2e,
-    Starfinder2e,
+    Pathfinder,
+    Starfinder,
 }
 
 impl Display for GameSystem {
@@ -12,8 +12,8 @@ impl Display for GameSystem {
             f,
             "{}",
             match self {
-                Self::Pathfinder2e => "pf2e",
-                Self::Starfinder2e => "sf2e",
+                Self::Pathfinder => "pf",
+                Self::Starfinder => "sf",
             }
         )
     }

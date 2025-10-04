@@ -41,8 +41,8 @@ async fn main() {
         .await
         .expect("Could not connect to the given db url, something went wrong..");
 
-    let pf2e_source_path = format!("{}/{}/", source_path, GameSystem::Pathfinder2e);
-    let sf2e_source_path = format!("{}/{}/", source_path, GameSystem::Starfinder2e);
+    let pf2e_source_path = format!("{}/{}/", source_path, GameSystem::Pathfinder);
+    let sf2e_source_path = format!("{}/{}/", source_path, GameSystem::Starfinder);
     fs::create_dir_all(pf2e_source_path.as_str())
         .expect("Could not create folder to store PF2E raw data");
     fs::create_dir_all(sf2e_source_path.as_str())
@@ -66,19 +66,13 @@ async fn db_update(
 ) -> anyhow::Result<()> {
     let mut tx: Transaction<Sqlite> = conn.begin().await?;
 
-    game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder2e)
-        .await
-        .unwrap();
+    game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder).await?;
 
-    db_handler_one::update_with_aon_data(&mut tx).await.unwrap();
+    db_handler_one::update_with_aon_data(&mut tx).await?;
 
-    game_system_tables_update(&mut tx, sf2e_json_paths, &GameSystem::Starfinder2e)
-        .await
-        .unwrap();
+    game_system_tables_update(&mut tx, sf2e_json_paths, &GameSystem::Starfinder).await?;
 
-    db_handler_one::insert_scales_values_to_db(&mut tx)
-        .await
-        .unwrap();
+    db_handler_one::insert_scales_values_to_db(&mut tx).await?;
 
     tx.commit().await?;
     Ok(())
@@ -90,31 +84,21 @@ async fn game_system_tables_update(
     gs: &GameSystem,
 ) -> anyhow::Result<()> {
     for el in deserialize_json_items(&json_paths) {
-        db_handler_one::insert_item_to_db(tx, gs, &el, None)
-            .await
-            .unwrap();
+        db_handler_one::insert_item_to_db(tx, gs, &el, None).await?;
     }
     for el in deserialize_json_armors(&json_paths) {
-        db_handler_one::insert_armor_to_db(tx, gs, &el, None)
-            .await
-            .unwrap();
+        db_handler_one::insert_armor_to_db(tx, gs, &el, None).await?;
     }
     for el in deserialize_json_shields(&json_paths) {
-        db_handler_one::insert_shield_to_db(tx, gs, &el, None)
-            .await
-            .unwrap();
+        db_handler_one::insert_shield_to_db(tx, gs, &el, None).await?;
     }
     for el in deserialize_json_weapons(&json_paths) {
-        db_handler_one::insert_weapon_to_db(tx, gs, &el, None)
-            .await
-            .unwrap();
+        db_handler_one::insert_weapon_to_db(tx, gs, &el, None).await?;
     }
     // we add creature as last. This is made to avoid useless duplicates for
     // item, weapons, etc
     for el in deserialize_json_creatures(&json_paths) {
-        db_handler_one::insert_creature_to_db(tx, gs, el)
-            .await
-            .unwrap();
+        db_handler_one::insert_creature_to_db(tx, gs, el).await?;
     }
     Ok(())
 }
