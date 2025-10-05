@@ -15,7 +15,7 @@ CREATE TABLE pf_action_table (
     slug TEXT,
     rarity TEXT NOT NULL,
     creature_id INTEGER NOT NULL,
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_creature_table (
@@ -85,7 +85,7 @@ CREATE TABLE pf_skill_table (
     remaster BOOLEAN NOT NULL,
     source TEXT NOT NULL,
     creature_id INTEGER NOT NULL,
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_spellcasting_entry_table (
@@ -98,7 +98,7 @@ CREATE TABLE pf_spellcasting_entry_table (
     spellcasting_tradition TEXT NOT NULL,
     heighten_level INTEGER NOT NULL,
     creature_id INTEGER NOT NULL,
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_tradition_table (
@@ -126,8 +126,8 @@ CREATE TABLE pf_spell_table (
     slot INTEGER NOT NULL,
     creature_id INTEGER NOT NULL,
     spellcasting_entry_id INTEGER NOT NULL,
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (spellcasting_entry_id) REFERENCES pf_spellcasting_entry_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (spellcasting_entry_id) REFERENCES pf_spellcasting_entry_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_armor_creature_association_table (
@@ -135,16 +135,16 @@ CREATE TABLE pf_armor_creature_association_table (
     armor_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
     PRIMARY KEY (creature_id, armor_id, quantity),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (armor_id) REFERENCES pf_armor_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (armor_id) REFERENCES pf_armor_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_immunity_creature_association_table (
     creature_id INTEGER NOT NULL,
     immunity_id TEXT NOT NULL,
     PRIMARY KEY (creature_id, immunity_id),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (immunity_id) REFERENCES pf_immunity_table(name)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (immunity_id) REFERENCES pf_immunity_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_item_creature_association_table (
@@ -152,30 +152,30 @@ CREATE TABLE pf_item_creature_association_table (
     item_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
     PRIMARY KEY (creature_id, item_id, quantity),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (item_id) REFERENCES pf_item_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES pf_item_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_language_creature_association_table (
     creature_id INTEGER NOT NULL,
     language_id TEXT NOT NULL,
     PRIMARY KEY (creature_id, language_id),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (language_id) REFERENCES pf_language_table(name)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (language_id) REFERENCES pf_language_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_resistance_double_vs_table (
     resistance_id INTEGER NOT NULL,
     vs_name TEXT NOT NULL,
     PRIMARY KEY (resistance_id, vs_name),
-    FOREIGN KEY (resistance_id) REFERENCES pf_resistance_table(id)
+    FOREIGN KEY (resistance_id) REFERENCES pf_resistance_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_resistance_exception_vs_table (
     resistance_id INTEGER NOT NULL,
     vs_name TEXT NOT NULL,
     PRIMARY KEY (resistance_id, vs_name),
-    FOREIGN KEY (resistance_id) REFERENCES pf_resistance_table(id)
+    FOREIGN KEY (resistance_id) REFERENCES pf_resistance_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_resistance_table (
@@ -183,16 +183,16 @@ CREATE TABLE pf_resistance_table (
     creature_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     value INTEGER NOT NULL,
-    UNIQUE (creature_id, name),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id)
+    UNIQUE (creature_id, name, value),
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_sense_creature_association_table (
     creature_id INTEGER NOT NULL,
     sense_id INTEGER NOT NULL,
     PRIMARY KEY (creature_id, sense_id),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (sense_id) REFERENCES pf_sense_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (sense_id) REFERENCES pf_sense_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_shield_creature_association_table (
@@ -200,8 +200,8 @@ CREATE TABLE pf_shield_creature_association_table (
     shield_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
     PRIMARY KEY (creature_id, shield_id, quantity),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (shield_id) REFERENCES pf_shield_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (shield_id) REFERENCES pf_shield_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_creature_skill_label_table (
@@ -209,8 +209,8 @@ CREATE TABLE pf_creature_skill_label_table (
     skill_id INTEGER NOT NULL,
     skill_label TEXT NOT NULL,
     PRIMARY KEY (creature_id, skill_id, skill_label),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (skill_id) REFERENCES pf_skill_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_id) REFERENCES pf_skill_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_speed_table (
@@ -218,39 +218,39 @@ CREATE TABLE pf_speed_table (
     name TEXT NOT NULL,
     value INTEGER NOT NULL,
     PRIMARY KEY (creature_id, name),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_tradition_spell_association_table (
     spell_id INTEGER NOT NULL,
     tradition_id TEXT NOT NULL,
     PRIMARY KEY (spell_id, tradition_id),
-    FOREIGN KEY (spell_id) REFERENCES pf_spell_table(id),
-    FOREIGN KEY (tradition_id) REFERENCES pf_tradition_table(name)
+    FOREIGN KEY (spell_id) REFERENCES pf_spell_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (tradition_id) REFERENCES pf_tradition_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_trait_action_association_table (
     action_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (action_id, trait_id),
-    FOREIGN KEY (action_id) REFERENCES pf_action_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (action_id) REFERENCES pf_action_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_trait_creature_association_table (
     creature_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (creature_id, trait_id),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_trait_spell_association_table (
     spell_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (spell_id, trait_id),
-    FOREIGN KEY (spell_id) REFERENCES pf_spell_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (spell_id) REFERENCES pf_spell_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_weakness_table (
@@ -258,7 +258,7 @@ CREATE TABLE pf_weakness_table (
     name TEXT NOT NULL,
     value INTEGER NOT NULL,
     PRIMARY KEY (creature_id, name),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id)
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_weapon_creature_association_table (
@@ -266,8 +266,8 @@ CREATE TABLE pf_weapon_creature_association_table (
     weapon_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
     PRIMARY KEY (creature_id, weapon_id, quantity),
-    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id),
-    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (creature_id) REFERENCES pf_creature_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_item_table (
@@ -307,32 +307,32 @@ CREATE TABLE pf_trait_item_association_table (
     item_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (item_id, trait_id),
-    FOREIGN KEY (item_id) REFERENCES pf_item_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (item_id) REFERENCES pf_item_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_trait_weapon_association_table (
     weapon_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (weapon_id, trait_id),
-    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_trait_shield_association_table (
     shield_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (shield_id, trait_id),
-    FOREIGN KEY (shield_id) REFERENCES pf_shield_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (shield_id) REFERENCES pf_shield_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_trait_armor_association_table (
     armor_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (armor_id, trait_id),
-    FOREIGN KEY (armor_id) REFERENCES pf_armor_table(id),
-    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name)
+    FOREIGN KEY (armor_id) REFERENCES pf_armor_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (trait_id) REFERENCES pf_trait_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_weapon_table (
@@ -348,7 +348,7 @@ CREATE TABLE pf_weapon_table (
     weapon_type TEXT NOT NULL,
 
     base_item_id INTEGER,
-    FOREIGN KEY (base_item_id) REFERENCES pf_item_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (base_item_id) REFERENCES pf_item_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_weapon_damage_table (
@@ -360,7 +360,7 @@ CREATE TABLE pf_weapon_damage_table (
     die_size INTEGER,
 
     weapon_id INTEGER NOT NULL,
-    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_armor_table (
@@ -375,7 +375,7 @@ CREATE TABLE pf_armor_table (
     strength_required INTEGER,
 
     base_item_id INTEGER,
-    FOREIGN KEY (base_item_id) REFERENCES pf_item_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (base_item_id) REFERENCES pf_item_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_shield_table (
@@ -388,7 +388,7 @@ CREATE TABLE pf_shield_table (
     speed_penalty INTEGER NOT NULL,
 
     base_item_id INTEGER,
-    FOREIGN KEY (base_item_id) REFERENCES pf_item_table(id) ON UPDATE CASCADE
+    FOREIGN KEY (base_item_id) REFERENCES pf_item_table(id) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_rune_table (
@@ -399,14 +399,14 @@ CREATE TABLE pf_rune_weapon_association_table (
     weapon_id INTEGER NOT NULL,
     rune_id TEXT NOT NULL,
     PRIMARY KEY (weapon_id, rune_id),
-    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id),
-    FOREIGN KEY (rune_id) REFERENCES pf_rune_table(name)
+    FOREIGN KEY (weapon_id) REFERENCES pf_weapon_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (rune_id) REFERENCES pf_rune_table(name) ON DELETE CASCADE
 );
 
 CREATE TABLE pf_rune_armor_association_table (
     armor_id INTEGER NOT NULL,
     rune_id TEXT NOT NULL,
     PRIMARY KEY (armor_id, rune_id),
-    FOREIGN KEY (armor_id) REFERENCES pf_armor_table(id),
-    FOREIGN KEY (rune_id) REFERENCES pf_rune_table(name)
+    FOREIGN KEY (armor_id) REFERENCES pf_armor_table(id) ON DELETE CASCADE,
+    FOREIGN KEY (rune_id) REFERENCES pf_rune_table(name) ON DELETE CASCADE
 );

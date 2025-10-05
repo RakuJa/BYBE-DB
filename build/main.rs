@@ -1,6 +1,7 @@
 mod scales_db_initializer;
 use crate::scales_db_initializer::init_creature_builder_tables;
 use dotenv::dotenv;
+use log::{debug, warn};
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 use sqlx::Transaction;
@@ -30,11 +31,10 @@ async fn main() {
     .await
     .expect("Could not connect to the given db url, something went wrong..");
 
-    sqlx::migrate!("./migrations")
-        .run(&conn)
-        .await
-        .expect("Failed to run migration");
-
+    match sqlx::migrate!("./migrations").run(&conn).await {
+        Ok(_) => debug!("Migrated successfully"),
+        Err(e) => warn!("Migrate failed: {}", e),
+    }
     conn.close().await;
 }
 

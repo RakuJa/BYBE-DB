@@ -54,9 +54,25 @@ async fn main() {
     let pf2e_json_paths = get_json_paths(pf2e_source_path.as_str());
     let sf2e_json_paths = get_json_paths(sf2e_source_path.as_str());
 
+    clear_db(&conn).await.unwrap();
+
     db_update(&conn, pf2e_json_paths, sf2e_json_paths)
         .await
         .unwrap();
+}
+
+async fn clear_db(conn: &SqlitePool) -> anyhow::Result<()> {
+    db_handler_one::drop_tables_except(
+        conn,
+        &[
+            "pf_item_table",
+            "pf_creature_table",
+            "sf_item_table",
+            "sf_creature_table",
+        ],
+    )
+    .await?;
+    Ok(())
 }
 
 async fn db_update(
@@ -228,7 +244,10 @@ fn fetch_source_data(source_url: &str, source_path: &str) {
     // But keeps executing
     if is_dir_empty(source_path) {
         debug!("Cloning path: {source_path}");
-        match Repository::clone(source_url, source_path) {
+        match git2::build::RepoBuilder::new()
+            //.branch("6.8.5")
+            .clone(source_url, source_path.as_ref())
+        {
             Ok(repo) => repo,
             Err(e) => panic!("failed to clone: {e}"),
         };
