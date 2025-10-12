@@ -15,7 +15,6 @@ use crate::schema::source_schema::creature::source_creature::{
 use crate::utils::game_system_enum::GameSystem;
 use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
-use git2::Repository;
 use log::debug;
 use log::warn;
 use sqlx::{Sqlite, SqlitePool, Transaction};
