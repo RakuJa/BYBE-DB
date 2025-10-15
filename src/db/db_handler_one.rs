@@ -19,6 +19,38 @@ pub async fn connect(db_path: &str) -> Result<SqlitePool> {
     Ok(SqlitePool::connect_with(options).await?)
 }
 
+pub async fn drop_tables_except(conn: &SqlitePool, exclude: &[&str]) -> Result<(), sqlx::Error> {
+    let mut exclusions = vec!["sqlite_sequence"];
+    exclusions.extend_from_slice(exclude);
+
+    let query = format!(
+        "SELECT name FROM sqlite_master
+         WHERE type='table'
+         AND name NOT IN ({})
+         AND name NOT LIKE 'sqlite_%'",
+        exclusions
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+
+    let mut query_builder = sqlx::query_as(&query);
+    for exclusion in exclusions {
+        query_builder = query_builder.bind(exclusion);
+    }
+
+    let tables: Vec<(String,)> = query_builder.fetch_all(conn).await?;
+
+    for (table_name,) in tables {
+        sqlx::query(&format!("DELETE FROM {}", table_name))
+            .execute(conn)
+            .await?;
+    }
+
+    Ok(())
+}
+
 pub async fn insert_item_to_db(
     conn: &mut Transaction<'_, Sqlite>,
     gs: &GameSystem,
@@ -384,7 +416,7 @@ async fn insert_speeds(
     id: i64,
 ) -> Result<bool> {
     QueryBuilder::new(format!(
-        "INSERT INTO {gs}_speed_table (creature_id, name, value) "
+        "INSERT OR IGNORE INTO {gs}_speed_table (creature_id, name, value) "
     ))
     .push_values(speed, |mut b, (speed_type, speed_value)| {
         b.push_bind(id).push_bind(speed_type).push_bind(speed_value);
@@ -403,15 +435,20 @@ async fn insert_resistances(
     id: i64,
 ) -> Result<bool> {
     for res in resistances {
-        let res_id = sqlx::query(
+        sqlx::query(
             format!("INSERT OR IGNORE INTO {gs}_resistance_table (id, creature_id, name, value) VALUES (?, ?, ?, ?)").as_str())
         .bind(None::<i64>)
         .bind(id)
         .bind(&res.name)
         .bind(res.value)
         .execute(&mut **conn)
-        .await?
-        .last_insert_rowid();
+        .await?;
+
+        let res_id = sqlx::query_scalar(
+            format!(
+                "SELECT id FROM {gs}_resistance_table WHERE creature_id = ? AND name = ? AND value = ?"
+            ).as_str()
+        ).bind(id).bind(&res.name).bind(res.value).fetch_one(&mut **conn).await?;
 
         insert_resistance_double_vs(conn, gs, res_id, res.double_vs.clone()).await?;
         insert_resistance_exception_vs(conn, gs, res_id, res.exceptions.clone()).await?;
@@ -428,7 +465,7 @@ async fn insert_resistance_double_vs(
 ) -> Result<bool> {
     if !double_vs.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT INTO {gs}_resistance_double_vs_table (resistance_id, vs_name) "
+            "INSERT OR IGNORE INTO {gs}_resistance_double_vs_table (resistance_id, vs_name) "
         ))
         .push_values(double_vs, |mut b, el| {
             b.push_bind(res_id).push_bind(el);
@@ -469,7 +506,7 @@ async fn insert_weaknesses(
 ) -> Result<bool> {
     if !weaknesses.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT INTO {gs}_weakness_table (creature_id, name, value) "
+            "INSERT OR IGNORE INTO {gs}_weakness_table (creature_id, name, value) "
         ))
         .push_values(weaknesses, |mut b, (weak_type, weak_value)| {
             b.push_bind(id).push_bind(weak_type).push_bind(weak_value);
@@ -491,18 +528,41 @@ async fn insert_item(
     let rarity = item.rarity.to_string();
     // we check if a similar base item is already present
     // if it is then we return the id without inserting a new entry
-    match sqlx::query(
+
+    let _ = sqlx::query(
         format!(
             "INSERT INTO {gs}_item_table VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?
-        );
+            ?, ?, ?
+        ) ON CONFLICT (foundry_id) DO UPDATE SET
+            name = excluded.name,
+            bulk = excluded.bulk,
+            base_item = excluded.base_item,
+            category = excluded.category,
+            description = excluded.description,
+            hardness = excluded.hardness,
+            hp = excluded.hp,
+            level = excluded.level,
+            price = excluded.price,
+            usage = excluded.usage,
+            item_group = excluded.item_group,
+            item_type = excluded.item_type,
+            is_derived = excluded.is_derived,
+            material_grade = excluded.material_grade,
+            material_type = excluded.material_type,
+            number_of_uses = excluded.number_of_uses,
+            license = excluded.license,
+            remaster = excluded.remaster,
+            source = excluded.source,
+            rarity = excluded.rarity,
+            size = excluded.size;
     "
         )
         .as_str(),
     )
     .bind(None::<i64>) // id, autoincrement
+    .bind(&item.foundry_id)
     .bind(&item.name)
     .bind(item.bulk)
     .bind(&item.base_item)
@@ -525,41 +585,14 @@ async fn insert_item(
     .bind(&rarity)
     .bind(&size)
     .execute(&mut **conn)
-    .await
-    {
-        Ok(r) => Ok(r.last_insert_rowid()),
-        Err(_) => {
-            let x: Option<i64> = sqlx::query_scalar(
-                format!(
-                    "SELECT id FROM {gs}_item_table WHERE
-                    name = ? AND bulk = ? AND description = ? AND hardness = ? AND
-                    hp = ? AND level = ? AND price = ? AND item_type = ? AND license = ? AND
-                    remaster = ? AND source = ? AND rarity = ? AND size = ?
-                "
-                )
-                .as_str(),
-            )
-            .bind(&item.name)
-            .bind(item.bulk)
-            .bind(&item.description)
-            .bind(item.hardness)
-            .bind(item.hp)
-            .bind(item.level)
-            .bind(item.price)
-            .bind(&item.item_type)
-            .bind(&item.license)
-            .bind(item.remaster)
-            .bind(&item.source)
-            .bind(&rarity)
-            .bind(&size)
-            .fetch_optional(&mut **conn)
-            .await?;
-            match x {
-                Some(i) => Ok(i),
-                None => anyhow::bail!("Could not fetch id"),
-            }
-        }
-    }
+    .await;
+
+    Ok(sqlx::query_scalar::<Sqlite, i64>(
+        format!("SELECT id FROM {gs}_item_table WHERE name = ?").as_str(),
+    )
+    .bind(&item.name)
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 async fn insert_item_creature_association(
@@ -591,19 +624,52 @@ async fn insert_creature(
 ) -> Result<i64> {
     let size = cr.size.to_string();
     let rarity = cr.rarity.to_string();
-    Ok(sqlx::query(
+    sqlx::query(
         format!(
             "
             INSERT INTO {gs}_creature_table VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?
-            )"
+                ?, ?, ?, ?, ?
+            ) ON CONFLICT (foundry_id) DO UPDATE SET
+            name = excluded.name,
+            aon_id = excluded.aon_id,
+            charisma = excluded.charisma,
+            constitution = excluded.constitution,
+            dexterity = excluded.dexterity,
+            intelligence = excluded.intelligence,
+            strength = excluded.strength,
+            wisdom = excluded.wisdom,
+            ac = excluded.ac,
+            hp = excluded.hp,
+            hp_detail = excluded.hp_detail,
+            ac_detail = excluded.ac_detail,
+            language_detail = excluded.language_detail,
+            level = excluded.level,
+            license = excluded.license,
+            remaster = excluded.remaster,
+            source = excluded.source,
+            initiative_ability = excluded.initiative_ability,
+            perception = excluded.perception,
+            perception_detail = excluded.perception_detail,
+            vision = excluded.vision,
+            fortitude = excluded.fortitude,
+            reflex = excluded.reflex,
+            will = excluded.will,
+            fortitude_detail = excluded.fortitude_detail,
+            reflex_detail = excluded.reflex_detail,
+            will_detail = excluded.will_detail,
+            rarity = excluded.rarity,
+            size = excluded.size,
+            cr_type = excluded.cr_type,
+            family = excluded.family,
+            n_of_focus_points = excluded.n_of_focus_points;"
         )
         .as_str(),
     )
     .bind(None::<i64>) // id, autoincrement
+    .bind(&cr.foundry_id)
     .bind(&cr.name)
     .bind(None::<i64>) //aon_id, need to fetch it manually
     .bind(cr.charisma)
@@ -637,8 +703,13 @@ async fn insert_creature(
     .bind(None::<String>) // family, source does not have it
     .bind(cr.n_of_focus_points)
     .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .await?;
+    Ok(sqlx::query_scalar::<Sqlite, i64>(
+        format!("SELECT id FROM {gs}_creature_table WHERE name = ?").as_str(),
+    )
+    .bind(&cr.name)
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 // CREATURE CORE DONE
