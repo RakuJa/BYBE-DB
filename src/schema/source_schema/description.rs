@@ -6,6 +6,12 @@ pub struct Description {
     raw_description: String,
 }
 
+impl Description {
+    pub fn is_valid(&self) -> bool {
+        !self.raw_description.contains("@Embed")
+    }
+}
+
 impl From<&str> for Description {
     fn from(description: &str) -> Self {
         Description {

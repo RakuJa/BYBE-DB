@@ -10,6 +10,7 @@ use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
 };
 use crate::schema::source_schema::rules::{Iwr, Rule};
+use crate::schema::status::Status;
 use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -77,6 +78,8 @@ pub struct BybeCreature {
     pub spellcasting: Vec<SpellCastingEntry>,
     pub spells: Vec<Spell>,
     pub skills: Vec<Skill>,
+
+    pub status: Status,
 }
 
 #[derive(Debug, Error)]
@@ -175,6 +178,7 @@ impl From<SourceCreature> for BybeCreature {
             spellcasting: spellcasting_entries,
             skills: source_cr.items.skill_list,
             n_of_focus_points: source_cr.resource.n_of_focus_points,
+            status: Default::default(),
         }
     }
 }

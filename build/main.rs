@@ -1,10 +1,6 @@
-mod scales_db_initializer;
-use crate::scales_db_initializer::init_creature_builder_tables;
 use dotenv::dotenv;
 use log::{debug, warn};
-use sqlx::Sqlite;
 use sqlx::SqlitePool;
-use sqlx::Transaction;
 use sqlx::sqlite::SqliteConnectOptions;
 use std::str::FromStr;
 use std::{env, fs};
@@ -36,11 +32,4 @@ async fn main() {
         Err(e) => warn!("Migrate failed: {}", e),
     }
     conn.close().await;
-}
-
-pub async fn init_tables(conn: &SqlitePool) -> anyhow::Result<()> {
-    let mut tx: Transaction<Sqlite> = conn.begin().await?;
-    init_creature_builder_tables(&mut tx).await?;
-    tx.commit().await?;
-    Ok(())
 }

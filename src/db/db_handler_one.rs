@@ -35,7 +35,7 @@ pub async fn drop_tables_except(conn: &SqlitePool, exclude: &[&str]) -> Result<(
             .join(", ")
     );
 
-    let mut query_builder = sqlx::query_as(&query);
+    let mut query_builder = sqlx::query_as(sqlx::AssertSqlSafe(query));
     for exclusion in exclusions {
         query_builder = query_builder.bind(exclusion);
     }
@@ -43,7 +43,7 @@ pub async fn drop_tables_except(conn: &SqlitePool, exclude: &[&str]) -> Result<(
     let tables: Vec<(String,)> = query_builder.fetch_all(conn).await?;
 
     for (table_name,) in tables {
-        sqlx::query(&format!("DELETE FROM {}", table_name))
+        sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {}", table_name)))
             .execute(conn)
             .await?;
     }
@@ -333,17 +333,16 @@ async fn insert_language_and_association(
     id: i64,
 ) -> Result<bool> {
     for el in languages {
-        sqlx::query(
-            format!("INSERT OR IGNORE INTO {gs}_language_table (name) VALUES (?)",).as_str(),
-        )
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT OR IGNORE INTO {gs}_language_table (name) VALUES (?)",
+        )))
         .bind(el)
         .execute(&mut **conn)
         .await?;
-        sqlx::query(
+        sqlx::query(sqlx::AssertSqlSafe(
             format!(
                 "INSERT OR IGNORE INTO {gs}_language_creature_association_table (creature_id, language_id) VALUES (?, ?)"
-            )
-            .as_str(),
+            ))
         )
         .bind(id)
         .bind(el)
@@ -360,17 +359,16 @@ async fn insert_immunity_and_association(
     id: i64,
 ) -> Result<bool> {
     for el in immunities {
-        sqlx::query(
-            format!("INSERT OR IGNORE INTO {gs}_immunity_table (name) VALUES (?)").as_str(),
-        )
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT OR IGNORE INTO {gs}_immunity_table (name) VALUES (?)"
+        )))
         .bind(el)
         .execute(&mut **conn)
         .await?;
-        sqlx::query(
+        sqlx::query(sqlx::AssertSqlSafe(
             format!(
                 "INSERT OR IGNORE INTO {gs}_immunity_creature_association_table (creature_id, immunity_id) VALUES (?, ?)"
-            )
-            .as_str(),
+            ))
         )
         .bind(id)
         .bind(el)
@@ -387,8 +385,9 @@ async fn insert_sense_and_association(
     id: i64,
 ) -> Result<bool> {
     for el in senses {
-        let sense_id = sqlx::query(format!(
-            "INSERT OR IGNORE INTO {gs}_sense_table (id, name, range, acuity) VALUES (?, ?, ?, ?)",).as_str())
+        let sense_id = sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT OR IGNORE INTO {gs}_sense_table (id, name, range, acuity) VALUES (?, ?, ?, ?)",
+        )))
         .bind(None::<i64>)
         .bind(&el.name)
         .bind(el.range)
@@ -396,10 +395,10 @@ async fn insert_sense_and_association(
         .execute(&mut **conn)
         .await?
         .last_insert_rowid();
-        sqlx::query(
+        sqlx::query(sqlx::AssertSqlSafe(
             format!(
                 "INSERT OR IGNORE INTO {gs}_sense_creature_association_table (creature_id, sense_id) VALUES (?, ?)"
-            ).as_str()
+            ))
         )
         .bind(id)
         .bind(sense_id)
@@ -435,8 +434,8 @@ async fn insert_resistances(
     id: i64,
 ) -> Result<bool> {
     for res in resistances {
-        sqlx::query(
-            format!("INSERT OR IGNORE INTO {gs}_resistance_table (id, creature_id, name, value) VALUES (?, ?, ?, ?)").as_str())
+        sqlx::query(sqlx::AssertSqlSafe(
+            format!("INSERT OR IGNORE INTO {gs}_resistance_table (id, creature_id, name, value) VALUES (?, ?, ?, ?)")))
         .bind(None::<i64>)
         .bind(id)
         .bind(&res.name)
@@ -444,11 +443,14 @@ async fn insert_resistances(
         .execute(&mut **conn)
         .await?;
 
-        let res_id = sqlx::query_scalar(
-            format!(
-                "SELECT id FROM {gs}_resistance_table WHERE creature_id = ? AND name = ? AND value = ?"
-            ).as_str()
-        ).bind(id).bind(&res.name).bind(res.value).fetch_one(&mut **conn).await?;
+        let res_id = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT id FROM {gs}_resistance_table WHERE creature_id = ? AND name = ? AND value = ?"
+        )))
+        .bind(id)
+        .bind(&res.name)
+        .bind(res.value)
+        .fetch_one(&mut **conn)
+        .await?;
 
         insert_resistance_double_vs(conn, gs, res_id, res.double_vs.clone()).await?;
         insert_resistance_exception_vs(conn, gs, res_id, res.exceptions.clone()).await?;
@@ -529,12 +531,11 @@ async fn insert_item(
     // we check if a similar base item is already present
     // if it is then we return the id without inserting a new entry
 
-    let _ = sqlx::query(
-        format!(
-            "INSERT INTO {gs}_item_table VALUES (
+    let _ = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_item_table VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?
+            ?, ?, ?, ?
         ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             bulk = excluded.bulk,
@@ -556,11 +557,10 @@ async fn insert_item(
             remaster = excluded.remaster,
             source = excluded.source,
             rarity = excluded.rarity,
-            size = excluded.size;
+            size = excluded.size,
+            status = excluded.status;
     "
-        )
-        .as_str(),
-    )
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(&item.foundry_id)
     .bind(&item.name)
@@ -584,15 +584,18 @@ async fn insert_item(
     .bind(&item.source)
     .bind(&rarity)
     .bind(&size)
+    .bind(item.status.to_string())
     .execute(&mut **conn)
     .await;
 
-    Ok(sqlx::query_scalar::<Sqlite, i64>(
-        format!("SELECT id FROM {gs}_item_table WHERE name = ?").as_str(),
+    Ok(
+        sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
+            "SELECT id FROM {gs}_item_table WHERE name = ?"
+        )))
+        .bind(&item.name)
+        .fetch_one(&mut **conn)
+        .await?,
     )
-    .bind(&item.name)
-    .fetch_one(&mut **conn)
-    .await?)
 }
 
 async fn insert_item_creature_association(
@@ -602,13 +605,10 @@ async fn insert_item_creature_association(
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
-    sqlx::query(
-        format!(
-            "INSERT OR IGNORE INTO {gs}_item_creature_association_table
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT OR IGNORE INTO {gs}_item_creature_association_table
             (item_id, creature_id, quantity) VALUES (?, ?, ?)",
-        )
-        .as_str(),
-    )
+    )))
     .bind(item_id)
     .bind(cr_id)
     .bind(quantity)
@@ -624,14 +624,13 @@ async fn insert_creature(
 ) -> Result<i64> {
     let size = cr.size.to_string();
     let rarity = cr.rarity.to_string();
-    sqlx::query(
-        format!(
-            "
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "
             INSERT INTO {gs}_creature_table VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?
             ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             aon_id = excluded.aon_id,
@@ -664,10 +663,9 @@ async fn insert_creature(
             size = excluded.size,
             cr_type = excluded.cr_type,
             family = excluded.family,
-            n_of_focus_points = excluded.n_of_focus_points;"
-        )
-        .as_str(),
-    )
+            n_of_focus_points = excluded.n_of_focus_points,
+            status = excluded.status;"
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(&cr.foundry_id)
     .bind(&cr.name)
@@ -702,14 +700,17 @@ async fn insert_creature(
     .bind(None::<String>) // type, source says NPC always..
     .bind(None::<String>) // family, source does not have it
     .bind(cr.n_of_focus_points)
+    .bind(cr.status.to_string())
     .execute(&mut **conn)
     .await?;
-    Ok(sqlx::query_scalar::<Sqlite, i64>(
-        format!("SELECT id FROM {gs}_creature_table WHERE name = ?").as_str(),
+    Ok(
+        sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
+            "SELECT id FROM {gs}_creature_table WHERE name = ?"
+        )))
+        .bind(&cr.name)
+        .fetch_one(&mut **conn)
+        .await?,
     )
-    .bind(&cr.name)
-    .fetch_one(&mut **conn)
-    .await?)
 }
 
 // CREATURE CORE DONE
@@ -721,17 +722,17 @@ async fn insert_shield(
     shield: &BybeShield,
     item_id: i64,
 ) -> Result<i64> {
-    Ok(
-        sqlx::query(format!("INSERT INTO {gs}_shield_table VALUES (?, ?, ?, ?, ?)").as_str())
-            .bind(None::<i64>) // id, autoincrement
-            .bind(shield.ac_bonus)
-            .bind(shield.n_of_reinforcing_runes)
-            .bind(shield.speed_penalty)
-            .bind(item_id)
-            .execute(&mut **conn)
-            .await?
-            .last_insert_rowid(),
-    )
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_shield_table VALUES (?, ?, ?, ?, ?)"
+    )))
+    .bind(None::<i64>) // id, autoincrement
+    .bind(shield.ac_bonus)
+    .bind(shield.n_of_reinforcing_runes)
+    .bind(shield.speed_penalty)
+    .bind(item_id)
+    .execute(&mut **conn)
+    .await?
+    .last_insert_rowid())
 }
 
 async fn insert_shield_creature_association(
@@ -741,13 +742,10 @@ async fn insert_shield_creature_association(
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
-    sqlx::query(
-        format!(
-            "INSERT OR IGNORE INTO {gs}_shield_creature_association_table
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT OR IGNORE INTO {gs}_shield_creature_association_table
             (shield_id, creature_id, quantity) VALUES (?, ?, ?)"
-        )
-        .as_str(),
-    )
+    )))
     .bind(shield_id)
     .bind(cr_id)
     .bind(quantity)
@@ -763,9 +761,9 @@ async fn insert_weapon(
     wp: &BybeWeapon,
     item_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(
-        format!("INSERT INTO {gs}_weapon_table VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").as_str(),
-    )
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_weapon_table VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(wp.to_hit_bonus)
     .bind(wp.splash_dmg)
@@ -787,9 +785,9 @@ async fn insert_weapon_damage(
     wp_id: i64,
 ) -> Result<()> {
     for el in dmg_data {
-        sqlx::query(
-            format!("INSERT INTO {gs}_weapon_damage_table VALUES (?, ?, ?, ?, ?, ?)").as_str(),
-        )
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_weapon_damage_table VALUES (?, ?, ?, ?, ?, ?)"
+        )))
         .bind(None::<i64>) // id, autoincrement
         .bind(el.bonus_dmg)
         .bind(&el.dmg_type)
@@ -809,13 +807,10 @@ async fn insert_weapon_creature_association(
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
-    sqlx::query(
-        format!(
-            "INSERT OR IGNORE INTO {gs}_weapon_creature_association_table
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT OR IGNORE INTO {gs}_weapon_creature_association_table
             (weapon_id, creature_id, quantity) VALUES (?, ?, ?)"
-        )
-        .as_str(),
-    )
+    )))
     .bind(weapon_id)
     .bind(cr_id)
     .bind(quantity)
@@ -834,15 +829,12 @@ async fn insert_armor(
     armor: &BybeArmor,
     item_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(
-        format!(
-            "
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "
             INSERT INTO {gs}_armor_table VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?
             )"
-        )
-        .as_str(),
-    )
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(armor.ac_bonus)
     .bind(armor.check_penalty)
@@ -863,13 +855,10 @@ async fn insert_armor_creature_association(
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
-    sqlx::query(
-        format!(
-            "INSERT OR IGNORE INTO {gs}_armor_creature_association_table
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT OR IGNORE INTO {gs}_armor_creature_association_table
             (armor_id, creature_id, quantity) VALUES (?, ?, ?)"
-        )
-        .as_str(),
-    )
+    )))
     .bind(armor_id)
     .bind(cr_id)
     .bind(quantity)
@@ -887,14 +876,11 @@ async fn insert_spellcasting_entry(
     spellcasting_entry: &SpellCastingEntry,
     id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(
-        format!(
-            "INSERT INTO {gs}_spellcasting_entry_table VALUES (
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_spellcasting_entry_table VALUES (
             ?, ?, ?, ?, ?, ?, ?, ?, ?
         )"
-        )
-        .as_str(),
-    )
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(&spellcasting_entry.name)
     .bind(spellcasting_entry.is_flexible)
@@ -975,16 +961,13 @@ async fn insert_spell(
         Some(data) => (Some(data.statistic), Some(data.basic)),
         None => (None, None),
     };
-    Ok(sqlx::query(
-        format!(
-            "
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "
             INSERT INTO {gs}_spell_table VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )"
-        )
-        .as_str(),
-    )
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(&spell.name)
     .bind(area_type)
@@ -1018,15 +1001,12 @@ async fn insert_action(
     action: &Action,
     cr_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(
-        format!(
-            "
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "
             INSERT INTO {gs}_action_table VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )"
-        )
-        .as_str(),
-    )
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(&action.name)
     .bind(&action.action_type)
@@ -1070,15 +1050,12 @@ async fn insert_skill(
     skill: &Skill,
     cr_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(
-        format!(
-            "
+    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
+        "
             INSERT INTO {gs}_skill_table VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?
             )",
-        )
-        .as_str(),
-    )
+    )))
     .bind(None::<i64>) // id, autoincrement
     .bind(&skill.name)
     .bind(&skill.description)
@@ -1128,7 +1105,6 @@ async fn insert_runes(
             .execute(&mut **conn)
             .await?;
     }
-
     Ok(true)
 }
 

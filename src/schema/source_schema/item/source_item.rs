@@ -14,7 +14,7 @@ pub struct SourceItem {
     pub bulk: f64,
     pub quantity: i64,
     pub base_item: Option<String>,
-    pub description: String,
+    pub description: Description,
     pub hardness: i64,
     pub hp_values: RawHpValues,
     pub level: i64,
@@ -91,8 +91,7 @@ impl TryFrom<&Value> for SourceItem {
             )
             .as_str()
             .map(Description::from)
-            .unwrap_or_default()
-            .to_string(),
+            .unwrap_or_default(),
             hardness: get_field_from_json(&system_json, "hardness")
                 .as_i64()
                 .unwrap_or(0),

@@ -1,5 +1,6 @@
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::item::source_item::{SourceItem, SourceItemParsingError};
+use crate::schema::status::Status;
 use crate::utils::json_utils;
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
@@ -35,6 +36,8 @@ pub struct BybeItem {
     pub traits: Vec<String>,
 
     pub is_derived: bool,
+
+    pub status: Status,
 }
 
 #[derive(Debug, Error)]
@@ -79,13 +82,14 @@ impl From<(SourceItem, bool)> for BybeItem {
     fn from(args: (SourceItem, bool)) -> Self {
         let (source_item, is_derived) = args;
         BybeItem {
+            status: Status::from(&source_item),
             name: source_item.name,
             foundry_id: source_item.foundry_id,
             bulk: source_item.bulk,
             quantity: source_item.quantity,
             base_item: source_item.base_item,
             category: source_item.category,
-            description: source_item.description,
+            description: source_item.description.to_string(),
             hardness: source_item.hardness,
             hp: source_item.hp_values.hp,
             level: source_item.level,
