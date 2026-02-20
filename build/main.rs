@@ -1,4 +1,4 @@
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use log::{debug, warn};
 use sqlx::SqlitePool;
 use sqlx::sqlite::SqliteConnectOptions;
@@ -8,7 +8,6 @@ use std::{env, fs};
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // use dotenv env variables
-
     let db_url = &env::var("DATABASE_URL")
         .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
 
@@ -26,7 +25,6 @@ async fn main() {
     )
     .await
     .expect("Could not connect to the given db url, something went wrong..");
-
     match sqlx::migrate!("./migrations").run(&conn).await {
         Ok(_) => debug!("Migrated successfully"),
         Err(e) => warn!("Migrate failed: {}", e),

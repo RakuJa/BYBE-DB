@@ -1,4 +1,4 @@
-use log::info;
+use tracing::info;
 use std::fs;
 
 pub fn get_json_paths(source_path: &str) -> Vec<String> {

@@ -14,16 +14,28 @@ use crate::schema::source_schema::creature::source_creature::{
 };
 use crate::utils::game_system_enum::GameSystem;
 use crate::utils::json_manual_fetcher::get_json_paths;
+
 use dotenvy::dotenv;
-use log::debug;
-use log::warn;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::{backtrace, env, fs};
+use tracing::{debug, error};
+use tracing::warn;
+use tracing_appender::{non_blocking, rolling};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
 async fn main() {
     dotenv().ok(); // use dotenv env variables
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("error"));
+    let file_appender = rolling::daily("./logs", "app.log");
+    let (file_writer, _guard) = non_blocking(file_appender);
+
+    tracing_subscriber::registry()
+        .with(EnvFilter::new("info")) // or "debug", "warn", "myapp=debug,hyper=warn"
+        .with(fmt::layer().with_writer(file_writer))
+        .with(fmt::layer().with_writer(std::io::stdout))
+        .init();
     let pf2e_source_url = &env::var("PF2E_SOURCE_URL")
         .or_else(|_| env::var("SOURCE_URL"))
         .expect("PF2E SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
@@ -99,24 +111,35 @@ async fn game_system_tables_update(
     gs: &GameSystem,
 ) -> anyhow::Result<()> {
     for el in deserialize_json_items(&json_paths) {
-        db_handler_one::insert_item_to_db(tx, gs, &el, None).await?;
+        if let Err(e) = db_handler_one::insert_item_to_db(tx, gs, &el, None).await {
+            error!("Failed to insert item: {:?}, skipping with error {:?}", el, e);
+        }
     }
     for el in deserialize_json_armors(&json_paths) {
-        db_handler_one::insert_armor_to_db(tx, gs, &el, None).await?;
+        if let Err(e) = db_handler_one::insert_armor_to_db(tx, gs, &el, None).await {
+            error!("Failed to insert armor: {:?}, skipping with error {:?}", el, e);
+        }
     }
     for el in deserialize_json_shields(&json_paths) {
-        db_handler_one::insert_shield_to_db(tx, gs, &el, None).await?;
+        if let Err(e) = db_handler_one::insert_shield_to_db(tx, gs, &el, None).await {
+            error!("Failed to insert shield: {:?}, skipping with error {:?}", el, e);
+        }
     }
     for el in deserialize_json_weapons(&json_paths) {
-        db_handler_one::insert_weapon_to_db(tx, gs, &el, None).await?;
+        if let Err(e) =  db_handler_one::insert_weapon_to_db(tx, gs, &el, None).await {
+            error!("Failed to insert weapon: {:?}, skipping with error {:?}", el, e);
+        }
     }
     // we add creature as last. This is made to avoid useless duplicates for
     // item, weapons, etc
     for el in deserialize_json_creatures(&json_paths) {
-        db_handler_one::insert_creature_to_db(tx, gs, el).await?;
+        if let Err(e) =  db_handler_one::insert_creature_to_db(tx, gs, &el).await {
+            error!("Failed to insert creature: {:?}, skipping with error {:?}", el, e);
+        }
     }
     Ok(())
 }
+
 
 fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
     let mut creatures = Vec::new();
