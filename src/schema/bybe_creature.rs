@@ -16,7 +16,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BybeCreature {
     pub foundry_id: String,
     pub name: String,

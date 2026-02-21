@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use strum::Display;
 
-#[derive(Serialize, Deserialize, Display, Default, Clone)]
+#[derive(Serialize, Deserialize, Display, Default, Clone, Debug)]
 pub enum RarityEnum {
     #[default]
     #[serde(alias = "common", alias = "COMMON")]
@@ -28,7 +28,7 @@ impl FromStr for RarityEnum {
     }
 }
 
-#[derive(Serialize, Deserialize, Display, Default, Clone)]
+#[derive(Serialize, Deserialize, Display, Default, Clone, Debug)]
 pub enum SizeEnum {
     #[serde(alias = "tiny", alias = "TINY")]
     Tiny,

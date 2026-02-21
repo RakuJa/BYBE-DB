@@ -1,4 +1,4 @@
-CREATE TABLE ability_scales_table (
+CREATE TABLE IF NOT EXISTS ability_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme INTEGER,
@@ -7,7 +7,7 @@ CREATE TABLE ability_scales_table (
     low INTEGER NOT NULL
 );
 
-CREATE TABLE perception_scales_table (
+CREATE TABLE IF NOT EXISTS perception_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme INTEGER NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE perception_scales_table (
     terrible INTEGER NOT NULL
 );
 
-CREATE TABLE skill_scales_table (
+CREATE TABLE IF NOT EXISTS skill_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme INTEGER NOT NULL,
@@ -27,13 +27,13 @@ CREATE TABLE skill_scales_table (
     low_lb INTEGER NOT NULL
 );
 
-CREATE TABLE item_scales_table (
+CREATE TABLE IF NOT EXISTS item_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     cr_level TEXT UNIQUE NOT NULL,
     safe_item_level TEXT NOT NULL
 );
 
-CREATE TABLE ac_scales_table (
+CREATE TABLE IF NOT EXISTS ac_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme INTEGER NOT NULL,
@@ -42,7 +42,7 @@ CREATE TABLE ac_scales_table (
     low INTEGER NOT NULL
 );
 
-CREATE TABLE saving_throw_scales_table (
+CREATE TABLE IF NOT EXISTS saving_throw_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme INTEGER NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE saving_throw_scales_table (
     terrible INTEGER NOT NULL
 );
 
-CREATE TABLE hp_scales_table (
+CREATE TABLE IF NOT EXISTS hp_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     high_ub INTEGER NOT NULL,
@@ -63,14 +63,14 @@ CREATE TABLE hp_scales_table (
     low_lb INTEGER NOT NULL
 );
 
-CREATE TABLE res_weak_scales_table (
+CREATE TABLE IF NOT EXISTS res_weak_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     max INTEGER NOT NULL,
     min INTEGER NOT NULL
 );
 
-CREATE TABLE strike_bonus_scales_table (
+CREATE TABLE IF NOT EXISTS strike_bonus_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme INTEGER NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE strike_bonus_scales_table (
     low INTEGER NOT NULL
 );
 
-CREATE TABLE strike_damage_scales_table (
+CREATE TABLE IF NOT EXISTS strike_damage_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     extreme TEXT NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE strike_damage_scales_table (
     low TEXT NOT NULL
 );
 
-CREATE TABLE spell_dc_and_attack_scales_table (
+CREATE TABLE IF NOT EXISTS spell_dc_and_attack_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE  NOT NULL,
     extreme_dc INTEGER NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE spell_dc_and_attack_scales_table (
     moderate_atk_bonus INTEGER NOT NULL
 );
 
-CREATE TABLE area_damage_scales_table (
+CREATE TABLE IF NOT EXISTS area_damage_scales_table (
     id INTEGER PRIMARY KEY NOT NULL,
     level INTEGER UNIQUE NOT NULL,
     unlimited_use TEXT NOT NULL,

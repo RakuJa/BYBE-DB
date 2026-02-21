@@ -72,7 +72,7 @@ pub async fn insert_shield_to_db(
     shield: &BybeShield,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    // Don't creature useless links between item & creature.
+    // Don't create useless links between item & creature.
     // Since item is as generic as possible the specializations
     // (weapon, armor, etc) should have a separate association table
     let item_id = insert_item_to_db(conn, gs, &shield.item_core, None).await?;
@@ -148,9 +148,9 @@ pub async fn insert_armor_to_db(
 pub async fn insert_creature_to_db(
     conn: &mut Transaction<'_, Sqlite>,
     gs: &GameSystem,
-    cr: BybeCreature,
+    cr: &BybeCreature,
 ) -> Result<bool> {
-    let cr_id = insert_creature(conn, gs, &cr).await?;
+    let cr_id = insert_creature(conn, gs, cr).await?;
     insert_traits(conn, gs, &cr.traits).await?;
     insert_cr_trait_association(conn, gs, &cr.traits, cr_id).await?;
     insert_language_and_association(conn, gs, &cr.languages, cr_id).await?;

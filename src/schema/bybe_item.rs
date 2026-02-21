@@ -6,7 +6,7 @@ use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BybeItem {
     pub name: String,
     pub foundry_id: String,
@@ -121,7 +121,7 @@ impl From<(SourceItem, bool)> for BybeItem {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BybeArmor {
     pub item_core: BybeItem,
     pub ac_bonus: i64,
@@ -178,7 +178,7 @@ impl TryFrom<(&Value, bool)> for BybeArmor {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BybeWeapon {
     pub item_core: BybeItem,
     pub to_hit_bonus: Option<i64>,
@@ -256,7 +256,7 @@ impl TryFrom<(&Value, bool)> for BybeWeapon {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WeaponDamageData {
     pub dmg_type: Option<String>,
     pub n_of_dice: Option<i64>,
@@ -352,7 +352,7 @@ impl WeaponDamageData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BybeShield {
     pub item_core: BybeItem,
     pub n_of_reinforcing_runes: i64,

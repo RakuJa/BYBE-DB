@@ -3,9 +3,9 @@ use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::{Spell, SpellParsingError};
 use crate::schema::source_schema::creature::item::spellcasting_entry::RawSpellCastingEntry;
-use log::debug;
 use serde_json::Value;
 use thiserror::Error;
+use tracing::debug;
 
 pub struct ItemLinkedToCreature {
     pub spell_list: Vec<Spell>,
