@@ -18,8 +18,8 @@ use crate::utils::json_manual_fetcher::get_json_paths;
 use dotenvy::dotenv;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::{backtrace, env, fs};
-use tracing::{debug, error};
 use tracing::warn;
+use tracing::{debug, error};
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -112,34 +112,48 @@ async fn game_system_tables_update(
 ) -> anyhow::Result<()> {
     for el in deserialize_json_items(&json_paths) {
         if let Err(e) = db_handler_one::insert_item_to_db(tx, gs, &el, None).await {
-            error!("Failed to insert item: {:?}, skipping with error {:?}", el, e);
+            error!(
+                "Failed to insert item: {:?}, skipping with error {:?}",
+                el, e
+            );
         }
     }
     for el in deserialize_json_armors(&json_paths) {
         if let Err(e) = db_handler_one::insert_armor_to_db(tx, gs, &el, None).await {
-            error!("Failed to insert armor: {:?}, skipping with error {:?}", el, e);
+            error!(
+                "Failed to insert armor: {:?}, skipping with error {:?}",
+                el, e
+            );
         }
     }
     for el in deserialize_json_shields(&json_paths) {
         if let Err(e) = db_handler_one::insert_shield_to_db(tx, gs, &el, None).await {
-            error!("Failed to insert shield: {:?}, skipping with error {:?}", el, e);
+            error!(
+                "Failed to insert shield: {:?}, skipping with error {:?}",
+                el, e
+            );
         }
     }
     for el in deserialize_json_weapons(&json_paths) {
-        if let Err(e) =  db_handler_one::insert_weapon_to_db(tx, gs, &el, None).await {
-            error!("Failed to insert weapon: {:?}, skipping with error {:?}", el, e);
+        if let Err(e) = db_handler_one::insert_weapon_to_db(tx, gs, &el, None).await {
+            error!(
+                "Failed to insert weapon: {:?}, skipping with error {:?}",
+                el, e
+            );
         }
     }
     // we add creature as last. This is made to avoid useless duplicates for
     // item, weapons, etc
     for el in deserialize_json_creatures(&json_paths) {
-        if let Err(e) =  db_handler_one::insert_creature_to_db(tx, gs, &el).await {
-            error!("Failed to insert creature: {:?}, skipping with error {:?}", el, e);
+        if let Err(e) = db_handler_one::insert_creature_to_db(tx, gs, &el).await {
+            error!(
+                "Failed to insert creature: {:?}, skipping with error {:?}",
+                el, e
+            );
         }
     }
     Ok(())
 }
-
 
 fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
     let mut creatures = Vec::new();

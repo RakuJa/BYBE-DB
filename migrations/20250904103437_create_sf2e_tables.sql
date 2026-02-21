@@ -1,8 +1,8 @@
-CREATE TABLE sf_trait_table (
+CREATE TABLE IF NOT EXISTS sf_trait_table (
     name TEXT PRIMARY KEY NOT NULL
 );
 
-CREATE TABLE sf_action_table (
+CREATE TABLE IF NOT EXISTS sf_action_table (
     id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     action_type TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE sf_action_table (
     FOREIGN KEY (creature_id) REFERENCES sf_creature_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_creature_table (
+CREATE TABLE IF NOT EXISTS sf_creature_table (
     id INTEGER PRIMARY KEY NOT NULL,
     foundry_id TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
@@ -60,22 +60,22 @@ CREATE TABLE sf_creature_table (
     )
 );
 
-CREATE TABLE sf_immunity_table (
+CREATE TABLE IF NOT EXISTS sf_immunity_table (
     name TEXT PRIMARY KEY NOT NULL
 );
 
-CREATE TABLE sf_language_table (
+CREATE TABLE IF NOT EXISTS sf_language_table (
     name TEXT PRIMARY KEY NOT NULL
 );
 
-CREATE TABLE sf_sense_table (
+CREATE TABLE IF NOT EXISTS sf_sense_table (
     id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     range INTEGER,
     acuity TEXT
 );
 
-CREATE TABLE sf_skill_table (
+CREATE TABLE IF NOT EXISTS sf_skill_table (
     id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     description TEXT,
@@ -88,7 +88,7 @@ CREATE TABLE sf_skill_table (
     FOREIGN KEY (creature_id) REFERENCES sf_creature_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_spellcasting_entry_table (
+CREATE TABLE IF NOT EXISTS sf_spellcasting_entry_table (
     id INTEGER PRIMARY KEY NOT NULL,
     spellcasting_name TEXT NOT NULL,
     is_spellcasting_flexible BOOLEAN,
@@ -101,11 +101,11 @@ CREATE TABLE sf_spellcasting_entry_table (
     FOREIGN KEY (creature_id) REFERENCES sf_creature_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_tradition_table (
+CREATE TABLE IF NOT EXISTS sf_tradition_table (
     name TEXT PRIMARY KEY NOT NULL
 );
 
-CREATE TABLE sf_spell_table (
+CREATE TABLE IF NOT EXISTS sf_spell_table (
     id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
     area_type TEXT,
@@ -130,7 +130,7 @@ CREATE TABLE sf_spell_table (
     FOREIGN KEY (spellcasting_entry_id) REFERENCES sf_spellcasting_entry_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_armor_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_armor_creature_association_table (
     creature_id INTEGER NOT NULL,
     armor_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
@@ -139,7 +139,7 @@ CREATE TABLE sf_armor_creature_association_table (
     FOREIGN KEY (armor_id) REFERENCES sf_armor_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_immunity_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_immunity_creature_association_table (
     creature_id INTEGER NOT NULL,
     immunity_id TEXT NOT NULL,
     PRIMARY KEY (creature_id, immunity_id),
@@ -147,7 +147,7 @@ CREATE TABLE sf_immunity_creature_association_table (
     FOREIGN KEY (immunity_id) REFERENCES sf_immunity_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_item_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_item_creature_association_table (
     creature_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
@@ -156,7 +156,7 @@ CREATE TABLE sf_item_creature_association_table (
     FOREIGN KEY (item_id) REFERENCES sf_item_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_language_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_language_creature_association_table (
     creature_id INTEGER NOT NULL,
     language_id TEXT NOT NULL,
     PRIMARY KEY (creature_id, language_id),
@@ -164,21 +164,21 @@ CREATE TABLE sf_language_creature_association_table (
     FOREIGN KEY (language_id) REFERENCES sf_language_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_resistance_double_vs_table (
+CREATE TABLE IF NOT EXISTS sf_resistance_double_vs_table (
     resistance_id INTEGER NOT NULL,
     vs_name TEXT NOT NULL,
     PRIMARY KEY (resistance_id, vs_name),
     FOREIGN KEY (resistance_id) REFERENCES sf_resistance_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_resistance_exception_vs_table (
+CREATE TABLE IF NOT EXISTS sf_resistance_exception_vs_table (
     resistance_id INTEGER NOT NULL,
     vs_name TEXT NOT NULL,
     PRIMARY KEY (resistance_id, vs_name),
     FOREIGN KEY (resistance_id) REFERENCES sf_resistance_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_resistance_table (
+CREATE TABLE IF NOT EXISTS sf_resistance_table (
     id INTEGER PRIMARY KEY NOT NULL,
     creature_id INTEGER NOT NULL,
     name TEXT NOT NULL,
@@ -187,7 +187,7 @@ CREATE TABLE sf_resistance_table (
     FOREIGN KEY (creature_id) REFERENCES sf_creature_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_sense_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_sense_creature_association_table (
     creature_id INTEGER NOT NULL,
     sense_id INTEGER NOT NULL,
     PRIMARY KEY (creature_id, sense_id),
@@ -195,7 +195,7 @@ CREATE TABLE sf_sense_creature_association_table (
     FOREIGN KEY (sense_id) REFERENCES sf_sense_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_shield_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_shield_creature_association_table (
     creature_id INTEGER NOT NULL,
     shield_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE sf_shield_creature_association_table (
     FOREIGN KEY (shield_id) REFERENCES sf_shield_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_creature_skill_label_table (
+CREATE TABLE IF NOT EXISTS sf_creature_skill_label_table (
     creature_id INTEGER NOT NULL,
     skill_id INTEGER NOT NULL,
     skill_label TEXT NOT NULL,
@@ -213,7 +213,7 @@ CREATE TABLE sf_creature_skill_label_table (
     FOREIGN KEY (skill_id) REFERENCES sf_skill_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_speed_table (
+CREATE TABLE IF NOT EXISTS sf_speed_table (
     creature_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     value INTEGER NOT NULL,
@@ -221,7 +221,7 @@ CREATE TABLE sf_speed_table (
     FOREIGN KEY (creature_id) REFERENCES sf_creature_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_tradition_spell_association_table (
+CREATE TABLE IF NOT EXISTS  sf_tradition_spell_association_table (
     spell_id INTEGER NOT NULL,
     tradition_id TEXT NOT NULL,
     PRIMARY KEY (spell_id, tradition_id),
@@ -229,7 +229,7 @@ CREATE TABLE sf_tradition_spell_association_table (
     FOREIGN KEY (tradition_id) REFERENCES sf_tradition_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_trait_action_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_action_association_table (
     action_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (action_id, trait_id),
@@ -237,7 +237,7 @@ CREATE TABLE sf_trait_action_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_trait_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_creature_association_table (
     creature_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (creature_id, trait_id),
@@ -245,7 +245,7 @@ CREATE TABLE sf_trait_creature_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_trait_spell_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_spell_association_table (
     spell_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (spell_id, trait_id),
@@ -253,7 +253,7 @@ CREATE TABLE sf_trait_spell_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_weakness_table (
+CREATE TABLE IF NOT EXISTS sf_weakness_table (
     creature_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     value INTEGER NOT NULL,
@@ -261,7 +261,7 @@ CREATE TABLE sf_weakness_table (
     FOREIGN KEY (creature_id) REFERENCES sf_creature_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_weapon_creature_association_table (
+CREATE TABLE IF NOT EXISTS sf_weapon_creature_association_table (
     creature_id INTEGER NOT NULL,
     weapon_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL,
@@ -270,7 +270,7 @@ CREATE TABLE sf_weapon_creature_association_table (
     FOREIGN KEY (weapon_id) REFERENCES sf_weapon_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_item_table (
+CREATE TABLE IF NOT EXISTS sf_item_table (
     id INTEGER PRIMARY KEY NOT NULL,
     foundry_id TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
@@ -303,7 +303,7 @@ CREATE TABLE sf_item_table (
     ) ON CONFLICT ABORT
 );
 
-CREATE TABLE sf_trait_item_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_item_association_table (
     item_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (item_id, trait_id),
@@ -311,7 +311,7 @@ CREATE TABLE sf_trait_item_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_trait_weapon_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_weapon_association_table (
     weapon_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (weapon_id, trait_id),
@@ -319,7 +319,7 @@ CREATE TABLE sf_trait_weapon_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_trait_shield_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_shield_association_table (
     shield_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (shield_id, trait_id),
@@ -327,7 +327,7 @@ CREATE TABLE sf_trait_shield_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_trait_armor_association_table (
+CREATE TABLE IF NOT EXISTS sf_trait_armor_association_table (
     armor_id INTEGER NOT NULL,
     trait_id TEXT NOT NULL,
     PRIMARY KEY (armor_id, trait_id),
@@ -335,7 +335,7 @@ CREATE TABLE sf_trait_armor_association_table (
     FOREIGN KEY (trait_id) REFERENCES sf_trait_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_weapon_table (
+CREATE TABLE IF NOT EXISTS sf_weapon_table (
     id INTEGER PRIMARY KEY NOT NULL,
 
     to_hit_bonus INTEGER,
@@ -351,7 +351,7 @@ CREATE TABLE sf_weapon_table (
     FOREIGN KEY (base_item_id) REFERENCES sf_item_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_weapon_damage_table (
+CREATE TABLE IF NOT EXISTS sf_weapon_damage_table (
     id INTEGER PRIMARY KEY NOT NULL,
 
     bonus_dmg INTEGER NOT NULL,
@@ -363,7 +363,7 @@ CREATE TABLE sf_weapon_damage_table (
     FOREIGN KEY (weapon_id) REFERENCES sf_weapon_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_armor_table (
+CREATE TABLE IF NOT EXISTS sf_armor_table (
     id INTEGER PRIMARY KEY NOT NULL,
 
     bonus_ac INTEGER NOT NULL,
@@ -378,7 +378,7 @@ CREATE TABLE sf_armor_table (
     FOREIGN KEY (base_item_id) REFERENCES sf_item_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_shield_table (
+CREATE TABLE IF NOT EXISTS sf_shield_table (
     id INTEGER PRIMARY KEY NOT NULL,
 
     bonus_ac INTEGER NOT NULL,
@@ -391,11 +391,11 @@ CREATE TABLE sf_shield_table (
     FOREIGN KEY (base_item_id) REFERENCES sf_item_table(id) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_rune_table (
+CREATE TABLE IF NOT EXISTS sf_rune_table (
     name TEXT NOT NULL PRIMARY KEY
 );
 
-CREATE TABLE sf_rune_weapon_association_table (
+CREATE TABLE IF NOT EXISTS sf_rune_weapon_association_table (
     weapon_id INTEGER NOT NULL,
     rune_id TEXT NOT NULL,
     PRIMARY KEY (weapon_id, rune_id),
@@ -403,7 +403,7 @@ CREATE TABLE sf_rune_weapon_association_table (
     FOREIGN KEY (rune_id) REFERENCES sf_rune_table(name) ON DELETE CASCADE
 );
 
-CREATE TABLE sf_rune_armor_association_table (
+CREATE TABLE IF NOT EXISTS sf_rune_armor_association_table (
     armor_id INTEGER NOT NULL,
     rune_id TEXT NOT NULL,
     PRIMARY KEY (armor_id, rune_id),

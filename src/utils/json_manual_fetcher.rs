@@ -1,5 +1,5 @@
-use tracing::info;
 use std::fs;
+use tracing::info;
 
 pub fn get_json_paths(source_path: &str) -> Vec<String> {
     get_manuals_paths(format!("{source_path}/packs"))
