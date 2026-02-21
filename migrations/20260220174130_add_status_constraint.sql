@@ -124,7 +124,7 @@ CREATE TABLE pf_item_table_new (
    CONSTRAINT item_stats UNIQUE(
         name, bulk, description COLLATE NOCASE, hardness, hp, level, price,
         item_type, license, remaster, source, rarity, size, is_derived, status
-   ) ON CONFLICT ABORT
+   )
 );
 INSERT INTO pf_item_table_new SELECT * FROM pf_item_table;
 DROP TABLE pf_item_table;
@@ -161,7 +161,7 @@ CREATE TABLE sf_item_table_new (
    CONSTRAINT item_stats UNIQUE(
         name, bulk, description COLLATE NOCASE, hardness, hp, level, price,
         item_type, license, remaster, source, rarity, size, is_derived, status
-   ) ON CONFLICT ABORT
+   )
 );
 INSERT INTO sf_item_table_new SELECT * FROM sf_item_table;
 DROP TABLE sf_item_table;
