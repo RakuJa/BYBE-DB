@@ -1,5 +1,5 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
-use crate::schema::source_schema::description::Description;
+use crate::schema::source_schema::common::description::Description;
 use crate::utils::json_utils;
 use serde_json::Value;
 use thiserror::Error;

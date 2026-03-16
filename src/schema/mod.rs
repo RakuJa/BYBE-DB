@@ -1,4 +1,5 @@
 pub mod bybe_creature;
+pub mod bybe_hazard;
 pub mod bybe_item;
 mod bybe_metadata_enum;
 pub mod publication_info;

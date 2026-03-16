@@ -28,19 +28,27 @@ fn _clean_description_from_check_tag(description: &str) -> String {
                     .unwrap_or("")
                     .replace(&['{', '}'][..], "")
             };
-            let check_type = if !is_unsolvable_tag && curly_content.is_empty() {
-                get_content_inside_square_brackets(square_content, "type:").capitalize()
-            } else {
-                "".to_string()
-            };
-            let dc_value = if !is_unsolvable_tag && !dc.is_empty() {
-                let dc_value = dc.trim(); //.parse::<i64>().unwrap();
 
-                /* we should handle substitutions
-                .unwrap_or_else(|_| {
-                    0 //convert string with tags into value (substitution))}
-                });
-                 */
+            let raw_check_type = get_content_inside_square_brackets(square_content, "type:");
+            // If no "type:" key exists, the first pipe-separated segment is the bare skill name
+            let (check_type, bare_skill) = if !is_unsolvable_tag && curly_content.is_empty() {
+                if !raw_check_type.is_empty() {
+                    (raw_check_type.capitalize(), "".to_string())
+                } else {
+                    let bare = square_content
+                        .split('|')
+                        .next()
+                        .unwrap_or("")
+                        .trim()
+                        .to_string();
+                    ("".to_string(), bare)
+                }
+            } else {
+                ("".to_string(), "".to_string())
+            };
+
+            let dc_value = if !is_unsolvable_tag && !dc.is_empty() {
+                let dc_value = dc.trim();
                 format!("DC {dc_value} ")
             } else {
                 "".to_string()
@@ -54,9 +62,18 @@ fn _clean_description_from_check_tag(description: &str) -> String {
             } else {
                 ""
             };
-            let check_data = format!("{dc_value}{dc_type}{check_type}{curly_content}")
-                .trim()
-                .to_string();
+
+            // For bare skill (no "type:" prefix): skill name comes before DC
+            let check_data = if !bare_skill.is_empty() {
+                format!("{bare_skill} {dc_value}{dc_type}{check_type}{curly_content}")
+                    .trim()
+                    .to_string()
+            } else {
+                format!("{dc_value}{dc_type}{check_type}{curly_content}")
+                    .trim()
+                    .to_string()
+            };
+
             clean_description = clean_description.replace(raw_check_descr, check_data.as_str());
         }
     }
@@ -113,6 +130,25 @@ mod tests {
         #[case] input: &str,
         #[case] expected: &str,
     ) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+    #[rstest]
+    #[case(
+        "<p>@Check[arcana|dc:40] (master) to unweave the magic left in the wake of the Trinity Star's passage, @Check[thievery|dc:43] (expert) to etch temporary runes to siphon away the magic</p>",
+        "<p>arcana DC 40 (master) to unweave the magic left in the wake of the Trinity Star's passage, thievery DC 43 (expert) to etch temporary runes to siphon away the magic</p>"
+    )]
+    fn clean_check_with_two_skills(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case(
+        "<p>@Check[Ocean Lore|dc:36] (expert) or @Check[nature|dc:38] or @Check[survival|dc:38] (master) to chart the flood path, @Check[crafting|dc:38] (master) to reinforce a shelter, or @Check[athletics|dc:40] (expert) to quickly ferry people or supplies to higher ground,</p>",
+        "<p>Ocean Lore DC 36 (expert) or nature DC 38 or survival DC 38 (master) to chart the flood path, crafting DC 38 (master) to reinforce a shelter, or athletics DC 40 (expert) to quickly ferry people or supplies to higher ground,</p>"
+    )]
+    fn clean_megatsunami_check(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }

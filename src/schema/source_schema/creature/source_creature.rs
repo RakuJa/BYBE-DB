@@ -1,3 +1,5 @@
+use crate::schema::source_schema::common::saves::{RawSaves, SaveParsingError};
+use crate::schema::source_schema::common::traits::{RawTraits, TraitParsingError};
 use crate::schema::source_schema::creature::abilities::{AbilityParsingError, RawAbilities};
 use crate::schema::source_schema::creature::attributes::{AttributeParsingError, RawAttributes};
 use crate::schema::source_schema::creature::details::{DetailsParsingError, RawDetails};
@@ -6,8 +8,6 @@ use crate::schema::source_schema::creature::item::items::{
 };
 use crate::schema::source_schema::creature::perception::{PerceptionParsingError, RawPerception};
 use crate::schema::source_schema::creature::resources::RawResource;
-use crate::schema::source_schema::creature::saves::{RawSaves, SaveParsingError};
-use crate::schema::source_schema::traits::{RawTraits, TraitParsingError};
 use crate::utils::json_utils;
 use serde_json::Value;
 use thiserror::Error;

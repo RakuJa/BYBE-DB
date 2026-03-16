@@ -15,6 +15,8 @@ use crate::schema::source_schema::creature::source_creature::{
 use crate::utils::game_system_enum::GameSystem;
 use crate::utils::json_manual_fetcher::get_json_paths;
 
+use crate::schema::bybe_hazard::BybeHazard;
+use crate::schema::source_schema::hazard::source_hazard::{SourceHazard, SourceHazardParsingError};
 use dotenvy::dotenv;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::{backtrace, env, fs};
@@ -23,7 +25,7 @@ use tracing::{debug, error};
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{EnvFilter, Layer, fmt};
 
 #[tokio::main]
 async fn main() {
@@ -32,16 +34,20 @@ async fn main() {
     let (file_writer, _guard) = non_blocking(file_appender);
 
     tracing_subscriber::registry()
-        .with(EnvFilter::new("info")) // or "debug", "warn", "myapp=debug,hyper=warn"
-        .with(fmt::layer().with_writer(file_writer))
-        .with(fmt::layer().with_writer(std::io::stdout))
+        .with(
+            fmt::layer()
+                .with_writer(file_writer)
+                .with_filter(EnvFilter::new("info")),
+        )
+        .with(
+            fmt::layer()
+                .with_writer(std::io::stdout)
+                .with_filter(EnvFilter::new("error")),
+        )
         .init();
-    let pf2e_source_url = &env::var("PF2E_SOURCE_URL")
+    let source_url = &env::var("SOURCE_URL")
         .or_else(|_| env::var("SOURCE_URL"))
-        .expect("PF2E SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
-
-    let sf2e_source_url = &env::var("SF2E_SOURCE_URL")
-        .expect("SF2E SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
+        .expect("SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
 
     let source_path = &env::var("SOURCE_DOWNLOAD_PATH").expect(
         "DOWNLOAD PATH NOT SET.. Aborting. Hint: set SOURCE_DOWNLOAD_PATH environmental variable",
@@ -52,15 +58,13 @@ async fn main() {
         .await
         .expect("Could not connect to the given db url, something went wrong..");
 
-    let pf2e_source_path = format!("{}/{}/", source_path, GameSystem::Pathfinder);
-    let sf2e_source_path = format!("{}/{}/", source_path, GameSystem::Starfinder);
-    fs::create_dir_all(pf2e_source_path.as_str())
-        .expect("Could not create folder to store PF2E raw data");
-    fs::create_dir_all(sf2e_source_path.as_str())
-        .expect("Could not create folder to store SF2E raw data");
+    fs::create_dir_all(source_path.as_str())
+        .expect("Could not create folder to store source raw data");
 
-    fetch_source_data(pf2e_source_url, pf2e_source_path.as_str());
-    fetch_source_data(sf2e_source_url, sf2e_source_path.as_str());
+    let pf2e_source_path = format!("{}/packs/pf2e/", source_path);
+    let sf2e_source_path = format!("{}/packs/sf2e/", source_path);
+
+    fetch_source_data(source_url, source_path.as_str());
 
     let pf2e_json_paths = get_json_paths(pf2e_source_path.as_str());
     let sf2e_json_paths = get_json_paths(sf2e_source_path.as_str());
@@ -80,6 +84,8 @@ async fn clear_db(conn: &SqlitePool) -> anyhow::Result<()> {
             "pf_creature_table",
             "sf_item_table",
             "sf_creature_table",
+            "pf_hazard_table",
+            "sf_hazard_table",
         ],
     )
     .await?;
@@ -110,6 +116,15 @@ async fn game_system_tables_update(
     json_paths: Vec<String>,
     gs: &GameSystem,
 ) -> anyhow::Result<()> {
+    for el in deserialize_json_hazards(&json_paths) {
+        if let Err(e) = db_handler_one::insert_hazard_to_db(tx, gs, &el).await {
+            error!(
+                "Failed to insert hazard: {:?}, skipping with error {:?}",
+                el, e
+            );
+        };
+    }
+
     for el in deserialize_json_items(&json_paths) {
         if let Err(e) = db_handler_one::insert_item_to_db(tx, gs, &el, None).await {
             error!(
@@ -267,6 +282,28 @@ fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
         }
     }
     shields
+}
+
+fn deserialize_json_hazards(json_files: &Vec<String>) -> Vec<BybeHazard> {
+    let mut hazards = Vec::new();
+    for file in json_files {
+        match SourceHazard::try_from(
+            &serde_json::from_str(&read_from_file_to_string(file.as_str()))
+                .expect("JSON was not well-formatted"),
+        ) {
+            Ok(hazard) => hazards.push(BybeHazard::from(hazard)),
+            Err(e) => match e {
+                SourceHazardParsingError::InvalidHazardType
+                | SourceHazardParsingError::HazardTypeFormat => {}
+                _ => panic!(
+                    "Error parsing hazard {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
+        }
+    }
+    hazards
 }
 
 fn is_dir_empty(path: &str) -> bool {

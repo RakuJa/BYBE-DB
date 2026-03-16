@@ -2,7 +2,7 @@ use std::fs;
 use tracing::info;
 
 pub fn get_json_paths(source_path: &str) -> Vec<String> {
-    get_manuals_paths(format!("{source_path}/packs"))
+    get_manuals_paths(source_path.to_string())
 }
 
 fn get_manuals_paths(source_path: String) -> Vec<String> {

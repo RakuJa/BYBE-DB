@@ -1,5 +1,5 @@
+use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
 use crate::schema::source_schema::creature::resistance::{Resistance, ResistanceParserError};
-use crate::schema::source_schema::hp_values::{HpParsingError, RawHpValues};
 use crate::utils::json_utils;
 use serde_json::Value;
 use std::collections::HashMap;

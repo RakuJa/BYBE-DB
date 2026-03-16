@@ -2,6 +2,7 @@ use crate::utils::tag::tag_parser::clean_description_from_all_tags;
 use std::fmt;
 use std::fmt::Formatter;
 
+#[derive(Clone, Debug)]
 pub struct Description {
     raw_description: String,
 }

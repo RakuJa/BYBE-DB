@@ -2,7 +2,7 @@ use crate::utils::json_utils;
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawTraits {
     pub rarity: String,
     pub size: String,

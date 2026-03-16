@@ -1,9 +1,9 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
-use crate::schema::source_schema::description::Description;
-use crate::schema::source_schema::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::description::Description;
+use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::traits::{RawTraits, TraitParsingError};
 use crate::schema::source_schema::item::material::RawMaterial;
 use crate::schema::source_schema::price_struct::PriceStruct;
-use crate::schema::source_schema::traits::{RawTraits, TraitParsingError};
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 use thiserror::Error;

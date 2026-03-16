@@ -151,9 +151,18 @@ impl From<SourceCreature> for BybeCreature {
             perception_details: source_cr.perception.perception_details,
             vision: source_cr.perception.vision,
             senses: source_cr.perception.senses,
-            fortitude_mod: source_cr.saves.fortitude,
-            reflex_mod: source_cr.saves.reflex,
-            will_mod: source_cr.saves.will,
+            fortitude_mod: source_cr
+                .saves
+                .fortitude
+                .expect("Creature must have fortitude modifier"),
+            reflex_mod: source_cr
+                .saves
+                .reflex
+                .expect("Creature must have reflex modifier"),
+            will_mod: source_cr
+                .saves
+                .will
+                .expect("Creature must have will modifier"),
             fortitude_detail: source_cr.saves.fortitude_detail,
             reflex_detail: source_cr.saves.reflex_detail,
             will_detail: source_cr.saves.will_detail,

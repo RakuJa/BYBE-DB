@@ -1,7 +1,6 @@
+pub mod common;
 pub mod creature;
-mod description;
-mod hp_values;
+pub mod hazard;
 pub mod item;
 mod price_struct;
 pub mod rules;
-pub mod traits;

@@ -1,4 +1,5 @@
 use crate::schema::bybe_creature::BybeCreature;
+use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
@@ -49,6 +50,170 @@ pub async fn drop_tables_except(conn: &SqlitePool, exclude: &[&str]) -> Result<(
     }
 
     Ok(())
+}
+
+pub async fn insert_hazard_to_db(
+    conn: &mut Transaction<'_, Sqlite>,
+    gs: &GameSystem,
+    hz: &BybeHazard,
+) -> Result<bool> {
+    let hz_id = insert_hazard(conn, gs, hz).await.unwrap();
+    insert_traits(conn, gs, &hz.traits).await.unwrap();
+    insert_hazard_trait_association(conn, gs, &hz.traits, hz_id)
+        .await
+        .unwrap();
+
+    for el in &hz.actions {
+        let action_id = insert_action(conn, gs, el).await.unwrap();
+        insert_traits(conn, gs, &el.traits.traits).await.unwrap();
+        insert_action_trait_association(conn, gs, &el.traits.traits, action_id)
+            .await
+            .unwrap();
+        insert_action_hazard_association(conn, gs, action_id, hz_id)
+            .await
+            .unwrap();
+    }
+    Ok(true)
+}
+
+async fn insert_hazard_trait_association(
+    conn: &mut Transaction<'_, Sqlite>,
+    gs: &GameSystem,
+    traits: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    if !traits.is_empty() {
+        QueryBuilder::new(format!(
+            "INSERT OR IGNORE INTO {gs}_trait_hazard_association_table (hazard_id, trait_id) "
+        ))
+        .push_values(traits, |mut b, el| {
+            b.push_bind(id).push_bind(el);
+        })
+        .build()
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_action_hazard_association(
+    conn: &mut Transaction<'_, Sqlite>,
+    gs: &GameSystem,
+    action_id: i64,
+    hz_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_action_hazard_association_table (action_id, hazard_id) VALUES (?, ?)"
+    )))
+    .bind(action_id)
+    .bind(hz_id)
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
+async fn insert_hazard(
+    conn: &mut Transaction<'_, Sqlite>,
+    gs: &GameSystem,
+    hz: &BybeHazard,
+) -> Result<i64> {
+    let size = hz.size.to_string();
+    let rarity = hz.rarity.to_string();
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "
+        INSERT INTO {gs}_hazard_table (
+            foundry_id,
+            name,
+            ac,
+            hardness,
+            has_health,
+            hp,
+            stealth,
+            stealth_detail,
+            description,
+            disable_description,
+            reset_description,
+            routine_description,
+            is_complex,
+            level,
+            license,
+            remaster,
+            source,
+            fortitude,
+            reflex,
+            will,
+            fortitude_detail,
+            reflex_detail,
+            will_detail,
+            rarity,
+            size
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?
+        ) ON CONFLICT (foundry_id) DO UPDATE SET
+            name = excluded.name,
+            ac = excluded.ac,
+            hardness = excluded.hardness,
+            has_health = excluded.has_health,
+            hp = excluded.hp,
+            stealth = excluded.stealth,
+            stealth_detail = excluded.stealth_detail,
+            description = excluded.description,
+            disable_description = excluded.disable_description,
+            reset_description = excluded.reset_description,
+            routine_description = excluded.routine_description,
+            is_complex = excluded.is_complex,
+            level = excluded.level,
+            license = excluded.license,
+            remaster = excluded.remaster,
+            source = excluded.source,
+            fortitude = excluded.fortitude,
+            reflex = excluded.reflex,
+            will = excluded.will,
+            fortitude_detail = excluded.fortitude_detail,
+            reflex_detail = excluded.reflex_detail,
+            will_detail = excluded.will_detail,
+            rarity = excluded.rarity,
+            size = excluded.size"
+    )))
+    .bind(&hz.foundry_id)
+    .bind(&hz.name)
+    .bind(hz.ac_value)
+    .bind(hz.hardness)
+    .bind(hz.has_health)
+    .bind(hz.hp_values.hp)
+    .bind(hz.stealth)
+    .bind(hz.stealth_detail.to_string())
+    .bind(hz.description.to_string())
+    .bind(hz.disable_description.to_string())
+    .bind(hz.reset_description.to_string())
+    .bind(hz.routine_description.to_string())
+    .bind(hz.is_complex)
+    .bind(hz.level)
+    .bind(hz.publication_info.license.clone())
+    .bind(hz.publication_info.remastered)
+    .bind(hz.publication_info.source.clone())
+    .bind(hz.saves.fortitude)
+    .bind(hz.saves.reflex)
+    .bind(hz.saves.will)
+    .bind(hz.saves.fortitude_detail.clone())
+    .bind(hz.saves.reflex_detail.clone())
+    .bind(hz.saves.will_detail.clone())
+    .bind(rarity)
+    .bind(size)
+    .execute(&mut **conn)
+    .await?;
+    Ok(
+        sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
+            "SELECT id FROM {gs}_hazard_table WHERE name = ?"
+        )))
+        .bind(&hz.name)
+        .fetch_one(&mut **conn)
+        .await?,
+    )
 }
 
 pub async fn insert_item_to_db(
@@ -178,9 +343,10 @@ pub async fn insert_creature_to_db(
         }
     }
     for el in &cr.actions {
-        let action_id = insert_action(conn, gs, el, cr_id).await?;
+        let action_id = insert_action(conn, gs, el).await?;
         insert_traits(conn, gs, &el.traits.traits).await?;
         insert_action_trait_association(conn, gs, &el.traits.traits, action_id).await?;
+        insert_action_creature_association(conn, gs, action_id, cr_id).await?;
     }
     for el in &cr.skills {
         let skill_id = insert_skill(conn, gs, el, cr_id).await?;
@@ -189,6 +355,22 @@ pub async fn insert_creature_to_db(
     for el in &cr.items {
         insert_item_to_db(conn, gs, el, Some(cr_id)).await?;
     }
+    Ok(true)
+}
+
+async fn insert_action_creature_association(
+    conn: &mut Transaction<'_, Sqlite>,
+    gs: &GameSystem,
+    action_id: i64,
+    cr_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_creature_action_association_table (action_id, creature_id) VALUES (?, ?)"
+    )))
+    .bind(action_id)
+    .bind(cr_id)
+    .execute(&mut **conn)
+    .await?;
     Ok(true)
 }
 
@@ -999,12 +1181,11 @@ async fn insert_action(
     conn: &mut Transaction<'_, Sqlite>,
     gs: &GameSystem,
     action: &Action,
-    cr_id: i64,
 ) -> Result<i64> {
     Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
         "
             INSERT INTO {gs}_action_table VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )"
     )))
     .bind(None::<i64>) // id, autoincrement
@@ -1018,7 +1199,6 @@ async fn insert_action(
     .bind(&action.publication_info.source)
     .bind(&action.slug)
     .bind(&action.traits.rarity)
-    .bind(cr_id)
     .execute(&mut **conn)
     .await?
     .last_insert_rowid())

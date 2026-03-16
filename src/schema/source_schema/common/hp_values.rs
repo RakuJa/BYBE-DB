@@ -2,9 +2,15 @@ use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawHpValues {
     pub hp: i64,
+}
+
+impl Default for RawHpValues {
+    fn default() -> Self {
+        Self { hp: -2 }
+    }
 }
 
 #[derive(Debug, Error)]
