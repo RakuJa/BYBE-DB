@@ -25,10 +25,10 @@ async fn main() {
     )
     .await
     .expect("Could not connect to the given db url, something went wrong..");
-    match sqlx::migrate!("./migrations").run(&conn).await {
-        Ok(_) => debug!("Migrated successfully"),
-        Err(e) => panic!("Migrate failed: {}", e),
-    }
+    //match sqlx::migrate!("./migrations").run(&conn).await {
+    //    Ok(_) => debug!("Migrated successfully"),
+    //    Err(e) => panic!("Migrate failed: {}", e),
+    //}
     let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM _sqlx_migrations")
         .fetch_one(&conn)
         .await

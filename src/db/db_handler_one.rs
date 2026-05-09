@@ -208,9 +208,9 @@ async fn insert_hazard(
     .await?;
     Ok(
         sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_hazard_table WHERE name = ?"
+            "SELECT id FROM {gs}_hazard_table WHERE foundry_id = ?"
         )))
-        .bind(&hz.name)
+        .bind(&hz.foundry_id)
         .fetch_one(&mut **conn)
         .await?,
     )
@@ -770,14 +770,24 @@ async fn insert_item(
     .execute(&mut **conn)
     .await;
 
-    Ok(
+    // Try by foundry_id first if not exist fall back to finding the deduplicated row by name.
+    let id_by_foundry_id = sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
+        "SELECT id FROM {gs}_item_table WHERE foundry_id = ?"
+    )))
+    .bind(&item.foundry_id)
+    .fetch_optional(&mut **conn)
+    .await?;
+
+    Ok(if let Some(id) = id_by_foundry_id {
+        id
+    } else {
         sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
             "SELECT id FROM {gs}_item_table WHERE name = ?"
         )))
         .bind(&item.name)
         .fetch_one(&mut **conn)
-        .await?,
-    )
+        .await?
+    })
 }
 
 async fn insert_item_creature_association(
@@ -887,9 +897,9 @@ async fn insert_creature(
     .await?;
     Ok(
         sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_creature_table WHERE name = ?"
+            "SELECT id FROM {gs}_creature_table WHERE foundry_id = ?"
         )))
-        .bind(&cr.name)
+        .bind(&cr.foundry_id)
         .fetch_one(&mut **conn)
         .await?,
     )
