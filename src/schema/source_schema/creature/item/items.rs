@@ -60,10 +60,9 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                         .get("system")
                         .map(|x| x.get("ritual").is_none())
                         .ok_or(CreatureItemParsingError::MissingSystemField)?
+                        && let Ok(sp) = Spell::try_from(el)
                     {
-                        if let Ok(sp) = Spell::try_from(el) {
-                            spells.push(sp);
-                        }
+                        spells.push(sp);
                     }
                 }
                 "melee" | "weapon" => match BybeWeapon::try_from((el, true)) {
