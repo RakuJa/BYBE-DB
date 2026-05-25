@@ -190,6 +190,7 @@ pub struct BybeWeapon {
     pub range: Option<i64>,
     pub reload: Option<String>,
     pub weapon_type: String,
+    pub attack_effects: Vec<String>,
 }
 
 impl TryFrom<(&Value, bool)> for BybeWeapon {
@@ -252,6 +253,17 @@ impl TryFrom<(&Value, bool)> for BybeWeapon {
             to_hit_bonus: get_field_from_json(&hit_bonus_json, "value").as_i64(),
             weapon_type: weapon_type.to_uppercase(),
             damage_data: WeaponDamageData::init_vec_from_json(&system_json),
+            attack_effects: get_field_from_json(
+                &get_field_from_json(&system_json, "attackEffects"),
+                "value",
+            )
+            .as_array()
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default(),
         })
     }
 }

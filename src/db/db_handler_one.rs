@@ -9,51 +9,35 @@ use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::creature::sense::Sense;
 use crate::utils::game_system_enum::GameSystem;
 use anyhow::Result;
-use sqlx::sqlite::SqliteConnectOptions;
-use sqlx::{QueryBuilder, query_file};
-use sqlx::{Sqlite, SqlitePool, Transaction};
+use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 use std::collections::HashMap;
-use std::str::FromStr;
 
-pub async fn connect(db_path: &str) -> Result<SqlitePool> {
-    let options = SqliteConnectOptions::from_str(db_path)?.create_if_missing(true);
-    Ok(SqlitePool::connect_with(options).await?)
+pub async fn connect(db_url: &str) -> Result<PgPool> {
+    Ok(PgPool::connect(db_url).await?)
 }
 
-pub async fn drop_tables_except(conn: &SqlitePool, exclude: &[&str]) -> Result<(), sqlx::Error> {
-    let mut exclusions = vec!["sqlite_sequence"];
+pub async fn drop_tables_except(conn: &PgPool, exclude: &[&str]) -> Result<(), sqlx::Error> {
+    let mut exclusions = vec!["_sqlx_migrations"];
     exclusions.extend_from_slice(exclude);
 
-    let query = format!(
-        "SELECT name FROM sqlite_master
-         WHERE type='table'
-         AND name NOT IN ({})
-         AND name NOT LIKE 'sqlite_%'",
-        exclusions
-            .iter()
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-
-    let mut query_builder = sqlx::query_as(sqlx::AssertSqlSafe(query));
-    for exclusion in exclusions {
-        query_builder = query_builder.bind(exclusion);
-    }
-
-    let tables: Vec<(String,)> = query_builder.fetch_all(conn).await?;
+    let tables: Vec<(String,)> =
+        sqlx::query_as("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+            .fetch_all(conn)
+            .await?;
 
     for (table_name,) in tables {
-        sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {}", table_name)))
-            .execute(conn)
-            .await?;
+        if !exclusions.contains(&table_name.as_str()) {
+            sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {}", table_name)))
+                .execute(conn)
+                .await?;
+        }
     }
 
     Ok(())
 }
 
 pub async fn insert_hazard_to_db(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     hz: &BybeHazard,
 ) -> Result<bool> {
@@ -77,18 +61,19 @@ pub async fn insert_hazard_to_db(
 }
 
 async fn insert_hazard_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_hazard_association_table (hazard_id, trait_id) "
+            "INSERT INTO {gs}_trait_hazard_association_table (hazard_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -97,13 +82,13 @@ async fn insert_hazard_trait_association(
 }
 
 async fn insert_action_hazard_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     action_id: i64,
     hz_id: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_action_hazard_association_table (action_id, hazard_id) VALUES (?, ?)"
+        "INSERT INTO {gs}_action_hazard_association_table (action_id, hazard_id) VALUES ($1, $2)"
     )))
     .bind(action_id)
     .bind(hz_id)
@@ -113,46 +98,29 @@ async fn insert_action_hazard_association(
 }
 
 async fn insert_hazard(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     hz: &BybeHazard,
 ) -> Result<i64> {
     let size = hz.size.to_string();
     let rarity = hz.rarity.to_string();
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "
-        INSERT INTO {gs}_hazard_table (
-            foundry_id,
-            name,
-            ac,
-            hardness,
-            has_health,
-            hp,
-            stealth,
-            stealth_detail,
-            description,
-            disable_description,
-            reset_description,
-            routine_description,
-            is_complex,
-            level,
-            license,
-            remaster,
-            source,
-            fortitude,
-            reflex,
-            will,
-            fortitude_detail,
-            reflex_detail,
-            will_detail,
-            rarity,
-            size
+        "INSERT INTO {gs}_hazard_table (
+            foundry_id, name, ac, hardness, has_health, hp,
+            stealth, stealth_detail, description, disable_description,
+            reset_description, routine_description, is_complex, level,
+            license, remaster, source,
+            fortitude, reflex, will,
+            fortitude_detail, reflex_detail, will_detail,
+            rarity, size
         ) VALUES (
-            ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?,
-            ?, ?, ?, ?
+            $1, $2, $3, $4, $5, $6,
+            $7, $8, $9, $10,
+            $11, $12, $13, $14,
+            $15, $16, $17,
+            $18, $19, $20,
+            $21, $22, $23,
+            $24, $25
         ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             ac = excluded.ac,
@@ -206,18 +174,16 @@ async fn insert_hazard(
     .bind(size)
     .execute(&mut **conn)
     .await?;
-    Ok(
-        sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_hazard_table WHERE foundry_id = ?"
-        )))
-        .bind(&hz.foundry_id)
-        .fetch_one(&mut **conn)
-        .await?,
-    )
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT id FROM {gs}_hazard_table WHERE foundry_id = $1"
+    )))
+    .bind(&hz.foundry_id)
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 pub async fn insert_item_to_db(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     item: &BybeItem,
     cr_id: Option<i64>,
@@ -232,14 +198,11 @@ pub async fn insert_item_to_db(
 }
 
 pub async fn insert_shield_to_db(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     shield: &BybeShield,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    // Don't create useless links between item & creature.
-    // Since item is as generic as possible the specializations
-    // (weapon, armor, etc) should have a separate association table
     let item_id = insert_item_to_db(conn, gs, &shield.item_core, None).await?;
 
     let shield_id = insert_shield(conn, gs, shield, item_id).await?;
@@ -260,14 +223,11 @@ pub async fn insert_shield_to_db(
 }
 
 pub async fn insert_weapon_to_db(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     wp: &BybeWeapon,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    // Don't creature useless links between item & creature.
-    // Since item is as generic as possible the specializations
-    // (weapon, armor, etc) should have a separate association table
     let item_id = insert_item_to_db(conn, gs, &wp.item_core, None).await?;
 
     let wp_id = insert_weapon(conn, gs, wp, item_id).await?;
@@ -282,18 +242,16 @@ pub async fn insert_weapon_to_db(
     insert_weapon_rune_association(conn, gs, &wp.property_runes, wp_id).await?;
 
     insert_weapon_trait_association(conn, gs, &wp.item_core.traits, wp_id).await?;
+    insert_weapon_attack_effect_association(conn, gs, &wp.attack_effects, wp_id).await?;
     Ok(wp_id)
 }
 
 pub async fn insert_armor_to_db(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     armor: &BybeArmor,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    // Don't creature useless links between item & creature.
-    // Since item is as generic as possible the specializations
-    // (weapon, armor, etc) should have a separate association table
     let item_id = insert_item_to_db(conn, gs, &armor.item_core, None).await?;
 
     let arm_id = insert_armor(conn, gs, armor, item_id).await?;
@@ -311,7 +269,7 @@ pub async fn insert_armor_to_db(
 }
 
 pub async fn insert_creature_to_db(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     cr: &BybeCreature,
 ) -> Result<bool> {
@@ -359,13 +317,13 @@ pub async fn insert_creature_to_db(
 }
 
 async fn insert_action_creature_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     action_id: i64,
     cr_id: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_creature_action_association_table (action_id, creature_id) VALUES (?, ?)"
+        "INSERT INTO {gs}_creature_action_association_table (action_id, creature_id) VALUES ($1, $2)"
     )))
     .bind(action_id)
     .bind(cr_id)
@@ -374,33 +332,34 @@ async fn insert_action_creature_association(
     Ok(true)
 }
 
-pub async fn update_with_aon_data(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
-    query_file!("src/db/raw_queries/update_mon_w_aon_data.sql")
+pub async fn update_with_aon_data(conn: &mut Transaction<'_, Postgres>) -> Result<bool> {
+    sqlx::raw_sql(include_str!("raw_queries/update_mon_w_aon_data.sql"))
         .execute(&mut **conn)
         .await?;
-    query_file!("src/db/raw_queries/update_npc_w_aon_data.sql")
+    sqlx::raw_sql(include_str!("raw_queries/update_npc_w_aon_data.sql"))
         .execute(&mut **conn)
         .await?;
     Ok(true)
 }
 
-pub async fn insert_scales_values_to_db(conn: &mut Transaction<'_, Sqlite>) -> Result<bool> {
-    query_file!("src/db/raw_queries/scales.sql")
+pub async fn insert_scales_values_to_db(conn: &mut Transaction<'_, Postgres>) -> Result<bool> {
+    sqlx::raw_sql(include_str!("raw_queries/scales.sql"))
         .execute(&mut **conn)
         .await?;
     Ok(true)
 }
 
 async fn insert_traits(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
 ) -> Result<bool> {
     if !traits.is_empty() {
-        QueryBuilder::new(format!("INSERT OR IGNORE INTO {gs}_trait_table (name) "))
+        QueryBuilder::new(format!("INSERT INTO {gs}_trait_table (name) "))
             .push_values(traits, |mut b, el| {
                 b.push_bind(el);
             })
+            .push(" ON CONFLICT DO NOTHING")
             .build()
             .execute(&mut **conn)
             .await?;
@@ -409,18 +368,40 @@ async fn insert_traits(
 }
 
 async fn insert_weapon_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_weapon_association_table (weapon_id, trait_id) "
+            "INSERT INTO {gs}_trait_weapon_association_table (weapon_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
+        .build()
+        .execute(&mut **conn)
+        .await?;
+    }
+    Ok(true)
+}
+
+async fn insert_weapon_attack_effect_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    effects: &Vec<String>,
+    id: i64,
+) -> Result<bool> {
+    if !effects.is_empty() {
+        QueryBuilder::new(format!(
+            "INSERT INTO {gs}_weapon_attack_effect_table (weapon_id, effect_name) "
+        ))
+        .push_values(effects, |mut b, el| {
+            b.push_bind(id).push_bind(el);
+        })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -429,18 +410,19 @@ async fn insert_weapon_trait_association(
 }
 
 async fn insert_shield_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_shield_association_table (shield_id, trait_id) "
+            "INSERT INTO {gs}_trait_shield_association_table (shield_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -449,18 +431,19 @@ async fn insert_shield_trait_association(
 }
 
 async fn insert_armor_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_armor_association_table (armor_id, trait_id) "
+            "INSERT INTO {gs}_trait_armor_association_table (armor_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -469,18 +452,19 @@ async fn insert_armor_trait_association(
 }
 
 async fn insert_item_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_item_association_table (item_id, trait_id) "
+            "INSERT INTO {gs}_trait_item_association_table (item_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -489,18 +473,19 @@ async fn insert_item_trait_association(
 }
 
 async fn insert_cr_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_creature_association_table (creature_id, trait_id) "
+            "INSERT INTO {gs}_trait_creature_association_table (creature_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -509,23 +494,22 @@ async fn insert_cr_trait_association(
 }
 
 async fn insert_language_and_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     languages: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     for el in languages {
         sqlx::query(sqlx::AssertSqlSafe(format!(
-            "INSERT OR IGNORE INTO {gs}_language_table (name) VALUES (?)",
+            "INSERT INTO {gs}_language_table (name) VALUES ($1) ON CONFLICT DO NOTHING",
         )))
         .bind(el)
         .execute(&mut **conn)
         .await?;
-        sqlx::query(sqlx::AssertSqlSafe(
-            format!(
-                "INSERT OR IGNORE INTO {gs}_language_creature_association_table (creature_id, language_id) VALUES (?, ?)"
-            ))
-        )
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_language_creature_association_table (creature_id, language_id) \
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"
+        )))
         .bind(id)
         .bind(el)
         .execute(&mut **conn)
@@ -535,23 +519,22 @@ async fn insert_language_and_association(
 }
 
 async fn insert_immunity_and_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     immunities: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     for el in immunities {
         sqlx::query(sqlx::AssertSqlSafe(format!(
-            "INSERT OR IGNORE INTO {gs}_immunity_table (name) VALUES (?)"
+            "INSERT INTO {gs}_immunity_table (name) VALUES ($1) ON CONFLICT DO NOTHING"
         )))
         .bind(el)
         .execute(&mut **conn)
         .await?;
-        sqlx::query(sqlx::AssertSqlSafe(
-            format!(
-                "INSERT OR IGNORE INTO {gs}_immunity_creature_association_table (creature_id, immunity_id) VALUES (?, ?)"
-            ))
-        )
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_immunity_creature_association_table (creature_id, immunity_id) \
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"
+        )))
         .bind(id)
         .bind(el)
         .execute(&mut **conn)
@@ -561,27 +544,24 @@ async fn insert_immunity_and_association(
 }
 
 async fn insert_sense_and_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     senses: &Vec<Sense>,
     id: i64,
 ) -> Result<bool> {
     for el in senses {
-        let sense_id = sqlx::query(sqlx::AssertSqlSafe(format!(
-            "INSERT OR IGNORE INTO {gs}_sense_table (id, name, range, acuity) VALUES (?, ?, ?, ?)",
+        let sense_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_sense_table (name, range, acuity) VALUES ($1, $2, $3) RETURNING id"
         )))
-        .bind(None::<i64>)
         .bind(&el.name)
         .bind(el.range)
         .bind(&el.acuity)
-        .execute(&mut **conn)
-        .await?
-        .last_insert_rowid();
-        sqlx::query(sqlx::AssertSqlSafe(
-            format!(
-                "INSERT OR IGNORE INTO {gs}_sense_creature_association_table (creature_id, sense_id) VALUES (?, ?)"
-            ))
-        )
+        .fetch_one(&mut **conn)
+        .await?;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_sense_creature_association_table (creature_id, sense_id) \
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"
+        )))
         .bind(id)
         .bind(sense_id)
         .execute(&mut **conn)
@@ -591,42 +571,37 @@ async fn insert_sense_and_association(
 }
 
 async fn insert_speeds(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     speed: &HashMap<String, i64>,
     id: i64,
 ) -> Result<bool> {
-    QueryBuilder::new(format!(
-        "INSERT OR IGNORE INTO {gs}_speed_table (creature_id, name, value) "
-    ))
-    .push_values(speed, |mut b, (speed_type, speed_value)| {
-        b.push_bind(id).push_bind(speed_type).push_bind(speed_value);
-    })
-    .build()
-    .execute(&mut **conn)
-    .await?;
+    if !speed.is_empty() {
+        QueryBuilder::new(format!(
+            "INSERT INTO {gs}_speed_table (creature_id, name, value) "
+        ))
+        .push_values(speed, |mut b, (speed_type, speed_value)| {
+            b.push_bind(id).push_bind(speed_type).push_bind(speed_value);
+        })
+        .push(" ON CONFLICT DO NOTHING")
+        .build()
+        .execute(&mut **conn)
+        .await?;
+    }
 
     Ok(true)
 }
 
 async fn insert_resistances(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     resistances: &Vec<Resistance>,
     id: i64,
 ) -> Result<bool> {
     for res in resistances {
-        sqlx::query(sqlx::AssertSqlSafe(
-            format!("INSERT OR IGNORE INTO {gs}_resistance_table (id, creature_id, name, value) VALUES (?, ?, ?, ?)")))
-        .bind(None::<i64>)
-        .bind(id)
-        .bind(&res.name)
-        .bind(res.value)
-        .execute(&mut **conn)
-        .await?;
-
-        let res_id = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_resistance_table WHERE creature_id = ? AND name = ? AND value = ?"
+        let res_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_resistance_table (creature_id, name, value) \
+             VALUES ($1, $2, $3) RETURNING id"
         )))
         .bind(id)
         .bind(&res.name)
@@ -642,18 +617,19 @@ async fn insert_resistances(
 }
 
 async fn insert_resistance_double_vs(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     res_id: i64,
     double_vs: Vec<String>,
 ) -> Result<bool> {
     if !double_vs.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_resistance_double_vs_table (resistance_id, vs_name) "
+            "INSERT INTO {gs}_resistance_double_vs_table (resistance_id, vs_name) "
         ))
         .push_values(double_vs, |mut b, el| {
             b.push_bind(res_id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -663,18 +639,19 @@ async fn insert_resistance_double_vs(
 }
 
 async fn insert_resistance_exception_vs(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     res_id: i64,
     exception_vs: Vec<String>,
 ) -> Result<bool> {
     if !exception_vs.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_resistance_exception_vs_table (resistance_id, vs_name) "
+            "INSERT INTO {gs}_resistance_exception_vs_table (resistance_id, vs_name) "
         ))
         .push_values(exception_vs, |mut b, el| {
             b.push_bind(res_id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -683,18 +660,19 @@ async fn insert_resistance_exception_vs(
 }
 
 async fn insert_weaknesses(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     weaknesses: &HashMap<String, i64>,
     id: i64,
 ) -> Result<bool> {
     if !weaknesses.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_weakness_table (creature_id, name, value) "
+            "INSERT INTO {gs}_weakness_table (creature_id, name, value) "
         ))
         .push_values(weaknesses, |mut b, (weak_type, weak_value)| {
             b.push_bind(id).push_bind(weak_type).push_bind(weak_value);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -704,20 +682,29 @@ async fn insert_weaknesses(
 }
 
 async fn insert_item(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     item: &BybeItem,
 ) -> Result<i64> {
     let size = item.size.to_string();
     let rarity = item.rarity.to_string();
-    // we check if a similar base item is already present
-    // if it is then we return the id without inserting a new entry
 
-    let _ = sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_item_table VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?
+    // Use SAVEPOINT to recover if item_stats UNIQUE constraint fires on a different foundry_id
+    sqlx::query("SAVEPOINT item_insert")
+        .execute(&mut **conn)
+        .await?;
+
+    let insert_result = sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_item_table (
+            foundry_id, name, bulk, base_item, category, description,
+            hardness, hp, level, price, usage, item_group, item_type,
+            is_derived, material_grade, material_type, number_of_uses,
+            license, remaster, source, rarity, size, status
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6,
+            $7, $8, $9, $10, $11, $12, $13,
+            $14, $15, $16, $17,
+            $18, $19, $20, $21, $22, $23
         ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             bulk = excluded.bulk,
@@ -740,10 +727,8 @@ async fn insert_item(
             source = excluded.source,
             rarity = excluded.rarity,
             size = excluded.size,
-            status = excluded.status;
-    "
+            status = excluded.status"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(&item.foundry_id)
     .bind(&item.name)
     .bind(item.bulk)
@@ -770,9 +755,18 @@ async fn insert_item(
     .execute(&mut **conn)
     .await;
 
-    // Try by foundry_id first if not exist fall back to finding the deduplicated row by name.
-    let id_by_foundry_id = sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
-        "SELECT id FROM {gs}_item_table WHERE foundry_id = ?"
+    if insert_result.is_err() {
+        sqlx::query("ROLLBACK TO SAVEPOINT item_insert")
+            .execute(&mut **conn)
+            .await?;
+    }
+    sqlx::query("RELEASE SAVEPOINT item_insert")
+        .execute(&mut **conn)
+        .await?;
+
+    // Try by foundry_id first; if the item_stats constraint deduplicated it, fall back to name.
+    let id_by_foundry_id: Option<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT id FROM {gs}_item_table WHERE foundry_id = $1"
     )))
     .bind(&item.foundry_id)
     .fetch_optional(&mut **conn)
@@ -781,8 +775,8 @@ async fn insert_item(
     Ok(if let Some(id) = id_by_foundry_id {
         id
     } else {
-        sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_item_table WHERE name = ?"
+        sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT id FROM {gs}_item_table WHERE name = $1"
         )))
         .bind(&item.name)
         .fetch_one(&mut **conn)
@@ -791,15 +785,15 @@ async fn insert_item(
 }
 
 async fn insert_item_creature_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     item_id: i64,
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT OR IGNORE INTO {gs}_item_creature_association_table
-            (item_id, creature_id, quantity) VALUES (?, ?, ?)",
+        "INSERT INTO {gs}_item_creature_association_table \
+            (item_id, creature_id, quantity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
     )))
     .bind(item_id)
     .bind(cr_id)
@@ -810,20 +804,32 @@ async fn insert_item_creature_association(
 }
 
 async fn insert_creature(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     cr: &BybeCreature,
 ) -> Result<i64> {
     let size = cr.size.to_string();
     let rarity = cr.rarity.to_string();
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "
-            INSERT INTO {gs}_creature_table VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?
-            ) ON CONFLICT (foundry_id) DO UPDATE SET
+        "INSERT INTO {gs}_creature_table (
+            foundry_id, name, aon_id,
+            charisma, constitution, dexterity, intelligence, strength, wisdom,
+            ac, hp, hp_detail, ac_detail, language_detail,
+            level, license, remaster, source,
+            initiative_ability, perception, perception_detail, vision,
+            fortitude, reflex, will,
+            fortitude_detail, reflex_detail, will_detail,
+            rarity, size, cr_type, family, n_of_focus_points, status
+        ) VALUES (
+            $1, $2, $3,
+            $4, $5, $6, $7, $8, $9,
+            $10, $11, $12, $13, $14,
+            $15, $16, $17, $18,
+            $19, $20, $21, $22,
+            $23, $24, $25,
+            $26, $27, $28,
+            $29, $30, $31, $32, $33, $34
+        ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             aon_id = excluded.aon_id,
             charisma = excluded.charisma,
@@ -856,12 +862,11 @@ async fn insert_creature(
             cr_type = excluded.cr_type,
             family = excluded.family,
             n_of_focus_points = excluded.n_of_focus_points,
-            status = excluded.status;"
+            status = excluded.status"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(&cr.foundry_id)
     .bind(&cr.name)
-    .bind(None::<i64>) //aon_id, need to fetch it manually
+    .bind(None::<i32>) // aon_id, fetched later
     .bind(cr.charisma)
     .bind(cr.constitution)
     .bind(cr.dexterity)
@@ -889,54 +894,48 @@ async fn insert_creature(
     .bind(&cr.will_detail)
     .bind(rarity)
     .bind(size)
-    .bind(None::<String>) // type, source says NPC always..
-    .bind(None::<String>) // family, source does not have it
+    .bind(None::<String>) // cr_type
+    .bind(None::<String>) // family
     .bind(cr.n_of_focus_points)
     .bind(cr.status.to_string())
     .execute(&mut **conn)
     .await?;
-    Ok(
-        sqlx::query_scalar::<Sqlite, i64>(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_creature_table WHERE foundry_id = ?"
-        )))
-        .bind(&cr.foundry_id)
-        .fetch_one(&mut **conn)
-        .await?,
-    )
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT id FROM {gs}_creature_table WHERE foundry_id = $1"
+    )))
+    .bind(&cr.foundry_id)
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
-// CREATURE CORE DONE
-// SHIELD CORE START
-
 async fn insert_shield(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     shield: &BybeShield,
     item_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_shield_table VALUES (?, ?, ?, ?, ?)"
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_shield_table (ac_bonus, n_of_reinforcing_runes, speed_penalty, base_item_id) \
+         VALUES ($1, $2, $3, $4) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(shield.ac_bonus)
     .bind(shield.n_of_reinforcing_runes)
     .bind(shield.speed_penalty)
     .bind(item_id)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 async fn insert_shield_creature_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     shield_id: i64,
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT OR IGNORE INTO {gs}_shield_creature_association_table
-            (shield_id, creature_id, quantity) VALUES (?, ?, ?)"
+        "INSERT INTO {gs}_shield_creature_association_table \
+            (shield_id, creature_id, quantity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
     )))
     .bind(shield_id)
     .bind(cr_id)
@@ -946,17 +945,18 @@ async fn insert_shield_creature_association(
     Ok(true)
 }
 
-// WEAPON CORE START
 async fn insert_weapon(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     wp: &BybeWeapon,
     item_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_weapon_table VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_weapon_table \
+         (to_hit_bonus, splash_dmg, n_of_potency_runes, n_of_striking_runes, \
+          range, reload, weapon_type, base_item_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(wp.to_hit_bonus)
     .bind(wp.splash_dmg)
     .bind(wp.n_of_potency_runes)
@@ -965,22 +965,22 @@ async fn insert_weapon(
     .bind(&wp.reload)
     .bind(&wp.weapon_type)
     .bind(item_id)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 async fn insert_weapon_damage(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     dmg_data: &Vec<WeaponDamageData>,
     wp_id: i64,
 ) -> Result<()> {
     for el in dmg_data {
         sqlx::query(sqlx::AssertSqlSafe(format!(
-            "INSERT INTO {gs}_weapon_damage_table VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO {gs}_weapon_damage_table \
+             (bonus_dmg, dmg_type, number_of_dice, die_size, weapon_id) \
+             VALUES ($1, $2, $3, $4, $5)"
         )))
-        .bind(None::<i64>) // id, autoincrement
         .bind(el.bonus_dmg)
         .bind(&el.dmg_type)
         .bind(el.n_of_dice)
@@ -993,15 +993,15 @@ async fn insert_weapon_damage(
 }
 
 async fn insert_weapon_creature_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     weapon_id: i64,
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT OR IGNORE INTO {gs}_weapon_creature_association_table
-            (weapon_id, creature_id, quantity) VALUES (?, ?, ?)"
+        "INSERT INTO {gs}_weapon_creature_association_table \
+            (weapon_id, creature_id, quantity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
     )))
     .bind(weapon_id)
     .bind(cr_id)
@@ -1011,23 +1011,18 @@ async fn insert_weapon_creature_association(
     Ok(true)
 }
 
-// WEAPON CORE END
-
-// ARMOR CORE START
-
 async fn insert_armor(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     armor: &BybeArmor,
     item_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "
-            INSERT INTO {gs}_armor_table VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )"
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_armor_table \
+         (ac_bonus, check_penalty, dex_cap, n_of_potency_runes, n_of_resilient_runes, \
+          speed_penalty, strength_required, base_item_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(armor.ac_bonus)
     .bind(armor.check_penalty)
     .bind(armor.dex_cap)
@@ -1036,20 +1031,20 @@ async fn insert_armor(
     .bind(armor.speed_penalty)
     .bind(armor.strength_required)
     .bind(item_id)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
+
 async fn insert_armor_creature_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     armor_id: i64,
     cr_id: i64,
     quantity: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT OR IGNORE INTO {gs}_armor_creature_association_table
-            (armor_id, creature_id, quantity) VALUES (?, ?, ?)"
+        "INSERT INTO {gs}_armor_creature_association_table \
+            (armor_id, creature_id, quantity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
     )))
     .bind(armor_id)
     .bind(cr_id)
@@ -1059,21 +1054,19 @@ async fn insert_armor_creature_association(
     Ok(true)
 }
 
-// ARMOR CORE END
-// SPELL CORE START
-
 async fn insert_spellcasting_entry(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     spellcasting_entry: &SpellCastingEntry,
     id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_spellcasting_entry_table VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?
-        )"
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_spellcasting_entry_table (
+            spellcasting_name, is_spellcasting_flexible, type_of_spellcaster,
+            spellcasting_dc_mod, spellcasting_atk_mod, spellcasting_tradition,
+            heighten_level, creature_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(&spellcasting_entry.name)
     .bind(spellcasting_entry.is_flexible)
     .bind(&spellcasting_entry.type_of_spellcaster)
@@ -1082,24 +1075,24 @@ async fn insert_spellcasting_entry(
     .bind(&spellcasting_entry.tradition)
     .bind(spellcasting_entry.heighten_level)
     .bind(id)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 async fn insert_spell_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_spell_association_table (spell_id, trait_id) "
+            "INSERT INTO {gs}_trait_spell_association_table (spell_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -1108,28 +1101,28 @@ async fn insert_spell_trait_association(
 }
 
 async fn insert_tradition_and_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     tradition: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !tradition.is_empty() {
-        QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_tradition_table (name) "
-        ))
-        .push_values(tradition, |mut b, el| {
-            b.push_bind(el);
-        })
-        .build()
-        .execute(&mut **conn)
-        .await?;
+        QueryBuilder::new(format!("INSERT INTO {gs}_tradition_table (name) "))
+            .push_values(tradition, |mut b, el| {
+                b.push_bind(el);
+            })
+            .push(" ON CONFLICT DO NOTHING")
+            .build()
+            .execute(&mut **conn)
+            .await?;
 
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_tradition_spell_association_table (spell_id, tradition_id) "
+            "INSERT INTO {gs}_tradition_spell_association_table (spell_id, tradition_id) "
         ))
         .push_values(tradition, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -1138,7 +1131,7 @@ async fn insert_tradition_and_association(
 }
 
 async fn insert_spell(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     spell: &Spell,
     slot: i64,
@@ -1153,14 +1146,21 @@ async fn insert_spell(
         Some(data) => (Some(data.statistic), Some(data.basic)),
         None => (None, None),
     };
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "
-            INSERT INTO {gs}_spell_table VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )"
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_spell_table (
+            name, area_type, area_value, counteraction,
+            saving_throw, basic_saving_throw, sustained, duration,
+            level, range, target, actions,
+            license, remaster, source, rarity,
+            slot, creature_id, spellcasting_entry_id
+        ) VALUES (
+            $1, $2, $3, $4,
+            $5, $6, $7, $8,
+            $9, $10, $11, $12,
+            $13, $14, $15, $16,
+            $17, $18, $19
+        ) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(&spell.name)
     .bind(area_type)
     .bind(area_value)
@@ -1180,25 +1180,21 @@ async fn insert_spell(
     .bind(slot)
     .bind(cr_id)
     .bind(spellcasting_entry_id)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
-// ACTION
-
 async fn insert_action(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     action: &Action,
 ) -> Result<i64> {
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "
-            INSERT INTO {gs}_action_table VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )"
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_action_table (
+            name, action_type, n_of_actions, category, description,
+            license, remaster, source, slug, rarity
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(&action.name)
     .bind(&action.action_type)
     .bind(action.n_of_actions)
@@ -1209,24 +1205,24 @@ async fn insert_action(
     .bind(&action.publication_info.source)
     .bind(&action.slug)
     .bind(&action.traits.rarity)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 async fn insert_action_trait_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     traits: &Vec<String>,
     id: i64,
 ) -> Result<bool> {
     if !traits.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_trait_action_association_table (action_id, trait_id) "
+            "INSERT INTO {gs}_trait_action_association_table (action_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -1235,18 +1231,17 @@ async fn insert_action_trait_association(
 }
 
 async fn insert_skill(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     skill: &Skill,
     cr_id: i64,
 ) -> Result<i64> {
-    Ok(sqlx::query(sqlx::AssertSqlSafe(format!(
-        "
-            INSERT INTO {gs}_skill_table VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )",
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_skill_table (
+            name, description, modifier, proficiency,
+            license, remaster, source, creature_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
     )))
-    .bind(None::<i64>) // id, autoincrement
     .bind(&skill.name)
     .bind(&skill.description)
     .bind(skill.modifier)
@@ -1255,13 +1250,12 @@ async fn insert_skill(
     .bind(skill.publication_info.remastered)
     .bind(&skill.publication_info.source)
     .bind(cr_id)
-    .execute(&mut **conn)
-    .await?
-    .last_insert_rowid())
+    .fetch_one(&mut **conn)
+    .await?)
 }
 
 async fn insert_skill_modifier_variant_table(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     skill_labels: &Vec<String>,
     cr_id: i64,
@@ -1282,15 +1276,16 @@ async fn insert_skill_modifier_variant_table(
 }
 
 async fn insert_runes(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     runes: &Vec<String>,
 ) -> Result<bool> {
     if !runes.is_empty() {
-        QueryBuilder::new(format!("INSERT OR IGNORE INTO {gs}_rune_table (name) "))
+        QueryBuilder::new(format!("INSERT INTO {gs}_rune_table (name) "))
             .push_values(runes, |mut b, el| {
                 b.push_bind(el);
             })
+            .push(" ON CONFLICT DO NOTHING")
             .build()
             .execute(&mut **conn)
             .await?;
@@ -1299,18 +1294,19 @@ async fn insert_runes(
 }
 
 async fn insert_weapon_rune_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     runes: &Vec<String>,
     wp_id: i64,
 ) -> Result<bool> {
     if !runes.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_rune_weapon_association_table (weapon_id, rune_id) "
+            "INSERT INTO {gs}_rune_weapon_association_table (weapon_id, rune_id) "
         ))
         .push_values(runes, |mut b, el| {
             b.push_bind(wp_id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;
@@ -1319,18 +1315,19 @@ async fn insert_weapon_rune_association(
 }
 
 async fn insert_armor_rune_association(
-    conn: &mut Transaction<'_, Sqlite>,
+    conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     runes: &Vec<String>,
     arm_id: i64,
 ) -> Result<bool> {
     if !runes.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT OR IGNORE INTO {gs}_rune_armor_association_table (armor_id, rune_id) "
+            "INSERT INTO {gs}_rune_armor_association_table (armor_id, rune_id) "
         ))
         .push_values(runes, |mut b, el| {
             b.push_bind(arm_id).push_bind(el);
         })
+        .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
         .await?;

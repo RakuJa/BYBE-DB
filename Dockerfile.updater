@@ -1,0 +1,32 @@
+FROM rust:alpine AS builder
+
+# musl target defaults to static linking, but openssl-dev only ships shared libs
+ENV RUSTFLAGS="-C target-feature=-crt-static"
+
+RUN apk add --no-cache \
+    pkgconf cmake make gcc musl-dev \
+    openssl-dev libgit2-dev zlib-dev
+
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock ./
+COPY build/ build/
+# Caching trick, to avoid recompiling often
+RUN mkdir src && echo 'fn main() {}' > src/main.rs \
+    && cargo build --release \
+    && rm -f target/release/deps/bybe_db* src/main.rs
+
+COPY src/ src/
+COPY migrations/ migrations/
+RUN cargo build --release
+
+
+FROM alpine
+
+RUN apk add --no-cache libgcc libgit2 openssl ca-certificates zlib
+
+WORKDIR /app
+COPY --from=builder /app/target/release/bybe-db ./
+COPY migrations/ migrations/
+
+CMD ["./bybe-db"]

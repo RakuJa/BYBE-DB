@@ -18,7 +18,7 @@ use crate::utils::json_manual_fetcher::get_json_paths;
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::source_schema::hazard::source_hazard::{SourceHazard, SourceHazardParsingError};
 use dotenvy::dotenv;
-use sqlx::{Sqlite, SqlitePool, Transaction};
+use sqlx::{PgPool, Postgres, Transaction};
 use std::{backtrace, env, fs};
 use tracing::warn;
 use tracing::{debug, error};
@@ -52,12 +52,6 @@ async fn main() {
     let source_path = &env::var("SOURCE_DOWNLOAD_PATH").expect(
         "DOWNLOAD PATH NOT SET.. Aborting. Hint: set SOURCE_DOWNLOAD_PATH environmental variable",
     );
-    let db_url = &env::var("DATABASE_URL")
-        .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
-    let conn = db_handler_one::connect(db_url)
-        .await
-        .expect("Could not connect to the given db url, something went wrong..");
-
     fs::create_dir_all(source_path.as_str())
         .expect("Could not create folder to store source raw data");
 
@@ -65,6 +59,19 @@ async fn main() {
     let sf2e_source_path = format!("{}/packs/sf2e/", source_path);
 
     fetch_source_data(source_url, source_path.as_str());
+
+    let db_url = &env::var("DATABASE_URL")
+        .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
+    let conn = db_handler_one::connect(db_url)
+        .await
+        .expect("Could not connect to the given db url, something went wrong..");
+
+    sqlx::migrate::Migrator::new(std::path::Path::new("./migrations"))
+        .await
+        .expect("Could not find migrations directory")
+        .run(&conn)
+        .await
+        .expect("Failed to run migrations");
 
     let pf2e_json_paths = get_json_paths(pf2e_source_path.as_str());
     let sf2e_json_paths = get_json_paths(sf2e_source_path.as_str());
@@ -76,7 +83,7 @@ async fn main() {
         .unwrap();
 }
 
-async fn clear_db(conn: &SqlitePool) -> anyhow::Result<()> {
+async fn clear_db(conn: &PgPool) -> anyhow::Result<()> {
     db_handler_one::drop_tables_except(
         conn,
         &[
@@ -93,11 +100,11 @@ async fn clear_db(conn: &SqlitePool) -> anyhow::Result<()> {
 }
 
 async fn db_update(
-    conn: &SqlitePool,
+    conn: &PgPool,
     pf2e_json_paths: Vec<String>,
     sf2e_json_paths: Vec<String>,
 ) -> anyhow::Result<()> {
-    let mut tx: Transaction<Sqlite> = conn.begin().await?;
+    let mut tx: Transaction<Postgres> = conn.begin().await?;
 
     game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder).await?;
 
@@ -112,7 +119,7 @@ async fn db_update(
 }
 
 async fn game_system_tables_update(
-    tx: &mut Transaction<'_, Sqlite>,
+    tx: &mut Transaction<'_, Postgres>,
     json_paths: Vec<String>,
     gs: &GameSystem,
 ) -> anyhow::Result<()> {
@@ -317,10 +324,7 @@ fn fetch_source_data(source_url: &str, source_path: &str) {
     // But keeps executing
     if is_dir_empty(source_path) {
         debug!("Cloning path: {source_path}");
-        match git2::build::RepoBuilder::new()
-            //.branch("6.8.5")
-            .clone(source_url, source_path.as_ref())
-        {
+        match git2::build::RepoBuilder::new().clone(source_url, source_path.as_ref()) {
             Ok(repo) => repo,
             Err(e) => panic!("failed to clone: {e}"),
         };

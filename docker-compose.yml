@@ -1,0 +1,39 @@
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    environment:
+      POSTGRES_DB: bybe
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bybe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    container_name: bybe-postgres
+
+  updater:
+    build:
+      context: .
+      dockerfile: Dockerfile.updater
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/bybe
+      SOURCE_URL: https://github.com/foundryvtt/pf2e
+      SOURCE_DOWNLOAD_PATH: /data
+    volumes:
+      - ./data:/data
+    restart: "no"
+    container_name: bybe-updater
+
+volumes:
+  pgdata:

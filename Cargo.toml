@@ -38,7 +38,7 @@ git2 = "0.20"
 
 strum = { version = "0.28.0", features = ["derive"] }
 
-sqlx = { version = "0.9.0-alpha.1", features = ["runtime-async-std", "sqlite"] }
+sqlx = { version = "0.9.0-alpha.1", features = ["runtime-tokio", "postgres", "migrate"] }
 dotenvy = "0.15.7"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
@@ -50,7 +50,7 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt"] }
 log = "0.4"
 anyhow = "1.0"
-sqlx = { version = "0.9.0-alpha.1", features = ["runtime-async-std", "sqlite"] }
+sqlx = { version = "0.9.0-alpha.1", features = ["runtime-tokio", "postgres", "migrate"] }
 dotenvy = "0.15"
 
 [dev-dependencies]
