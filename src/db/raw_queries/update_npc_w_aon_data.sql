@@ -98,7 +98,7 @@ UPDATE pf_creature_table set aon_id = 1451, cr_type = 'Npc', family = NULL WHERE
 UPDATE pf_creature_table set aon_id = 1452, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Archery Specialist');
 UPDATE pf_creature_table set aon_id = 1453, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Mage of Many Styles');
 UPDATE pf_creature_table set aon_id = 1466, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Gomwai');
-UPDATE pf_creature_table set aon_id = 1468, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Hana's Hundreds");
+UPDATE pf_creature_table set aon_id = 1468, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Hana''s Hundreds');
 UPDATE pf_creature_table set aon_id = 1471, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Koto Zekora');
 UPDATE pf_creature_table set aon_id = 1472, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Butterfly Blade Warrior');
 UPDATE pf_creature_table set aon_id = 1478, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Nai Yan Fei');
@@ -209,7 +209,7 @@ UPDATE pf_creature_table set aon_id = 1784, cr_type = 'Npc', family = NULL WHERE
 UPDATE pf_creature_table set aon_id = 1785, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Varilyn "Vare" Eridge');
 UPDATE pf_creature_table set aon_id = 1786, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Desiak');
 UPDATE pf_creature_table set aon_id = 1787, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Azi');
-UPDATE pf_creature_table set aon_id = 1788, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Venexus's Chosen");
+UPDATE pf_creature_table set aon_id = 1788, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Venexus''s Chosen');
 UPDATE pf_creature_table set aon_id = 1791, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ashen Swale');
 UPDATE pf_creature_table set aon_id = 1792, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Idovik');
 UPDATE pf_creature_table set aon_id = 1803, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Unshadowed Okoro');
@@ -230,7 +230,7 @@ UPDATE pf_creature_table set aon_id = 1956, cr_type = 'Npc', family = NULL WHERE
 UPDATE pf_creature_table set aon_id = 1959, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Yniesse Zenderholm');
 UPDATE pf_creature_table set aon_id = 1960, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Acolyte of Pharasma');
 UPDATE pf_creature_table set aon_id = 1965, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Gilded Gunner Goon');
-UPDATE pf_creature_table set aon_id = 1966, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("""Lucky"" Lanks");
+UPDATE pf_creature_table set aon_id = 1966, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('"Lucky" Lanks');
 UPDATE pf_creature_table set aon_id = 1970, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Palzu');
 UPDATE pf_creature_table set aon_id = 1974, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Gilded Gunner Assassin');
 UPDATE pf_creature_table set aon_id = 1975, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Gilded Gunner Safecracker');
@@ -731,7 +731,7 @@ UPDATE pf_creature_table set aon_id = 1692, cr_type = 'Npc', family = NULL WHERE
 -- UPDATE pf_creature_table set aon_id = 1753, cr_type = 'Npc', family = 'Threshold of Knowledge Pregenerated Characters' WHERE UPPER(name) = UPPER('');Ufi,
 -- UPDATE pf_creature_table set aon_id = 1754, cr_type = 'Npc', family = 'Threshold of Knowledge Pregenerated Characters' WHERE UPPER(name) = UPPER('');Zane Ikundi,
 UPDATE pf_creature_table set aon_id = 1761, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Burning Mammoth Hunter');
-UPDATE pf_creature_table set aon_id = 1765, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Ardissa's Porter");
+UPDATE pf_creature_table set aon_id = 1765, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ardissa''s Porter');
 UPDATE pf_creature_table set aon_id = 1769, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Pakano (Level 12)');
 UPDATE pf_creature_table set aon_id = 1821, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Rhino Warriors');
 UPDATE pf_creature_table set aon_id = 1940, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Glaz Nixbrix');
@@ -808,7 +808,7 @@ UPDATE pf_creature_table set aon_id = 3700, cr_type = 'Npc', family = NULL WHERE
 
 UPDATE pf_creature_table set aon_id = 895, cr_type = 'Npc', family = 'Devotees' WHERE UPPER(name) = UPPER('Zealot of Asmodeus');
 UPDATE pf_creature_table set aon_id = 1028, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Duhgik');
-UPDATE pf_creature_table set aon_id = 1029, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Pr'rall");
+UPDATE pf_creature_table set aon_id = 1029, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Pr''rall');
 UPDATE pf_creature_table set aon_id = 1052, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Urok');
 UPDATE pf_creature_table set aon_id = 1391, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Zhang Yong');
 UPDATE pf_creature_table set aon_id = 1473, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Syu Tak-nwa (Level 14)');
@@ -830,7 +830,7 @@ UPDATE pf_creature_table set aon_id = 1488, cr_type = 'Npc', family = NULL WHERE
 UPDATE pf_creature_table set aon_id = 1524, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Yabin (White Serpent Form)');
 UPDATE pf_creature_table set aon_id = 1578, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Bshez "Sand Claws" Shak');
 UPDATE pf_creature_table set aon_id = 1591, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ingnovim Tluss');
-UPDATE pf_creature_table set aon_id = 1592, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Ingnovim's Assistant");
+UPDATE pf_creature_table set aon_id = 1592, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Ingnovim''s Assistant');
 UPDATE pf_creature_table set aon_id = 1620, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Yoh Souran');
 UPDATE pf_creature_table set aon_id = 1639, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Froglegs');
 UPDATE pf_creature_table set aon_id = 1694, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Thiarvo the Quick');
@@ -851,7 +851,7 @@ UPDATE pf_creature_table set aon_id = 2099, cr_type = 'Npc', family = NULL WHERE
 -- UPDATE pf_creature_table set aon_id = 2398, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('None');Nok-Nok (Level 5)
 -- UPDATE pf_creature_table set aon_id = 2400, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('None');Tristian (Level 10), []
 -- UPDATE pf_creature_table set aon_id = 2402, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('None');Valerie (Level 9)
-UPDATE pf_creature_table set aon_id = 2436, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER("Kemnebi's Puppet");
+UPDATE pf_creature_table set aon_id = 2436, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Kemnebi''s Puppet');
 UPDATE pf_creature_table set aon_id = 2556, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Drustan');
 UPDATE pf_creature_table set aon_id = 2594, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Raven Nicoletta');
 UPDATE pf_creature_table set aon_id = 2595, cr_type = 'Npc', family = NULL WHERE UPPER(name) = UPPER('Zellara Esmeranda');

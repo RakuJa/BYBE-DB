@@ -23,7 +23,7 @@ docker compose up --build
 ### Start the DB only (serve queries)
 The previous step should have already started the db, if it did not run:
 ```bash
-docker compose up bybe-postgres
+docker compose up db
 ```
 
 ### Re-run the updater (if needed)

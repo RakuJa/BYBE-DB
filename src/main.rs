@@ -14,6 +14,7 @@ use crate::schema::source_schema::creature::source_creature::{
 };
 use crate::utils::game_system_enum::GameSystem;
 use crate::utils::json_manual_fetcher::get_json_paths;
+use crate::utils::tag::tag_parser::find_remaining_tags;
 
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::source_schema::hazard::source_hazard::{SourceHazard, SourceHazardParsingError};
@@ -177,6 +178,12 @@ async fn game_system_tables_update(
     Ok(())
 }
 
+fn log_description_errors(entity_name: &str, label: &str, errors: &[String]) {
+    for e in errors {
+        warn!("Description parsing issue in {entity_name} [{label}]: {e}");
+    }
+}
+
 fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
     let mut creatures = Vec::new();
     for file in json_files {
@@ -184,7 +191,17 @@ fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            Ok(creature) => creatures.push(BybeCreature::from(creature)),
+            Ok(creature) => {
+                let bybe_creature = BybeCreature::from(creature);
+                for action in &bybe_creature.actions {
+                    log_description_errors(
+                        &bybe_creature.name,
+                        &format!("action '{}'", action.name),
+                        &find_remaining_tags(&action.description),
+                    );
+                }
+                creatures.push(bybe_creature);
+            }
             Err(e) => match e {
                 SourceCreatureParsingError::DuplicatedCreature
                 | SourceCreatureParsingError::InvalidCreatureType => {}
@@ -207,7 +224,14 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
                 .expect("JSON was not well-formatted"),
             false,
         )) {
-            Ok(item) => items.push(item),
+            Ok(item) => {
+                log_description_errors(
+                    &item.name,
+                    "description",
+                    &find_remaining_tags(&item.description),
+                );
+                items.push(item);
+            }
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
@@ -230,7 +254,14 @@ fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
                 .expect("JSON was not well-formatted"),
             false,
         )) {
-            Ok(item) => weapons.push(item),
+            Ok(item) => {
+                log_description_errors(
+                    &item.item_core.name,
+                    "description",
+                    &find_remaining_tags(&item.item_core.description),
+                );
+                weapons.push(item);
+            }
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
@@ -253,7 +284,14 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
                 .expect("JSON was not well-formatted"),
             false,
         )) {
-            Ok(item) => armors.push(item),
+            Ok(item) => {
+                log_description_errors(
+                    &item.item_core.name,
+                    "description",
+                    &find_remaining_tags(&item.item_core.description),
+                );
+                armors.push(item);
+            }
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
@@ -276,7 +314,14 @@ fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
                 .expect("JSON was not well-formatted"),
             false,
         )) {
-            Ok(item) => shields.push(item),
+            Ok(item) => {
+                log_description_errors(
+                    &item.item_core.name,
+                    "description",
+                    &find_remaining_tags(&item.item_core.description),
+                );
+                shields.push(item);
+            }
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
@@ -298,7 +343,25 @@ fn deserialize_json_hazards(json_files: &Vec<String>) -> Vec<BybeHazard> {
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
         ) {
-            Ok(hazard) => hazards.push(BybeHazard::from(hazard)),
+            Ok(hazard) => {
+                let bybe_hazard = BybeHazard::from(hazard);
+                for (label, desc) in [
+                    ("description", &bybe_hazard.description),
+                    ("disable_description", &bybe_hazard.disable_description),
+                    ("reset_description", &bybe_hazard.reset_description),
+                    ("routine_description", &bybe_hazard.routine_description),
+                ] {
+                    log_description_errors(&bybe_hazard.name, label, &desc.parsing_errors(None));
+                }
+                for action in &bybe_hazard.actions {
+                    log_description_errors(
+                        &bybe_hazard.name,
+                        &format!("action '{}'", action.name),
+                        &find_remaining_tags(&action.description),
+                    );
+                }
+                hazards.push(bybe_hazard);
+            }
             Err(e) => match e {
                 SourceHazardParsingError::InvalidHazardType
                 | SourceHazardParsingError::HazardTypeFormat => {}

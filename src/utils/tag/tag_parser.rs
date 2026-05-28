@@ -53,6 +53,23 @@ pub fn get_content_inside_square_brackets(content: &str, start_delimiter: &str) 
     }
 }
 
+/// Checks a cleaned description for tag patterns that survived the parsing pipeline.
+/// Returns a list of human-readable issue descriptions.
+pub fn find_remaining_tags(cleaned_description: &str) -> Vec<String> {
+    static AT_TAG: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"@[A-Za-z]+\[").unwrap());
+    static DOUBLE_BRACKET: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[\[").unwrap());
+
+    let mut issues = Vec::new();
+    for m in AT_TAG.find_iter(cleaned_description) {
+        issues.push(format!("unparsed tag '{}'", m.as_str()));
+    }
+    if DOUBLE_BRACKET.is_match(cleaned_description) {
+        issues.push("unparsed double-bracket '[[' tag".to_string());
+    }
+    issues
+}
+
 pub fn clean_description_from_all_tags(description: &str, item_lvl: Option<i64>) -> String {
     clean_description_from_generic_bracket(
         dm_roll_parser::clean_description(
