@@ -4,13 +4,17 @@ use {once_cell::sync::Lazy, regex::Regex};
 
 pub fn clean_description(description: &str, item_lvl: Option<i64>) -> String {
     let mut desc = String::from(description);
-    static SPLIT_REGEX: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"@Damage\[[\w\W]*?]((.*?])]?(\{(.*?)})?)?").unwrap());
+    // Matches @Damage[...] with one level of nested brackets (e.g. [bludgeoning]),
+    // an optional extra trailing ] (some entries have a stray one), and optional {label}.
+    // Group 1: full {label}, Group 2: label content without braces.
+    static SPLIT_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"@Damage\[(?:[^\[\]]*(?:\[[^\[\]]*\])?)*\]\]?(\{([^}]*)\})?").unwrap()
+    });
     for el in SPLIT_REGEX.find_iter(description).map(|x| x.as_str()) {
         if let Some(curr_match) = SPLIT_REGEX.captures(el) {
             let dirty_match = curr_match.get(0).map(|x| x.as_str()).unwrap();
             let cleaned_match = if let Some(curly_bracket_content) =
-                curr_match.get(4).map(|x| x.as_str())
+                curr_match.get(2).map(|x| x.as_str())
             {
                 curly_bracket_content.to_string()
             } else {
@@ -265,6 +269,28 @@ mod tests {
         #[case] expected: &str,
     ) {
         let parsed_description = clean_description(input, input_lvl);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case(
+        "@Damage[2d6[bludgeoning],2d6[piercing],2d6[slashing]]{2d6 bludgeoning damage, 2d6 piercing damage, and 2d6 slashing damage}",
+        "2d6 bludgeoning damage, 2d6 piercing damage, and 2d6 slashing damage"
+    )]
+    // pipe options (|options:...) before the curly label — seen in area-damage entries
+    #[case(
+        "@Damage[3d12[piercing],2d12[void]|options:area-damage]{3d12 piercing damage and 2d12 void damage}",
+        "3d12 piercing damage and 2d12 void damage"
+    )]
+    fn clean_multi_damage_with_label(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input, None);
+        assert_eq!(expected, parsed_description);
+    }
+    // single-damage WITH a curly label: the label should be preferred over the parsed formula
+    #[rstest]
+    #[case("@Damage[1d6[fire]]{1d6 fire damage}", "1d6 fire damage")]
+    fn clean_single_damage_curly_label_preferred(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input, None);
         assert_eq!(expected, parsed_description);
     }
 

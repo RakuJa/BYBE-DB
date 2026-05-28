@@ -88,6 +88,25 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
+    // minimal /r roll — no label, no curly bracket
+    #[rstest]
+    #[case("[[/r 1d6]]", "1d6")]
+    #[case("[[/r 2d8+3]]", "2d8+3")]
+    #[case("[[/r 1d20-2]]", "1d20-2")]
+    fn clean_bare_r_roll(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
+    // /gmr with a numeric modifier in the curly label
+    #[rstest]
+    #[case("[[/gmr 1d4+2 #Recharge]]{1d4+2 rounds}", "1d4+2 rounds")]
+    #[case("[[/gmr 2d6+1 #Duration]]{2d6+1 minutes}", "2d6+1 minutes")]
+    fn clean_gmr_with_modifier(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
     #[rstest]
     #[case("1d6 minutes", "1d6 minutes")]
     fn clean_without_tags(#[case] input: &str, #[case] expected: &str) {

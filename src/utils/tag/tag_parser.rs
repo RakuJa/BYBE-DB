@@ -111,4 +111,37 @@ mod tests {
         let parsed_description = clean_description_from_generic_bracket(input);
         assert_eq!(expected, parsed_description);
     }
+
+    #[rstest]
+    #[case("fully parsed description with no tags", &[] as &[&str])]
+    #[case("<p>Normal HTML with <strong>bold</strong> text</p>", &[])]
+    fn find_remaining_tags_clean(#[case] input: &str, #[case] expected_issues: &[&str]) {
+        let issues = find_remaining_tags(input);
+        assert_eq!(issues.len(), expected_issues.len());
+    }
+
+    #[rstest]
+    #[case("some text @UUID[Actor.abc] more text", "unparsed tag '@UUID['")]
+    #[case("take @Damage[10d6[fire]] damage", "unparsed tag '@Damage['")]
+    #[case("@Check[type:reflex|dc:15] save", "unparsed tag '@Check['")]
+    #[case("@Template[type:burst|distance:5]", "unparsed tag '@Template['")]
+    #[case("@Embed[UUID.something]", "unparsed tag '@Embed['")]
+    fn find_remaining_tags_detects_at_tags(#[case] input: &str, #[case] expected_issue: &str) {
+        let issues = find_remaining_tags(input);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0], expected_issue);
+    }
+
+    #[test]
+    fn find_remaining_tags_detects_double_bracket() {
+        let issues = find_remaining_tags("roll [[/r 1d6]] for initiative");
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0], "unparsed double-bracket '[[' tag");
+    }
+
+    #[test]
+    fn find_remaining_tags_detects_multiple_issues() {
+        let issues = find_remaining_tags("@UUID[Actor.x] and [[/r 1d6]]");
+        assert_eq!(issues.len(), 2);
+    }
 }

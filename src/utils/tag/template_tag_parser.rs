@@ -110,4 +110,16 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
+
+    // traits field appends a bracketed list when no curly label is present
+    #[rstest]
+    #[case("@Template[type:cone|distance:40|traits:fire]", "40-foot cone [fire ]")]
+    #[case(
+        "@Template[type:burst|distance:10|traits:cold,water]",
+        "10-foot burst [cold,water ]"
+    )]
+    fn clean_template_with_traits(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
 }

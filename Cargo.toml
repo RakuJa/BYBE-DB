@@ -18,6 +18,9 @@ publish = false
 
 build = "build/main.rs"
 
+[features]
+dry-run = []
+
 [lints.rust]
 unsafe_code = "forbid"
 

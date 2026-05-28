@@ -86,6 +86,8 @@ mod tests {
     use rstest::rstest;
     #[rstest]
     #[case("@Check[type:reflex|dc:16]", "DC 16 Reflex")]
+    #[case("@Check[type:will|dc:20]", "DC 20 Will")]
+    #[case("@Check[type:fortitude|dc:25]", "DC 25 Fortitude")]
     fn clean_check_with_type_and_dc(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
@@ -133,6 +135,24 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
+    // bare skill name with |dc: — no "type:" prefix
+    #[rstest]
+    #[case("@Check[will|dc:18]", "will DC 18")]
+    #[case("@Check[perception|dc:22]", "perception DC 22")]
+    fn clean_check_bare_skill_with_dc(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
+    // unsolvable DCs containing "resolve" are dropped entirely
+    #[rstest]
+    #[case("@Check[type:reflex|dc:resolve(@actor.spellDC)]", "")]
+    #[case("@Check[type:will|dc:resolve(@actor.attributes.spellDC.value)]", "")]
+    fn clean_check_unsolvable_dc(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
     #[rstest]
     #[case(
         "<p>@Check[arcana|dc:40] (master) to unweave the magic left in the wake of the Trinity Star's passage, @Check[thievery|dc:43] (expert) to etch temporary runes to siphon away the magic</p>",
