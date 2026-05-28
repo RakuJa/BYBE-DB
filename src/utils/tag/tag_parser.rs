@@ -1,5 +1,6 @@
 use crate::utils::tag::{
-    check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser, template_tag_parser,
+    check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser,
+    localize_tag_parser, template_tag_parser,
 };
 use {once_cell::sync::Lazy, regex::Regex};
 
@@ -19,18 +20,10 @@ fn clean_description_from_generic_bracket(description: &str) -> String {
     });
 
     let mut clean_description = String::from(description);
-    for el in RE.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = RE.captures(el) {
-            let raw_descr = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            let clean_data = if let Some(curly_content) = curr_match.get(2).map(|x| x.as_str()) {
-                curly_content
-            } else if let Some(base_content) = curr_match.get(1).map(|x| x.as_str()) {
-                base_content
-            } else {
-                raw_descr
-            };
-            clean_description = clean_description.replace(raw_descr, clean_data);
-        }
+    for m in RE.captures_iter(description) {
+        let raw_descr = m.get(0).unwrap().as_str();
+        let clean_data = m.get(2).or_else(|| m.get(1)).map(|x| x.as_str()).unwrap_or(raw_descr);
+        clean_description = clean_description.replace(raw_descr, clean_data);
     }
     clean_description
 }
@@ -49,7 +42,7 @@ pub fn get_content_inside_square_brackets(content: &str, start_delimiter: &str) 
     if let Some(x) = content.split_once(start_delimiter) {
         x.1.chars().take_while(|&c| c != ']' && c != '|').collect()
     } else {
-        "".to_string()
+        String::new()
     }
 }
 
@@ -71,22 +64,13 @@ pub fn find_remaining_tags(cleaned_description: &str) -> Vec<String> {
 }
 
 pub fn clean_description_from_all_tags(description: &str, item_lvl: Option<i64>) -> String {
-    clean_description_from_generic_bracket(
-        dm_roll_parser::clean_description(
-            template_tag_parser::clean_description(
-                check_tag_parser::clean_description(
-                    dmg_tag_parser::clean_description(
-                        compendium_tag_parser::clean_description(description).as_str(),
-                        item_lvl,
-                    )
-                    .as_str(),
-                )
-                .as_str(),
-            )
-            .as_str(),
-        )
-        .as_str(),
-    )
+    let desc = compendium_tag_parser::clean_description(description);
+    let desc = dmg_tag_parser::clean_description(&desc, item_lvl);
+    let desc = check_tag_parser::clean_description(&desc);
+    let desc = template_tag_parser::clean_description(&desc);
+    let desc = dm_roll_parser::clean_description(&desc);
+    let desc = clean_description_from_generic_bracket(&desc);
+    localize_tag_parser::clean_description(&desc)
 }
 
 #[cfg(test)]
@@ -98,6 +82,10 @@ mod tests {
     #[case(
         "<p><strong>Cantrips</strong></p><p>@UUID[Compendium.pf2e.spells-srd.Item.Telekinetic Projectile]</p><p>@UUID[Compendium.pf2e.spells-srd.Item.Daze]</p><p>@UUID[Compendium.pf2e.spells-srd.Item.Detect Magic]</p><p>@UUID[Compendium.pf2e.spells-srd.Item.Light]</p><p>@UUID[Compendium.pf2e.spells-srd.Item.Telekinetic Hand]</p><hr />",
         "<p><strong>Cantrips</strong></p><p>Telekinetic Projectile</p><p>Daze</p><p>Detect Magic</p><p>Light</p><p>Telekinetic Hand</p><hr />"
+    )]
+    #[case(
+        "<p>Small, @Damage[(1d12 + 3)[bludgeoning]], Rupture 10</p>\n<hr />\n<p>@Localize[PF2E.NPC.Abilities.Glossary.SwallowWhole]</p>",
+        "<p>Small, 1d12 + 3 bludgeoning, Rupture 10</p>\n<hr />\n<p></p>"
     )]
     fn clean_check_uuid(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description_from_all_tags(input, None);
@@ -132,16 +120,47 @@ mod tests {
         assert_eq!(issues[0], expected_issue);
     }
 
-    #[test]
-    fn find_remaining_tags_detects_double_bracket() {
-        let issues = find_remaining_tags("roll [[/r 1d6]] for initiative");
+    #[rstest]
+    #[case("roll [[/r 1d6]] for initiative", "unparsed double-bracket '[[' tag")]
+    fn find_remaining_tags_detects_double_bracket(#[case] input: &str, #[case] expected_issue: &str) {
+        let issues = find_remaining_tags(input);
         assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0], "unparsed double-bracket '[[' tag");
+        assert_eq!(issues[0], expected_issue);
     }
 
     #[test]
     fn find_remaining_tags_detects_multiple_issues() {
         let issues = find_remaining_tags("@UUID[Actor.x] and [[/r 1d6]]");
         assert_eq!(issues.len(), 2);
+    }
+
+    #[test]
+    fn clean_spider_gun_adjacent_checks_and_act_command() {
+        let input = "it must attempt an @Check[athletics|dc:20]{Athletics} check or @Check[reflex|dc:20]{Reflex} save against DC 20. On a critical failure, it's @UUID[Compendium.pf2e.conditionitems.Item.Immobilized] for 1 round or until it Escapes ([[/act escape dc=20]]{DC 20}) or destroys the webbing.";
+        let result = clean_description_from_all_tags(input, None);
+        assert!(
+            !result.contains("@Check"),
+            "unparsed @Check tag remained: {result}"
+        );
+        assert!(
+            !result.contains("[["),
+            "unparsed double-bracket remained: {result}"
+        );
+        assert!(
+            result.contains("DC 20 Athletics"),
+            "expected 'DC 20 Athletics' in: {result}"
+        );
+        assert!(
+            result.contains("DC 20 Reflex"),
+            "expected 'DC 20 Reflex' in: {result}"
+        );
+        assert!(
+            result.contains("Immobilized"),
+            "expected UUID to be resolved: {result}"
+        );
+        assert!(
+            result.contains("DC 20"),
+            "expected [[/act]] curly label in: {result}"
+        );
     }
 }
