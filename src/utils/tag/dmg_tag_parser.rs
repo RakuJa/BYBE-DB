@@ -67,26 +67,24 @@ fn has_top_level_comma(s: &str) -> bool {
     false
 }
 
+/// Strips the first top-level `|suffix` (e.g. `|options:area-damage`, `|traits:...`).
+fn strip_pipe_suffix(s: &str) -> &str {
+    let mut depth = 0i32;
+    for (i, c) in s.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => depth -= 1,
+            '|' if depth == 0 => return &s[..i],
+            _ => {}
+        }
+    }
+    s
+}
+
 /// Parses a multi-damage inner string like `7d6[fire],4d12[persistent,poison]|options:area-damage`
 /// into a human-readable form like `7d6 fire, 4d12 persistent poison`.
 fn clean_multi_damage(inner: &str) -> String {
-    // Strip any top-level pipe suffix (|options:..., |traits:...).
-    let content = {
-        let mut depth = 0i32;
-        let mut cut = inner.len();
-        for (i, c) in inner.char_indices() {
-            match c {
-                '[' => depth += 1,
-                ']' => depth -= 1,
-                '|' if depth == 0 => {
-                    cut = i;
-                    break;
-                }
-                _ => {}
-            }
-        }
-        &inner[..cut]
-    };
+    let content = strip_pipe_suffix(inner);
 
     // Split by ',' at depth 0.
     let mut parts: Vec<&str> = Vec::new();
@@ -127,29 +125,12 @@ fn parse_single_dmg_part(part: &str) -> String {
 }
 
 /// Handles `@Damage[...]` inner content that references `@actor.level` or `@actor.rank`.
-/// Substitutes those tokens with "Actor Level" and extracts the formula and damage type.
+/// Substitutes those tokens with "Level" and extracts the formula and damage type.
 fn clean_actor_level_damage(inner: &str) -> String {
-    // Strip top-level pipe options (e.g. |options:area-damage)
-    let content = {
-        let mut depth = 0i32;
-        let mut cut = inner.len();
-        for (i, c) in inner.char_indices() {
-            match c {
-                '[' => depth += 1,
-                ']' => depth -= 1,
-                '|' if depth == 0 => {
-                    cut = i;
-                    break;
-                }
-                _ => {}
-            }
-        }
-        &inner[..cut]
-    };
-
-    let content = content
-        .replace("@actor.level", "Actor Level")
-        .replace("@actor.rank", "Actor Level");
+    let content = strip_pipe_suffix(inner)
+        .to_string()
+        .replace("@actor.level", "Level")
+        .replace("@actor.rank", "Level");
 
     // Find the last top-level '[type]' to separate formula from damage type
     let mut depth = 0i32;
@@ -189,7 +170,6 @@ fn clean_item_rank_dmg_tag(description: &str, item_lvl: i64) -> String {
     for curr_match in RE.captures_iter(description) {
         let raw_dmg_str = curr_match.get(0).unwrap().as_str();
         let curr_dmg_str = if let Some(second) = curr_match.get(2) {
-            let mut dmg_str = String::new();
             // explanation of the logic with the given entry
             // @Damage[(2*(@item.level - 2))[fire,persistent]]
             // 0 => @Damage[
@@ -200,36 +180,23 @@ fn clean_item_rank_dmg_tag(description: &str, item_lvl: i64) -> String {
             // 6 => ] (tailing garbage)
             // So we substitute item.level/rank with the level, and fill
             // the parenthesis if they are missing. Then we evaluate the result
-            let first = curr_match.get(1).map(|x| x.as_str()).unwrap_or("");
-            let match_str = format!("{}{}", first, second.as_str());
-            let n_of_open_brackets = match_str.matches("(").count();
-            let n_of_closed_brackets = match_str.matches(")").count();
-            let filler = if n_of_closed_brackets > n_of_open_brackets {
-                "(".repeat(n_of_closed_brackets - n_of_open_brackets)
+            let first = curr_match.get(1).map_or("", |x| x.as_str());
+            let match_str = format!("{first}{}", second.as_str());
+            let n_of_open = match_str.matches('(').count();
+            let n_of_close = match_str.matches(')').count();
+            let filler = if n_of_close > n_of_open {
+                "(".repeat(n_of_close - n_of_open)
             } else {
-                ")".repeat(n_of_open_brackets - n_of_closed_brackets)
+                ")".repeat(n_of_open - n_of_close)
             };
-            let to_replace = format!(
-                "@item.{}",
-                curr_match.get(3).map(|x| x.as_str()).unwrap_or("rank")
-            );
+            let item_key = format!("@item.{}", curr_match.get(3).map_or("rank", |x| x.as_str()));
             let to_evaluate = remove_all_dices_from_description(
-                format!("{filler}{match_str}")
-                    .replace(to_replace.as_str(), item_lvl.to_string().as_str())
-                    .as_str(),
+                &format!("{filler}{match_str}").replace(&item_key, &item_lvl.to_string()),
             );
-            let dmg = eval(to_evaluate.as_str());
-            dmg_str.push_str(dmg.unwrap().as_int().unwrap().to_string().as_str());
-            if let Some(dice) = get_dice_inside_string(second.as_str()) {
-                dmg_str.push_str(dice.to_string().as_str());
-            };
-            if let Some(dmg_type) = curr_match.get(5).map(|x| parse_dmg_type(x.as_str())) {
-                if !dmg_type.is_empty() {
-                    dmg_str.push(' ');
-                }
-                dmg_str.push_str(dmg_type.as_str());
-            }
-            dmg_str
+            let value = eval(&to_evaluate).unwrap().as_int().unwrap();
+            let dice = get_dice_inside_string(second.as_str()).unwrap_or_default();
+            let dmg_type = curr_match.get(5).map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
+            format!("{value}{dice} {dmg_type}").trim_end().to_string()
         } else {
             String::new()
         };
@@ -255,15 +222,9 @@ fn clean_generic_dmg_tag(description: &str) -> String {
         let curr_dmg_str = if let Some(curly) = curr_match.get(3).map(|x| x.as_str()) {
             curly.replace(&['{', '}'][..], "")
         } else {
-            let dmg_dice = curr_match.get(1).map(|x| x.as_str().trim()).unwrap_or("0");
-            let mut dmg_str = dmg_dice.to_string();
-            if let Some(dmg_type) = curr_match.get(2).map(|x| parse_dmg_type(x.as_str())) {
-                if !dmg_type.is_empty() {
-                    dmg_str.push(' ');
-                }
-                dmg_str.push_str(&dmg_type);
-            }
-            dmg_str
+            let dmg_dice = curr_match.get(1).map_or("0", |x| x.as_str().trim());
+            let dmg_type = curr_match.get(2).map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
+            format!("{dmg_dice} {dmg_type}").trim_end().to_string()
         };
         clean_description = clean_description.replace(raw_dmg_str, &curr_dmg_str);
     }
