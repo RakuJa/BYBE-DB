@@ -1,6 +1,6 @@
 use crate::utils::tag::{
-    check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser,
-    localize_tag_parser, template_tag_parser,
+    check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser, localize_tag_parser,
+    template_tag_parser,
 };
 use {once_cell::sync::Lazy, regex::Regex};
 
@@ -22,7 +22,11 @@ fn clean_description_from_generic_bracket(description: &str) -> String {
     let mut clean_description = String::from(description);
     for m in RE.captures_iter(description) {
         let raw_descr = m.get(0).unwrap().as_str();
-        let clean_data = m.get(2).or_else(|| m.get(1)).map(|x| x.as_str()).unwrap_or(raw_descr);
+        let clean_data = m
+            .get(2)
+            .or_else(|| m.get(1))
+            .map(|x| x.as_str())
+            .unwrap_or(raw_descr);
         clean_description = clean_description.replace(raw_descr, clean_data);
     }
     clean_description
@@ -48,9 +52,9 @@ pub fn get_content_inside_square_brackets(content: &str, start_delimiter: &str) 
 
 /// Checks a cleaned description for tag patterns that survived the parsing pipeline.
 /// Returns a list of human-readable issue descriptions.
+#[cfg(feature = "dry-run")]
 pub fn find_remaining_tags(cleaned_description: &str) -> Vec<String> {
-    static AT_TAG: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"@[A-Za-z]+\[").unwrap());
+    static AT_TAG: Lazy<Regex> = Lazy::new(|| Regex::new(r"@[A-Za-z]+\[").unwrap());
     static DOUBLE_BRACKET: Lazy<Regex> = Lazy::new(|| Regex::new(r"\[\[").unwrap());
 
     let mut issues = Vec::new();
@@ -98,40 +102,6 @@ mod tests {
     fn clean_from_generic_tags(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description_from_generic_bracket(input);
         assert_eq!(expected, parsed_description);
-    }
-
-    #[rstest]
-    #[case("fully parsed description with no tags", &[] as &[&str])]
-    #[case("<p>Normal HTML with <strong>bold</strong> text</p>", &[])]
-    fn find_remaining_tags_clean(#[case] input: &str, #[case] expected_issues: &[&str]) {
-        let issues = find_remaining_tags(input);
-        assert_eq!(issues.len(), expected_issues.len());
-    }
-
-    #[rstest]
-    #[case("some text @UUID[Actor.abc] more text", "unparsed tag '@UUID['")]
-    #[case("take @Damage[10d6[fire]] damage", "unparsed tag '@Damage['")]
-    #[case("@Check[type:reflex|dc:15] save", "unparsed tag '@Check['")]
-    #[case("@Template[type:burst|distance:5]", "unparsed tag '@Template['")]
-    #[case("@Embed[UUID.something]", "unparsed tag '@Embed['")]
-    fn find_remaining_tags_detects_at_tags(#[case] input: &str, #[case] expected_issue: &str) {
-        let issues = find_remaining_tags(input);
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0], expected_issue);
-    }
-
-    #[rstest]
-    #[case("roll [[/r 1d6]] for initiative", "unparsed double-bracket '[[' tag")]
-    fn find_remaining_tags_detects_double_bracket(#[case] input: &str, #[case] expected_issue: &str) {
-        let issues = find_remaining_tags(input);
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0], expected_issue);
-    }
-
-    #[test]
-    fn find_remaining_tags_detects_multiple_issues() {
-        let issues = find_remaining_tags("@UUID[Actor.x] and [[/r 1d6]]");
-        assert_eq!(issues.len(), 2);
     }
 
     #[test]

@@ -12,21 +12,20 @@ pub fn clean_description(description: &str, item_lvl: Option<i64>) -> String {
     });
     for curr_match in SPLIT_REGEX.captures_iter(description) {
         let dirty_match = curr_match.get(0).unwrap().as_str();
-        let cleaned_match = if let Some(curly_bracket_content) =
-            curr_match.get(2).map(|x| x.as_str())
-        {
-            curly_bracket_content.to_string()
-        } else {
-            let inner = extract_dmg_inner_content(dirty_match);
-            if has_top_level_comma(inner) {
-                clean_multi_damage(inner)
-            } else if inner.contains("@actor.") {
-                clean_actor_level_damage(inner)
+        let cleaned_match =
+            if let Some(curly_bracket_content) = curr_match.get(2).map(|x| x.as_str()) {
+                curly_bracket_content.to_string()
             } else {
-                let item_cleaned = clean_item_rank_dmg_tag(dirty_match, item_lvl.unwrap_or(0));
-                clean_generic_dmg_tag(&item_cleaned)
-            }
-        };
+                let inner = extract_dmg_inner_content(dirty_match);
+                if has_top_level_comma(inner) {
+                    clean_multi_damage(inner)
+                } else if inner.contains("@actor.") {
+                    clean_actor_level_damage(inner)
+                } else {
+                    let item_cleaned = clean_item_rank_dmg_tag(dirty_match, item_lvl.unwrap_or(0));
+                    clean_generic_dmg_tag(&item_cleaned)
+                }
+            };
         desc = desc.replacen(dirty_match, &cleaned_match, 1);
     }
     desc
@@ -195,7 +194,9 @@ fn clean_item_rank_dmg_tag(description: &str, item_lvl: i64) -> String {
             );
             let value = eval(&to_evaluate).unwrap().as_int().unwrap();
             let dice = get_dice_inside_string(second.as_str()).unwrap_or_default();
-            let dmg_type = curr_match.get(5).map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
+            let dmg_type = curr_match
+                .get(5)
+                .map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
             format!("{value}{dice} {dmg_type}").trim_end().to_string()
         } else {
             String::new()
@@ -210,7 +211,13 @@ fn parse_dmg_type(raw_dmg_type: &str) -> String {
     let cleaned = raw_dmg_type.replace(&['(', ')', ']'][..], "");
     // Types are separated by , (e.g. persistent,acid) or by [ (e.g. type1[type2 after ] removal)
     let sep = if cleaned.contains(',') { ',' } else { '[' };
-    cleaned.split(sep).collect::<Vec<_>>().join(" ").replace('[', "").trim().to_string()
+    cleaned
+        .split(sep)
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace('[', "")
+        .trim()
+        .to_string()
 }
 fn clean_generic_dmg_tag(description: &str) -> String {
     static RE: Lazy<Regex> =
@@ -223,7 +230,9 @@ fn clean_generic_dmg_tag(description: &str) -> String {
             curly.replace(&['{', '}'][..], "")
         } else {
             let dmg_dice = curr_match.get(1).map_or("0", |x| x.as_str().trim());
-            let dmg_type = curr_match.get(2).map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
+            let dmg_type = curr_match
+                .get(2)
+                .map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
             format!("{dmg_dice} {dmg_type}").trim_end().to_string()
         };
         clean_description = clean_description.replace(raw_dmg_str, &curr_dmg_str);
@@ -383,7 +392,7 @@ mod tests {
         let parsed_description = clean_description(input, None);
         assert_eq!(expected, parsed_description);
     }
-    
+
     #[rstest]
     #[case(
         "@Damage[7d6[fire],4d12[persistent,poison]|options:area-damage]",
@@ -398,7 +407,7 @@ mod tests {
         let parsed_description = clean_description(input, None);
         assert_eq!(expected, parsed_description);
     }
-    
+
     #[rstest]
     #[case("@Damage[1d6[fire]]{1d6 fire damage}", "1d6 fire damage")]
     fn clean_single_damage_curly_label_preferred(#[case] input: &str, #[case] expected: &str) {

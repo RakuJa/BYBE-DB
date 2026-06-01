@@ -122,7 +122,7 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
-    
+
     #[rstest]
     #[case("@Template[emanation|distance:20]", "20-foot emanation")]
     #[case("@Template[burst|distance:30]", "30-foot burst")]
@@ -132,7 +132,7 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
-    
+
     #[rstest]
     #[case(
         "@Template[burst|distance:20|name:Black Tentacles|traits:hazard,complex,magical,mechanical,trap,conjuration,occult]",

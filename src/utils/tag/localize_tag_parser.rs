@@ -1,8 +1,7 @@
 use {once_cell::sync::Lazy, regex::Regex};
 
 pub fn clean_description(description: &str) -> String {
-    static RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"@Localize\[[^\]]*\]").unwrap());
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@Localize\[[^\]]*\]").unwrap());
     RE.replace_all(description, "").to_string()
 }
 

@@ -5,8 +5,7 @@ use regex::Regex;
 
 pub fn clean_description(description: &str) -> String {
     // Disallow [ and ] in content so a nested @Check tag is never consumed by the outer match.
-    static RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"@Check\[([^\[\]]*)\](\{[^}]*\})?").unwrap());
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@Check\[([^\[\]]*)\](\{[^}]*\})?").unwrap());
     // Fallback for data where the closing ] is missing: match @Check[skill|dc:NUMBER followed by
     // a character that is not another digit, | or ] (i.e. the tag was never closed).
     // The trailing character is captured so it can be preserved in the replacement.
@@ -39,7 +38,12 @@ pub fn clean_description(description: &str) -> String {
             if !raw_check_type.is_empty() {
                 (raw_check_type.capitalize(), String::new())
             } else {
-                let bare = square_content.split('|').next().unwrap_or("").trim().to_string();
+                let bare = square_content
+                    .split('|')
+                    .next()
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
                 (String::new(), bare)
             }
         } else {
@@ -82,7 +86,8 @@ pub fn clean_description(description: &str) -> String {
         let skill = curr_match.get(1).map(|x| x.as_str()).unwrap_or("").trim();
         let dc = curr_match.get(2).map(|x| x.as_str()).unwrap_or("");
         let trailing = curr_match.get(3).map(|x| x.as_str()).unwrap_or("");
-        clean_description = clean_description.replacen(raw_match, &format!("{skill} DC {dc}{trailing}"), 1);
+        clean_description =
+            clean_description.replacen(raw_match, &format!("{skill} DC {dc}{trailing}"), 1);
     }
 
     clean_description

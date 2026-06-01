@@ -88,7 +88,7 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
-    
+
     #[rstest]
     #[case("[[/gmr 1d4+2 #Recharge]]{1d4+2 rounds}", "1d4+2 rounds")]
     #[case("[[/gmr 2d6+1 #Duration]]{2d6+1 minutes}", "2d6+1 minutes")]
@@ -134,7 +134,7 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
-    
+
     #[rstest]
     #[case("([[/act escape dc=20]]{DC 20})", "(DC 20)")]
     #[case("[[/act escape dc=20]]{Escape}", "Escape")]

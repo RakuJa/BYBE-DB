@@ -10,7 +10,10 @@ pub fn clean_description(description: &str) -> String {
         let replacement = if let Some(curly) = curr_match.get(2).map(|x| x.as_str()) {
             curly.replace(&['{', '}'][..], "")
         } else {
-            let inner = curr_match.get(1).map_or("", |m| m.as_str()).replace(&['[', ']'][..], "");
+            let inner = curr_match
+                .get(1)
+                .map_or("", |m| m.as_str())
+                .replace(&['[', ']'][..], "");
             match inner.rsplit_once('.') {
                 Some((_, last)) => last.to_string(),
                 None => inner,

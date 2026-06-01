@@ -12,9 +12,9 @@ use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeItemParsingError, BybeSh
 use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
 };
-use crate::utils::json_manual_fetcher::get_json_paths;
 #[cfg(not(feature = "dry-run"))]
 use crate::utils::game_system_enum::GameSystem;
+use crate::utils::json_manual_fetcher::get_json_paths;
 
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::source_schema::hazard::source_hazard::{SourceHazard, SourceHazardParsingError};
@@ -78,9 +78,8 @@ async fn main() {
 
     #[cfg(not(feature = "dry-run"))]
     {
-        let db_url = &env::var("DATABASE_URL").expect(
-            "DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable",
-        );
+        let db_url = &env::var("DATABASE_URL")
+            .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
         let conn = db_handler_one::connect(db_url)
             .await
             .expect("Could not connect to the given db url, something went wrong..");
@@ -108,7 +107,10 @@ fn dry_run_check_descriptions(json_paths: &[String], system: &str) {
     for creature in deserialize_json_creatures(json_paths) {
         for action in &creature.actions {
             for issue in find_remaining_tags(&action.description) {
-                println!("[{system}] creature '{}' action '{}': {issue}", creature.name, action.name);
+                println!(
+                    "[{system}] creature '{}' action '{}': {issue}",
+                    creature.name, action.name
+                );
                 total_issues += 1;
             }
         }
@@ -123,21 +125,30 @@ fn dry_run_check_descriptions(json_paths: &[String], system: &str) {
 
     for weapon in deserialize_json_weapons(json_paths) {
         for issue in find_remaining_tags(&weapon.item_core.description) {
-            println!("[{system}] weapon '{}' description: {issue}", weapon.item_core.name);
+            println!(
+                "[{system}] weapon '{}' description: {issue}",
+                weapon.item_core.name
+            );
             total_issues += 1;
         }
     }
 
     for armor in deserialize_json_armors(json_paths) {
         for issue in find_remaining_tags(&armor.item_core.description) {
-            println!("[{system}] armor '{}' description: {issue}", armor.item_core.name);
+            println!(
+                "[{system}] armor '{}' description: {issue}",
+                armor.item_core.name
+            );
             total_issues += 1;
         }
     }
 
     for shield in deserialize_json_shields(json_paths) {
         for issue in find_remaining_tags(&shield.item_core.description) {
-            println!("[{system}] shield '{}' description: {issue}", shield.item_core.name);
+            println!(
+                "[{system}] shield '{}' description: {issue}",
+                shield.item_core.name
+            );
             total_issues += 1;
         }
     }
@@ -156,7 +167,10 @@ fn dry_run_check_descriptions(json_paths: &[String], system: &str) {
         }
         for action in &hazard.actions {
             for issue in find_remaining_tags(&action.description) {
-                println!("[{system}] hazard '{}' action '{}': {issue}", hazard.name, action.name);
+                println!(
+                    "[{system}] hazard '{}' action '{}': {issue}",
+                    hazard.name, action.name
+                );
                 total_issues += 1;
             }
         }

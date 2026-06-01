@@ -1,4 +1,6 @@
-use crate::utils::tag::tag_parser::{clean_description_from_all_tags, find_remaining_tags};
+use crate::utils::tag::tag_parser::clean_description_from_all_tags;
+#[cfg(feature = "dry-run")]
+use crate::utils::tag::tag_parser::find_remaining_tags;
 use std::fmt;
 use std::fmt::Formatter;
 
@@ -12,6 +14,7 @@ impl Description {
         !self.raw_description.contains("@Embed")
     }
 
+    #[cfg(feature = "dry-run")]
     pub fn parsing_errors(&self, item_lvl: Option<i64>) -> Vec<String> {
         let cleaned = clean_description_from_all_tags(&self.raw_description, item_lvl);
         find_remaining_tags(&cleaned)
