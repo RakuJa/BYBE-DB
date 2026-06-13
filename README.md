@@ -30,7 +30,7 @@ docker compose up db
 
 Fetches the latest Foundry data and repopulates the database:
 ```bash
-docker compose run --rm bybe-updater
+docker compose run --rm updater
 ```
 
 After this, [refresh the dump](#refreshing-the-dump) so the new data is captured.

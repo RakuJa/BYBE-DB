@@ -16,8 +16,6 @@ license = "MIT"
 keywords = ["database", "pathfinder"]
 publish = false
 
-build = "build/main.rs"
-
 [features]
 dry-run = []
 

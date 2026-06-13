@@ -1,6 +1,7 @@
 use crate::schema::bybe_creature::BybeCreature;
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
+use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
@@ -231,11 +232,21 @@ pub async fn insert_weapon_to_db(
     let item_id = insert_item_to_db(conn, gs, &wp.item_core, None).await?;
 
     let wp_id = insert_weapon(conn, gs, wp, item_id).await?;
+    if let Some(range) = wp.range.clone() {
+        let range_id = insert_range(conn, gs, range).await?;
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_weapon_range_association_table (range_id, weapon_id) \
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"
+        )))
+        .bind(range_id)
+        .bind(wp_id)
+        .execute(&mut **conn)
+        .await?;
+    }
     if let Some(creature_id) = cr_id {
         insert_weapon_creature_association(conn, gs, wp_id, creature_id, wp.item_core.quantity)
             .await?;
     }
-
     insert_weapon_damage(conn, gs, &wp.damage_data, wp_id).await?;
 
     insert_runes(conn, gs, &wp.property_runes).await?;
@@ -293,6 +304,17 @@ pub async fn insert_creature_to_db(
         for (slot, spells) in el.spell_slots.clone() {
             for spell in spells {
                 let spell_id = insert_spell(conn, gs, &spell, slot, cr_id, sc_entry_id).await?;
+                if let Some(range) = spell.range {
+                    let range_id = insert_range(conn, gs, range).await?;
+                    sqlx::query(sqlx::AssertSqlSafe(format!(
+                        "INSERT INTO {gs}_spell_range_association_table (range_id, spell_id) \
+                    VALUES ($1, $2) ON CONFLICT DO NOTHING"
+                    )))
+                    .bind(range_id)
+                    .bind(spell_id)
+                    .execute(&mut **conn)
+                    .await?;
+                }
                 insert_traits(conn, gs, &spell.traits.traits).await?;
                 insert_spell_trait_association(conn, gs, &spell.traits.traits, spell_id).await?;
                 insert_tradition_and_association(conn, gs, &spell.traits.traditions, spell_id)
@@ -551,13 +573,24 @@ async fn insert_sense_and_association(
 ) -> Result<bool> {
     for el in senses {
         let sense_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "INSERT INTO {gs}_sense_table (name, range, acuity) VALUES ($1, $2, $3) RETURNING id"
+            "INSERT INTO {gs}_sense_table (name, acuity) VALUES ($1, $2) RETURNING id"
         )))
         .bind(&el.name)
-        .bind(el.range)
         .bind(&el.acuity)
         .fetch_one(&mut **conn)
         .await?;
+        if let Some(range) = el.range.clone() {
+            let range_id = insert_range(conn, gs, range).await?;
+            sqlx::query(sqlx::AssertSqlSafe(format!(
+                "INSERT INTO {gs}_range_sense_association_table (range_id, sense_id) \
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"
+            )))
+            .bind(range_id)
+            .bind(sense_id)
+            .execute(&mut **conn)
+            .await?;
+        }
+
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {gs}_sense_creature_association_table (creature_id, sense_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -954,14 +987,13 @@ async fn insert_weapon(
     Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "INSERT INTO {gs}_weapon_table \
          (to_hit_bonus, splash_dmg, n_of_potency_runes, n_of_striking_runes, \
-          range, reload, weapon_type, base_item_id) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id"
+          reload, weapon_type, base_item_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id"
     )))
     .bind(wp.to_hit_bonus)
     .bind(wp.splash_dmg)
     .bind(wp.n_of_potency_runes)
     .bind(wp.n_of_striking_runes)
-    .bind(wp.range)
     .bind(&wp.reload)
     .bind(&wp.weapon_type)
     .bind(item_id)
@@ -1150,7 +1182,7 @@ async fn insert_spell(
         "INSERT INTO {gs}_spell_table (
             name, area_type, area_value, counteraction,
             saving_throw, basic_saving_throw, sustained, duration,
-            level, range, target, actions,
+            level, target, actions,
             license, remaster, source, rarity,
             slot, creature_id, spellcasting_entry_id
         ) VALUES (
@@ -1158,7 +1190,7 @@ async fn insert_spell(
             $5, $6, $7, $8,
             $9, $10, $11, $12,
             $13, $14, $15, $16,
-            $17, $18, $19
+            $17, $18
         ) RETURNING id"
     )))
     .bind(&spell.name)
@@ -1170,7 +1202,6 @@ async fn insert_spell(
     .bind(spell.sustained)
     .bind(&spell.duration)
     .bind(spell.level)
-    .bind(&spell.range)
     .bind(&spell.target)
     .bind(&spell.actions)
     .bind(&spell.publication_info.license)
@@ -1291,6 +1322,26 @@ async fn insert_runes(
             .await?;
     }
     Ok(true)
+}
+
+async fn insert_range(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    range: RangeData,
+) -> Result<i64> {
+    let range_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_range_table (value, increment, max)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (value, increment, max) DO UPDATE
+             SET value = EXCLUDED.value
+         RETURNING id"
+    )))
+    .bind(range.value)
+    .bind(range.increment)
+    .bind(range.max)
+    .fetch_one(&mut **conn)
+    .await?;
+    Ok(range_id)
 }
 
 async fn insert_weapon_rune_association(

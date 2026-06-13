@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS pf_creature_table (
     family             TEXT,
     n_of_focus_points  INTEGER NOT NULL,
     status             TEXT NOT NULL DEFAULT 'valid',
-    CONSTRAINT character_stats UNIQUE (
+    CONSTRAINT pf_character_stats UNIQUE (
         name, charisma, constitution, dexterity, intelligence,
         strength, wisdom, ac, hp, level,
         license, remaster, source, rarity, size, status

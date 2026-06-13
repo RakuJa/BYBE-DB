@@ -1,4 +1,5 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
+use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::creature::item::saving_throw::SavingThrow;
 use crate::schema::source_schema::creature::resistance::ResistanceParserError;
 use crate::utils::json_utils;
@@ -25,7 +26,7 @@ pub struct Spell {
     //pub heightened: Option<HeightenedData>,
     pub level: i64,
     pub heightened_level: Option<i64>,
-    pub range: String,
+    pub range: Option<RangeData>,
     pub target: String,
     pub actions: String,
 
@@ -45,8 +46,6 @@ pub enum SpellParsingError {
     Sustained,
     #[error("Mandatory level field is missing from json")]
     Level,
-    #[error("Mandatory sustained field is missing from json")]
-    Range,
     #[error("Mandatory target field is missing from json")]
     Target,
     #[error("Mandatory action field is missing from json")]
@@ -138,10 +137,7 @@ impl TryFrom<&Value> for Spell {
                 .and_then(|x| x.as_i64())
                 .ok_or(SpellParsingError::Level)?,
             publication_info: PublicationInfo::try_from(&publication_json)?,
-            range: json_utils::get_field_from_json(&range_json, "value")
-                .as_str()
-                .map(String::from)
-                .ok_or(SpellParsingError::Range)?,
+            range: RangeData::try_from(&range_json).ok(),
             target: json_utils::get_field_from_json(&target_json, "value")
                 .as_str()
                 .map(String::from)

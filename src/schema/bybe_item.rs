@@ -1,8 +1,10 @@
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
+use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::item::source_item::{SourceItem, SourceItemParsingError};
 use crate::schema::status::Status;
 use crate::utils::json_utils;
 use crate::utils::json_utils::get_field_from_json;
+use regex::Regex;
 use serde_json::Value;
 use thiserror::Error;
 
@@ -187,7 +189,7 @@ pub struct BybeWeapon {
     pub n_of_potency_runes: i64,
     pub n_of_striking_runes: i64,
     pub property_runes: Vec<String>,
-    pub range: Option<i64>,
+    pub range: Option<RangeData>,
     pub reload: Option<String>,
     pub weapon_type: String,
     pub attack_effects: Vec<String>,
@@ -213,10 +215,23 @@ impl TryFrom<(&Value, bool)> for BybeWeapon {
             .as_str()
             .unwrap_or("")
             .to_string();
+        let range = RangeData::try_from(&get_field_from_json(&system_json, "range")).ok();
+        let re = Regex::new(r"\d+").unwrap();
+        let range_val = if let Some(r) = &range
+            && let Some(n) = re.find(r.value.as_str())
+        {
+            n.as_str().parse().unwrap()
+        } else {
+            0
+        };
 
         let weapon_type = if tmp_weapon_type.is_empty() {
             String::from(if item_type.eq("melee") {
-                "melee"
+                if range_val > 0 || range.as_ref().is_some_and(|x| x.increment.is_some()) {
+                    "ranged"
+                } else {
+                    "melee"
+                }
             } else {
                 "generic"
             })
@@ -246,7 +261,7 @@ impl TryFrom<(&Value, bool)> for BybeWeapon {
                 ),
                 None => vec![],
             },
-            range: get_field_from_json(&system_json, "range").as_i64(),
+            range,
             reload: get_field_from_json(&get_field_from_json(&system_json, "reload"), "value")
                 .as_str()
                 .map(|x| x.to_string()),

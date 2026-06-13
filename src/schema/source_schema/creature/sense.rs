@@ -1,11 +1,12 @@
-use crate::utils::json_utils;
+use crate::schema::source_schema::common::range_data::RangeData;
+use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
 pub struct Sense {
     pub name: String, //type
-    pub range: Option<i64>,
+    pub range: Option<RangeData>,
     pub acuity: Option<String>,
 }
 
@@ -13,8 +14,6 @@ pub struct Sense {
 pub enum SenseParsingError {
     #[error("Type field, representing name, is invalid")]
     Name,
-    #[error("Range field is NaN")]
-    RangeNaN,
 }
 
 impl TryFrom<&Value> for Sense {
@@ -27,12 +26,8 @@ impl TryFrom<&Value> for Sense {
                 .and_then(|x| x.as_str())
                 .map(String::from)
                 .ok_or(SenseParsingError::Name)?,
-            range: if let Some(range) = json.get("range") {
-                Some(range.as_i64().ok_or(SenseParsingError::RangeNaN)?)
-            } else {
-                None
-            },
-            acuity: json_utils::get_field_from_json(json, "acuity")
+            range: RangeData::try_from(&get_field_from_json(json, "range")).ok(),
+            acuity: get_field_from_json(json, "acuity")
                 .as_str()
                 .map(|s| s.to_string()),
         })
