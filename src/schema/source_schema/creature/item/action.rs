@@ -1,3 +1,4 @@
+use crate::schema::bybe_metadata_enum::RarityEnum;
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::description::Description;
 use crate::schema::source_schema::rules::{Rule, RuleParseError};
@@ -81,7 +82,7 @@ impl TryFrom<&Value> for Action {
 
 #[derive(Debug, Clone)]
 pub struct ActionTraits {
-    pub rarity: String,
+    pub rarity: RarityEnum,
     pub traits: Vec<String>,
 }
 
@@ -92,7 +93,8 @@ impl TryFrom<&Value> for ActionTraits {
             rarity: json_utils::get_field_from_json(json, "rarity")
                 .as_str()
                 .map(String::from)
-                .ok_or(ActionParsingError::Rarity)?,
+                .ok_or(ActionParsingError::Rarity)
+                .and_then(|rarity| rarity.parse().map_err(|_| ActionParsingError::Rarity))?,
             traits: json_utils::from_json_vec_of_str_to_vec_of_str(
                 json_utils::get_field_from_json(json, "value")
                     .as_array()

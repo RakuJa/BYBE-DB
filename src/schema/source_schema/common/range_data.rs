@@ -28,13 +28,11 @@ impl TryFrom<&Value> for RangeData {
     type Error = RangeParsingError;
     fn try_from(json: &Value) -> Result<Self, Self::Error> {
         match json {
-            Value::Number(n) => {
-                Ok(Self {
-                    value: n.as_i64().unwrap().to_string(),
-                    increment: None,
-                    max: None,
-                })
-            }
+            Value::Number(n) => Ok(Self {
+                value: n.as_i64().unwrap().to_string(),
+                increment: None,
+                max: None,
+            }),
             Value::String(s) => Ok(Self {
                 value: s.to_string(),
                 increment: None,

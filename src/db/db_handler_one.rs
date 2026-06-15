@@ -1235,7 +1235,7 @@ async fn insert_action(
     .bind(action.publication_info.remastered)
     .bind(&action.publication_info.source)
     .bind(&action.slug)
-    .bind(&action.traits.rarity)
+    .bind(action.traits.rarity.to_string())
     .fetch_one(&mut **conn)
     .await?)
 }
