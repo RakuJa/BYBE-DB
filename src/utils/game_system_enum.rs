@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(PartialEq, Clone, Debug)]
-#[derive(Default)]
+#[derive(PartialEq, Clone, Debug, Default)]
 pub enum GameSystem {
     #[default]
     Pathfinder,
@@ -20,4 +19,3 @@ impl Display for GameSystem {
         )
     }
 }
-

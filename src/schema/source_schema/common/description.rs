@@ -1,6 +1,7 @@
 use crate::game_system_handler::current_game_system;
 use crate::schema::localize_loader;
 use crate::utils::game_system_enum::GameSystem;
+use crate::utils::tag::tag_parser;
 use crate::utils::tag::tag_parser::clean_description_from_all_tags;
 #[cfg(feature = "dry-run")]
 use crate::utils::tag::tag_parser::find_remaining_tags;
@@ -38,15 +39,25 @@ impl From<&str> for Description {
 
 impl fmt::Display for Description {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let json_data = match current_game_system() {
-            GameSystem::Pathfinder => localize_loader::lang_data(),
-            GameSystem::Starfinder => localize_loader::sf2e_data(),
+        let gs = current_game_system();
+
+        let lookup = move |path: &str| -> Option<String> {
+            let pf2e_result = tag_parser::lookup_path(localize_loader::lang_data(), path);
+
+            if matches!(gs, GameSystem::Starfinder) {
+                if let Some(sf2e_value) =
+                    tag_parser::lookup_path(localize_loader::sf2e_data(), path)
+                {
+                    return Some(sf2e_value);
+                }
+            }
+            pf2e_result
         };
 
         write!(
             f,
             "{}",
-            clean_description_from_all_tags(self.raw_description.as_str(), None, json_data)
+            clean_description_from_all_tags(self.raw_description.as_str(), None, lookup)
         )
     }
 }

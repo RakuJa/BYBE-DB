@@ -68,12 +68,15 @@ pub fn find_remaining_tags(cleaned_description: &str) -> Vec<String> {
     issues
 }
 
-pub fn clean_description_from_all_tags(
+pub fn clean_description_from_all_tags<F>(
     description: &str,
     item_lvl: Option<i64>,
-    json_data: &Value,
-) -> String {
-    let desc = localize_tag_parser::clean_description(description, json_data);
+    lookup: F,
+) -> String
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let desc = localize_tag_parser::clean_description(description, lookup);
     // localize must be the first, otherwise we risk replacing it will tags that are
     // not parsed
     let desc = compendium_tag_parser::clean_description(&desc);
@@ -82,7 +85,15 @@ pub fn clean_description_from_all_tags(
     let desc = template_tag_parser::clean_description(&desc);
     let desc = dm_roll_parser::clean_description(&desc);
     clean_description_from_generic_bracket(&desc)
+}
 
+/// Walks a dot-separated path through a JSON value, returning the string at that path if present.
+pub fn lookup_path(json_data: &Value, path: &str) -> Option<String> {
+    let mut current = json_data;
+    for key in path.split('.') {
+        current = current.get(key)?;
+    }
+    current.as_str().map(String::from)
 }
 
 #[cfg(test)]
@@ -126,7 +137,8 @@ mod tests {
         "<p>Small, 1d12 + 3 bludgeoning, Rupture 10</p>\n<hr />\n<p>Swallow Whole description text</p>"
     )]
     fn clean_check_uuid(mock_json: Value, #[case] input: &str, #[case] expected: &str) {
-        let parsed_description = clean_description_from_all_tags(input, None, &mock_json);
+        let parsed_description =
+            clean_description_from_all_tags(input, None, |path| lookup_path(&mock_json, path));
         assert_eq!(expected, parsed_description);
     }
 
@@ -141,7 +153,8 @@ mod tests {
     #[rstest]
     fn clean_spider_gun_adjacent_checks_and_act_command(mock_json: Value) {
         let input = "it must attempt an @Check[athletics|dc:20]{Athletics} check or @Check[reflex|dc:20]{Reflex} save against DC 20. On a critical failure, it's @UUID[Compendium.pf2e.conditionitems.Item.Immobilized] for 1 round or until it Escapes ([[/act escape dc=20]]{DC 20}) or destroys the webbing.";
-        let result = clean_description_from_all_tags(input, None, &mock_json);
+        let result =
+            clean_description_from_all_tags(input, None, |path| lookup_path(&mock_json, path));
         assert!(
             !result.contains("@Check"),
             "unparsed @Check tag remained: {result}"

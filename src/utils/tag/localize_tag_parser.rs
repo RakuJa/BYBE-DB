@@ -1,18 +1,12 @@
-use serde_json::Value;
 use {once_cell::sync::Lazy, regex::Regex};
 
-pub fn clean_description(description: &str, json_data: &Value) -> String {
+pub fn clean_description<F>(description: &str, lookup: F) -> String
+where
+    F: Fn(&str) -> Option<String>,
+{
     static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"@Localize\[([^\]]*)\]").unwrap());
     RE.replace_all(description, |caps: &regex::Captures| {
-        let path = &caps[1];
-        let mut current = json_data;
-        for key in path.split('.') {
-            match current.get(key) {
-                Some(value) => current = value,
-                None => return String::new(),
-            }
-        }
-        current.as_str().unwrap_or("").to_string()
+        lookup(&caps[1]).unwrap_or_default()
     })
     .to_string()
 }
@@ -20,7 +14,9 @@ pub fn clean_description(description: &str, json_data: &Value) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::tag::tag_parser::lookup_path;
     use rstest::{fixture, rstest};
+    use serde_json::Value;
     use serde_json::json;
 
     #[fixture]
@@ -52,7 +48,8 @@ mod tests {
     #[case("@Localize[PF2E.NPC.Abilities.Glossary.Grab]", "Grab description text")]
     #[case("@Localize[PF2E.AttackEffectGrab]", "")]
     fn remove_bare_tag(mock_json: Value, #[case] input: &str, #[case] expected: &str) {
-        assert_eq!(expected, clean_description(input, &mock_json));
+        let result = clean_description(input, |path| lookup_path(&mock_json, path));
+        assert_eq!(expected, result);
     }
 
     #[rstest]
@@ -65,7 +62,8 @@ mod tests {
         #[case] input: &str,
         #[case] expected: &str,
     ) {
-        assert_eq!(expected, clean_description(input, &mock_json));
+        let result = clean_description(input, |path| lookup_path(&mock_json, path));
+        assert_eq!(expected, result);
     }
 
     #[rstest]
@@ -78,7 +76,8 @@ mod tests {
         "<strong>text</strong> Grab description text more"
     )]
     fn remove_inline_tag(mock_json: Value, #[case] input: &str, #[case] expected: &str) {
-        assert_eq!(expected, clean_description(input, &mock_json));
+        let result = clean_description(input, |path| lookup_path(&mock_json, path));
+        assert_eq!(expected, result);
     }
 
     #[rstest]
@@ -87,6 +86,34 @@ mod tests {
         "Foo text\nBar text"
     )]
     fn remove_multiple_tags(mock_json: Value, #[case] input: &str, #[case] expected: &str) {
-        assert_eq!(expected, clean_description(input, &mock_json));
+        let result = clean_description(input, |path| lookup_path(&mock_json, path));
+        assert_eq!(expected, result);
+    }
+
+    #[rstest]
+    fn merged_lookup_overrides_pf2e(mock_json: Value) {
+        let sf2e_json = json!({
+            "PF2E": {
+                "NPC": {
+                    "Abilities": {
+                        "Glossary": {
+                            "Grab": "SF2E Grab override"
+                        }
+                    }
+                }
+            }
+        });
+
+        let lookup =
+            |path: &str| lookup_path(&sf2e_json, path).or_else(|| lookup_path(&mock_json, path));
+
+        assert_eq!(
+            "SF2E Grab override",
+            clean_description("@Localize[PF2E.NPC.Abilities.Glossary.Grab]", lookup)
+        );
+        assert_eq!(
+            "1 persistent bleed damage",
+            clean_description("@Localize[PF2E.PersistentDamage.Bleed1.success]", lookup)
+        );
     }
 }
