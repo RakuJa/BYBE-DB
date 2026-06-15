@@ -1,6 +1,7 @@
 use crate::schema::bybe_creature::BybeCreature;
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
+use crate::schema::bybe_trait::Trait;
 use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
@@ -374,12 +375,16 @@ pub async fn insert_scales_values_to_db(conn: &mut Transaction<'_, Postgres>) ->
 async fn insert_traits(
     conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
-    traits: &Vec<String>,
+    traits: &[String],
 ) -> Result<bool> {
     if !traits.is_empty() {
-        QueryBuilder::new(format!("INSERT INTO {gs}_trait_table (name) "))
-            .push_values(traits, |mut b, el| {
-                b.push_bind(el);
+        let complete_traits = traits
+            .iter()
+            .map(|x| Trait::builder().name(x).game_system(gs).build())
+            .collect::<Vec<Trait>>();
+        QueryBuilder::new(format!("INSERT INTO {gs}_trait_table (name, description)"))
+            .push_values(complete_traits, |mut b, el| {
+                b.push_bind(el.name).push_bind(el.description);
             })
             .push(" ON CONFLICT DO NOTHING")
             .build()

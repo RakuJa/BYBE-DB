@@ -1,5 +1,6 @@
 #[cfg(not(feature = "dry-run"))]
 mod db;
+mod game_system_handler;
 mod schema;
 mod utils;
 
@@ -30,6 +31,7 @@ use tracing_subscriber::{EnvFilter, Layer, fmt};
 
 #[cfg(not(feature = "dry-run"))]
 use crate::db::db_handler_one;
+use crate::game_system_handler::set_game_system;
 #[cfg(not(feature = "dry-run"))]
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -203,11 +205,11 @@ async fn db_update(
     sf2e_json_paths: Vec<String>,
 ) -> anyhow::Result<()> {
     let mut tx: Transaction<Postgres> = conn.begin().await?;
-
+    set_game_system(GameSystem::Pathfinder);
     game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder).await?;
 
     db_handler_one::update_with_aon_data(&mut tx).await?;
-
+    set_game_system(GameSystem::Starfinder);
     game_system_tables_update(&mut tx, sf2e_json_paths, &GameSystem::Starfinder).await?;
 
     db_handler_one::insert_scales_values_to_db(&mut tx).await?;

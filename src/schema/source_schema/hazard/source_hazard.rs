@@ -1,8 +1,10 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::description::Description;
 use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::rarity_size_traits::{
+    RaritySizeTraits, TraitParsingError,
+};
 use crate::schema::source_schema::common::saves::{RawSaves, SaveParsingError};
-use crate::schema::source_schema::common::traits::{RawTraits, TraitParsingError};
 use crate::schema::source_schema::creature::item::action::{Action, ActionParsingError};
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
@@ -33,7 +35,7 @@ pub struct SourceHazard {
 
     pub saves: RawSaves,
     pub status_effect_list: Vec<String>,
-    pub traits: RawTraits,
+    pub traits: RaritySizeTraits,
 }
 
 #[derive(Debug, Error)]
@@ -175,7 +177,7 @@ impl TryFrom<&Value> for SourceHazard {
             publication_info: PublicationInfo::try_from(&publication_json)?,
             saves: RawSaves::try_from(&saves_json)?,
             status_effect_list: vec![],
-            traits: RawTraits::try_from(&traits_json)?,
+            traits: RaritySizeTraits::try_from(&traits_json)?,
         })
     }
 }

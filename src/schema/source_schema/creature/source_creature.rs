@@ -1,5 +1,7 @@
+use crate::schema::source_schema::common::rarity_size_traits::{
+    RaritySizeTraits, TraitParsingError,
+};
 use crate::schema::source_schema::common::saves::{RawSaves, SaveParsingError};
-use crate::schema::source_schema::common::traits::{RawTraits, TraitParsingError};
 use crate::schema::source_schema::creature::abilities::{AbilityParsingError, RawAbilities};
 use crate::schema::source_schema::creature::attributes::{AttributeParsingError, RawAttributes};
 use crate::schema::source_schema::creature::details::{DetailsParsingError, RawDetails};
@@ -24,7 +26,7 @@ pub struct SourceCreature {
     pub perception: RawPerception,
     pub resource: RawResource,
     pub saves: RawSaves,
-    pub traits: RawTraits,
+    pub traits: RaritySizeTraits,
     pub items: ItemLinkedToCreature,
 }
 
@@ -107,7 +109,7 @@ impl TryFrom<&Value> for SourceCreature {
             perception: RawPerception::try_from(&perception_json)?,
             resource: RawResource::from(&resource_json),
             saves: RawSaves::try_from(&saves_json)?,
-            traits: RawTraits::try_from(&traits_json)?,
+            traits: RaritySizeTraits::try_from(&traits_json)?,
             items: ItemLinkedToCreature::try_from(&items_json)?,
         })
     }
