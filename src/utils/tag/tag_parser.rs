@@ -2,7 +2,6 @@ use crate::utils::tag::{
     check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser, localize_tag_parser,
     template_tag_parser,
 };
-use serde_json::Value;
 use {once_cell::sync::Lazy, regex::Regex};
 
 pub fn remove_all_dices_from_description(description: &str) -> String {
@@ -87,20 +86,12 @@ where
     clean_description_from_generic_bracket(&desc)
 }
 
-/// Walks a dot-separated path through a JSON value, returning the string at that path if present.
-pub fn lookup_path(json_data: &Value, path: &str) -> Option<String> {
-    let mut current = json_data;
-    for key in path.split('.') {
-        current = current.get(key)?;
-    }
-    current.as_str().map(String::from)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::schema::localize_loader::lookup_path;
     use rstest::{fixture, rstest};
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     #[fixture]
     fn mock_json() -> Value {

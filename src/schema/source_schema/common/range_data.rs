@@ -41,7 +41,7 @@ impl TryFrom<&Value> for RangeData {
             Value::Object(o) => Ok(Self {
                 value: "".to_string(),
                 increment: o.get("increment").map(|v| v.to_string()),
-                max: o.get("max").map(|v| v.to_string()),
+                max: o.get("max").filter(|v| !v.is_null()).map(|v| v.to_string()),
             }),
             _ => Err(RangeParsingError::ValueNaN),
         }

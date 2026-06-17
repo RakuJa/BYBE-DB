@@ -43,21 +43,15 @@ pub async fn insert_hazard_to_db(
     gs: &GameSystem,
     hz: &BybeHazard,
 ) -> Result<bool> {
-    let hz_id = insert_hazard(conn, gs, hz).await.unwrap();
-    insert_traits(conn, gs, &hz.traits).await.unwrap();
-    insert_hazard_trait_association(conn, gs, &hz.traits, hz_id)
-        .await
-        .unwrap();
+    let hz_id = insert_hazard(conn, gs, hz).await?;
+    insert_traits(conn, gs, &hz.traits).await?;
+    insert_hazard_trait_association(conn, gs, &hz.traits, hz_id).await?;
 
     for el in &hz.actions {
-        let action_id = insert_action(conn, gs, el).await.unwrap();
-        insert_traits(conn, gs, &el.traits.traits).await.unwrap();
-        insert_action_trait_association(conn, gs, &el.traits.traits, action_id)
-            .await
-            .unwrap();
-        insert_action_hazard_association(conn, gs, action_id, hz_id)
-            .await
-            .unwrap();
+        let action_id = insert_action(conn, gs, el).await?;
+        insert_traits(conn, gs, &el.traits.traits).await?;
+        insert_action_trait_association(conn, gs, &el.traits.traits, action_id).await?;
+        insert_action_hazard_association(conn, gs, action_id, hz_id).await?;
     }
     Ok(true)
 }
@@ -382,14 +376,18 @@ async fn insert_traits(
             .iter()
             .map(|x| Trait::builder().name(x).game_system(gs).build())
             .collect::<Vec<Trait>>();
-        QueryBuilder::new(format!("INSERT INTO {gs}_trait_table (name, description)"))
-            .push_values(complete_traits, |mut b, el| {
-                b.push_bind(el.name).push_bind(el.description);
-            })
-            .push(" ON CONFLICT DO NOTHING")
-            .build()
-            .execute(&mut **conn)
-            .await?;
+        QueryBuilder::new(format!(
+            "INSERT INTO {gs}_trait_table (name, description, display_name)"
+        ))
+        .push_values(complete_traits, |mut b, el| {
+            b.push_bind(el.name)
+                .push_bind(el.description)
+                .push_bind(el.display_name);
+        })
+        .push(" ON CONFLICT DO NOTHING")
+        .build()
+        .execute(&mut **conn)
+        .await?;
     }
     Ok(true)
 }

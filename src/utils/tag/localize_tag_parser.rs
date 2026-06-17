@@ -14,7 +14,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::tag::tag_parser::lookup_path;
+    use crate::schema::localize_loader::lookup_path;
     use rstest::{fixture, rstest};
     use serde_json::Value;
     use serde_json::json;
