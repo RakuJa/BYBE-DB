@@ -1,3 +1,4 @@
+use crate::schema::publication_info::PublicationInfo;
 use crate::schema::source_schema::common::rarity_size_traits::{
     RaritySizeTraits, TraitParsingError,
 };
@@ -8,6 +9,7 @@ use crate::schema::source_schema::creature::details::{DetailsParsingError, RawDe
 use crate::schema::source_schema::creature::item::items::{
     CreatureItemParsingError, ItemLinkedToCreature,
 };
+use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::perception::{PerceptionParsingError, RawPerception};
 use crate::schema::source_schema::creature::resources::RawResource;
 use crate::utils::json_utils;
@@ -86,6 +88,7 @@ impl TryFrom<&Value> for SourceCreature {
         let saves_json = json_utils::get_field_from_json(&system_json, "saves");
         let traits_json = json_utils::get_field_from_json(&system_json, "traits");
         let items_json = json_utils::get_field_from_json(json, "items");
+        let skills_json = json_utils::get_field_from_json(&system_json, "skills");
 
         let name = json
             .get("name")
@@ -95,6 +98,42 @@ impl TryFrom<&Value> for SourceCreature {
         if name.to_uppercase().starts_with("ELITE ") || name.to_uppercase().starts_with("WEAK ") {
             return Err(SourceCreatureParsingError::DuplicatedCreature);
         }
+
+        let mut foundry_items = ItemLinkedToCreature::try_from(&items_json)?;
+
+        let skills: Vec<Skill> = skills_json
+            .as_object()
+            .unwrap()
+            .iter()
+            .map(|(name, skill)| {
+                let value = skill
+                    .get("base")
+                    .and_then(Value::as_i64)
+                    .or_else(|| {
+                        // Try to parse "name -2" -> take last token and parse as i64
+                        name.split_whitespace()
+                            .last()
+                            .and_then(|s| s.parse::<i64>().ok())
+                    })
+                    .unwrap_or(0);
+
+                (name.clone(), value)
+            })
+            .map(|(n, v)| Skill {
+                name: n,
+                description: None,
+                modifier: v,
+                proficiency: 0,
+                publication_info: PublicationInfo {
+                    license: "OGL".to_string(),
+                    remastered: false,
+                    source: "".to_string(),
+                },
+                variant_label: vec![],
+            })
+            .collect();
+        foundry_items.skill_list.extend(skills);
+
         Ok(SourceCreature {
             name,
             creature_type,
@@ -110,7 +149,7 @@ impl TryFrom<&Value> for SourceCreature {
             resource: RawResource::from(&resource_json),
             saves: RawSaves::try_from(&saves_json)?,
             traits: RaritySizeTraits::try_from(&traits_json)?,
-            items: ItemLinkedToCreature::try_from(&items_json)?,
+            items: foundry_items,
         })
     }
 }
