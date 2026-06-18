@@ -242,13 +242,17 @@ pub async fn insert_weapon_to_db(
         insert_weapon_creature_association(conn, gs, wp_id, creature_id, wp.item_core.quantity)
             .await?;
     }
+
     insert_weapon_damage(conn, gs, &wp.damage_data, wp_id).await?;
 
     insert_runes(conn, gs, &wp.property_runes).await?;
     insert_weapon_rune_association(conn, gs, &wp.property_runes, wp_id).await?;
 
     insert_weapon_trait_association(conn, gs, &wp.item_core.traits, wp_id).await?;
-    insert_weapon_attack_effect_association(conn, gs, &wp.attack_effects, wp_id).await?;
+    for action in wp.attack_effects.as_slice() {
+        let a_id = insert_action(conn, gs, action).await?;
+        insert_weapon_action_association(conn, gs, wp_id, a_id).await?;
+    }
     Ok(wp_id)
 }
 
@@ -340,7 +344,7 @@ async fn insert_action_creature_association(
     cr_id: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_creature_action_association_table (action_id, creature_id) VALUES ($1, $2)"
+        "INSERT INTO {gs}_creature_action_association_table (action_id, creature_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
     )))
     .bind(action_id)
     .bind(cr_id)
@@ -403,27 +407,6 @@ async fn insert_weapon_trait_association(
             "INSERT INTO {gs}_trait_weapon_association_table (weapon_id, trait_id) "
         ))
         .push_values(traits, |mut b, el| {
-            b.push_bind(id).push_bind(el);
-        })
-        .push(" ON CONFLICT DO NOTHING")
-        .build()
-        .execute(&mut **conn)
-        .await?;
-    }
-    Ok(true)
-}
-
-async fn insert_weapon_attack_effect_association(
-    conn: &mut Transaction<'_, Postgres>,
-    gs: &GameSystem,
-    effects: &Vec<String>,
-    id: i64,
-) -> Result<bool> {
-    if !effects.is_empty() {
-        QueryBuilder::new(format!(
-            "INSERT INTO {gs}_weapon_attack_effect_table (weapon_id, effect_name) "
-        ))
-        .push_values(effects, |mut b, el| {
             b.push_bind(id).push_bind(el);
         })
         .push(" ON CONFLICT DO NOTHING")
@@ -1027,6 +1010,23 @@ async fn insert_weapon_damage(
     Ok(())
 }
 
+async fn insert_weapon_action_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    weapon_id: i64,
+    action_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_weapon_action_association_table \
+            (weapon_id, action_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+    )))
+    .bind(weapon_id)
+    .bind(action_id)
+    .execute(&mut **conn)
+    .await?;
+    Ok(true)
+}
+
 async fn insert_weapon_creature_association(
     conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
@@ -1227,7 +1227,22 @@ async fn insert_action(
         "INSERT INTO {gs}_action_table (
             name, action_type, n_of_actions, category, description,
             license, remaster, source, slug, rarity
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id"
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (
+            name,
+            action_type,
+            n_of_actions,
+            category,
+            md5(COALESCE(description, '__NULL__')),
+            license,
+            remaster,
+            source,
+            slug,
+            rarity
+        )
+        DO UPDATE SET name = EXCLUDED.name
+        RETURNING id
+        "
     )))
     .bind(&action.name)
     .bind(&action.action_type)

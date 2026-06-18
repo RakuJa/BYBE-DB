@@ -9,7 +9,9 @@ extern crate dotenvy;
 extern crate git2;
 
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon};
+use crate::schema::bybe_item::{
+    BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon, SourceWeapon,
+};
 use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
 };
@@ -325,12 +327,12 @@ fn deserialize_json_items(json_files: &[String]) -> Vec<BybeItem> {
 fn deserialize_json_weapons(json_files: &[String]) -> Vec<BybeWeapon> {
     let mut weapons = Vec::new();
     for file in json_files {
-        match BybeWeapon::try_from((
+        match SourceWeapon::try_from((
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
             false,
         )) {
-            Ok(item) => weapons.push(item),
+            Ok(item) => weapons.push(BybeWeapon::from(item)),
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}

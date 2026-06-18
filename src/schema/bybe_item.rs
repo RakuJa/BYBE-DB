@@ -1,9 +1,12 @@
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::common::range_data::RangeData;
+use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::item::source_item::{SourceItem, SourceItemParsingError};
 use crate::schema::status::Status;
 use crate::utils::json_utils;
 use crate::utils::json_utils::get_field_from_json;
+use bon::bon;
+use capitalize::Capitalize;
 use regex::Regex;
 use serde_json::Value;
 use thiserror::Error;
@@ -192,10 +195,85 @@ pub struct BybeWeapon {
     pub range: Option<RangeData>,
     pub reload: Option<String>,
     pub weapon_type: String,
+    pub attack_effects: Vec<Action>,
+}
+
+#[bon]
+impl BybeWeapon {
+    #[builder]
+    pub fn new(source_weapon: SourceWeapon, creature_actions: &[Action]) -> Self {
+        let action_slugs = source_weapon.attack_effects;
+
+        let mut attack_effects = vec![];
+
+        for slug in action_slugs {
+            if let Some(i) = creature_actions
+                .iter()
+                .position(|x| x.slug.as_deref() == Some(slug.as_str()))
+                .or_else(|| {
+                    let name = slug
+                        .split('-')
+                        .map(|w| w.capitalize())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    creature_actions.iter().position(|x| x.name == name)
+                })
+                && let Some(a) = creature_actions.get(i)
+            {
+                attack_effects.push(a.clone());
+            }
+        }
+
+        Self {
+            item_core: source_weapon.item_core,
+            to_hit_bonus: source_weapon.to_hit_bonus,
+            damage_data: source_weapon.damage_data,
+            splash_dmg: source_weapon.splash_dmg,
+            n_of_potency_runes: source_weapon.n_of_potency_runes,
+            n_of_striking_runes: source_weapon.n_of_striking_runes,
+            property_runes: source_weapon.property_runes,
+            range: source_weapon.range,
+            reload: source_weapon.reload,
+            weapon_type: source_weapon.weapon_type,
+            attack_effects,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SourceWeapon {
+    pub item_core: BybeItem,
+    pub to_hit_bonus: Option<i64>,
+    pub damage_data: Vec<WeaponDamageData>,
+    pub splash_dmg: Option<i64>,
+    pub n_of_potency_runes: i64,
+    pub n_of_striking_runes: i64,
+    pub property_runes: Vec<String>,
+    pub range: Option<RangeData>,
+    pub reload: Option<String>,
+    pub weapon_type: String,
     pub attack_effects: Vec<String>,
 }
 
-impl TryFrom<(&Value, bool)> for BybeWeapon {
+impl From<SourceWeapon> for BybeWeapon {
+    fn from(value: SourceWeapon) -> Self {
+        Self {
+            item_core: value.item_core,
+            to_hit_bonus: value.to_hit_bonus,
+            damage_data: value.damage_data,
+            splash_dmg: value.splash_dmg,
+            n_of_potency_runes: value.n_of_potency_runes,
+            n_of_striking_runes: value.n_of_striking_runes,
+            property_runes: value.property_runes,
+            range: value.range,
+            reload: value.reload,
+            weapon_type: value.weapon_type,
+            attack_effects: vec![],
+        }
+    }
+}
+
+impl TryFrom<(&Value, bool)> for SourceWeapon {
     type Error = BybeItemParsingError;
     fn try_from(args: (&Value, bool)) -> Result<Self, Self::Error> {
         let (json, is_derived) = args;
@@ -239,7 +317,7 @@ impl TryFrom<(&Value, bool)> for BybeWeapon {
             tmp_weapon_type
         };
 
-        Ok(BybeWeapon {
+        Ok(Self {
             item_core: BybeItem::from((SourceItem::try_from(json)?, is_derived)),
             splash_dmg: get_field_from_json(&get_field_from_json(json, "splashDamage"), "value")
                 .as_i64(),

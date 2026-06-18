@@ -118,6 +118,17 @@ impl From<SourceCreature> for BybeCreature {
             .iter()
             .flat_map(|x| x.rules.clone())
             .collect();
+        let weapons = source_cr
+            .items
+            .weapon_list
+            .into_iter()
+            .map(|x| {
+                BybeWeapon::builder()
+                    .creature_actions(&source_cr.items.action_list)
+                    .source_weapon(x)
+                    .build()
+            })
+            .collect();
         BybeCreature {
             foundry_id: source_cr.foundry_id,
             name: source_cr.name,
@@ -180,7 +191,7 @@ impl From<SourceCreature> for BybeCreature {
                 .unwrap_or(SizeEnum::Medium),
             traits: source_cr.traits.traits,
             armors: source_cr.items.armor_list,
-            weapons: source_cr.items.weapon_list,
+            weapons,
             items: source_cr.items.item_list,
             actions: source_cr.items.action_list,
             spells: source_cr.items.spell_list,
