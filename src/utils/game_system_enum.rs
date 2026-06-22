@@ -1,7 +1,8 @@
 use std::fmt::{Display, Formatter};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug, Default)]
 pub enum GameSystem {
+    #[default]
     Pathfinder,
     Starfinder,
 }

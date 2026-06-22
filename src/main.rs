@@ -1,5 +1,6 @@
 #[cfg(not(feature = "dry-run"))]
 mod db;
+mod game_system_handler;
 mod schema;
 mod utils;
 
@@ -8,7 +9,9 @@ extern crate dotenvy;
 extern crate git2;
 
 use crate::schema::bybe_creature::BybeCreature;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon};
+use crate::schema::bybe_item::{
+    BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon, SourceWeapon,
+};
 use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
 };
@@ -30,6 +33,7 @@ use tracing_subscriber::{EnvFilter, Layer, fmt};
 
 #[cfg(not(feature = "dry-run"))]
 use crate::db::db_handler_one;
+use crate::game_system_handler::set_game_system;
 #[cfg(not(feature = "dry-run"))]
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -203,11 +207,11 @@ async fn db_update(
     sf2e_json_paths: Vec<String>,
 ) -> anyhow::Result<()> {
     let mut tx: Transaction<Postgres> = conn.begin().await?;
-
+    set_game_system(GameSystem::Pathfinder);
     game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder).await?;
 
     db_handler_one::update_with_aon_data(&mut tx).await?;
-
+    set_game_system(GameSystem::Starfinder);
     game_system_tables_update(&mut tx, sf2e_json_paths, &GameSystem::Starfinder).await?;
 
     db_handler_one::insert_scales_values_to_db(&mut tx).await?;
@@ -323,12 +327,12 @@ fn deserialize_json_items(json_files: &[String]) -> Vec<BybeItem> {
 fn deserialize_json_weapons(json_files: &[String]) -> Vec<BybeWeapon> {
     let mut weapons = Vec::new();
     for file in json_files {
-        match BybeWeapon::try_from((
+        match SourceWeapon::try_from((
             &serde_json::from_str(&read_from_file_to_string(file.as_str()))
                 .expect("JSON was not well-formatted"),
             false,
         )) {
-            Ok(item) => weapons.push(item),
+            Ok(item) => weapons.push(BybeWeapon::from(item)),
             Err(e) => match e {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}

@@ -54,28 +54,32 @@ impl TryFrom<&Value> for Action {
                 .get("name")
                 .and_then(Value::as_str)
                 .map(String::from)
-                .ok_or(ActionParsingError::Name)?,
+                .ok_or(ActionParsingError::Name)
+                .unwrap(),
             action_type: json_utils::get_field_from_json(&action_type_json, "value")
                 .as_str()
                 .map(String::from)
-                .ok_or(ActionParsingError::ActionType)?,
+                .ok_or(ActionParsingError::ActionType)
+                .unwrap(),
             n_of_actions: json_utils::get_field_from_json(&action_json, "value").as_i64(),
             category: category_json.as_str().map(|x| x.to_string()),
             description: json_utils::get_field_from_json(&description_json, "value")
                 .as_str()
                 .map(Description::from)
                 .map(|x| x.to_string())
-                .ok_or(ActionParsingError::Description)?,
+                .ok_or(ActionParsingError::Description)
+                .unwrap(),
             rules: rule_json
                 .as_array()
                 .unwrap_or(&vec![])
                 .iter()
                 .map(Rule::try_from)
                 .filter(|x| x.is_ok())
-                .collect::<Result<Vec<Rule>, _>>()?,
-            publication_info: PublicationInfo::try_from(&publication_json)?,
+                .collect::<Result<Vec<Rule>, _>>()
+                .unwrap(),
+            publication_info: PublicationInfo::try_from(&publication_json).unwrap(),
             slug: slug_json.as_str().map(|x| x.to_string()),
-            traits: ActionTraits::try_from(&traits_json)?,
+            traits: ActionTraits::try_from(&traits_json).unwrap(),
         })
     }
 }
@@ -94,7 +98,8 @@ impl TryFrom<&Value> for ActionTraits {
                 .as_str()
                 .map(String::from)
                 .ok_or(ActionParsingError::Rarity)
-                .and_then(|rarity| rarity.parse().map_err(|_| ActionParsingError::Rarity))?,
+                .and_then(|rarity| rarity.parse().map_err(|_| ActionParsingError::Rarity))
+                .unwrap_or_default(),
             traits: json_utils::from_json_vec_of_str_to_vec_of_str(
                 json_utils::get_field_from_json(json, "value")
                     .as_array()

@@ -67,20 +67,56 @@ pub fn find_remaining_tags(cleaned_description: &str) -> Vec<String> {
     issues
 }
 
-pub fn clean_description_from_all_tags(description: &str, item_lvl: Option<i64>) -> String {
-    let desc = compendium_tag_parser::clean_description(description);
+pub fn clean_description_from_all_tags<F>(
+    description: &str,
+    item_lvl: Option<i64>,
+    lookup: F,
+) -> String
+where
+    F: Fn(&str) -> Option<String>,
+{
+    let desc = localize_tag_parser::clean_description(description, lookup);
+    // localize must be the first, otherwise we risk replacing it will tags that are
+    // not parsed
+    let desc = compendium_tag_parser::clean_description(&desc);
     let desc = dmg_tag_parser::clean_description(&desc, item_lvl);
     let desc = check_tag_parser::clean_description(&desc);
     let desc = template_tag_parser::clean_description(&desc);
     let desc = dm_roll_parser::clean_description(&desc);
-    let desc = clean_description_from_generic_bracket(&desc);
-    localize_tag_parser::clean_description(&desc)
+    clean_description_from_generic_bracket(&desc)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::rstest;
+    use crate::schema::localize_loader::lookup_path;
+    use rstest::{fixture, rstest};
+    use serde_json::{Value, json};
+
+    #[fixture]
+    fn mock_json() -> Value {
+        json!({
+            "PF2E": {
+                "NPC": {
+                    "Abilities": {
+                        "Glossary": {
+                            "Grab": "Grab description text",
+                            "SwallowWhole": "Swallow Whole description text"
+                        }
+                    }
+                },
+                "PersistentDamage": {
+                    "Bleed1": {
+                        "success": "1 persistent bleed damage"
+                    }
+                },
+                "SpecificRule": {
+                    "Foo": "Foo text",
+                    "Bar": "Bar text"
+                }
+            }
+        })
+    }
 
     #[rstest]
     #[case(
@@ -89,10 +125,11 @@ mod tests {
     )]
     #[case(
         "<p>Small, @Damage[(1d12 + 3)[bludgeoning]], Rupture 10</p>\n<hr />\n<p>@Localize[PF2E.NPC.Abilities.Glossary.SwallowWhole]</p>",
-        "<p>Small, 1d12 + 3 bludgeoning, Rupture 10</p>\n<hr />\n<p></p>"
+        "<p>Small, 1d12 + 3 bludgeoning, Rupture 10</p>\n<hr />\n<p>Swallow Whole description text</p>"
     )]
-    fn clean_check_uuid(#[case] input: &str, #[case] expected: &str) {
-        let parsed_description = clean_description_from_all_tags(input, None);
+    fn clean_check_uuid(mock_json: Value, #[case] input: &str, #[case] expected: &str) {
+        let parsed_description =
+            clean_description_from_all_tags(input, None, |path| lookup_path(&mock_json, path));
         assert_eq!(expected, parsed_description);
     }
 
@@ -104,10 +141,11 @@ mod tests {
         assert_eq!(expected, parsed_description);
     }
 
-    #[test]
-    fn clean_spider_gun_adjacent_checks_and_act_command() {
+    #[rstest]
+    fn clean_spider_gun_adjacent_checks_and_act_command(mock_json: Value) {
         let input = "it must attempt an @Check[athletics|dc:20]{Athletics} check or @Check[reflex|dc:20]{Reflex} save against DC 20. On a critical failure, it's @UUID[Compendium.pf2e.conditionitems.Item.Immobilized] for 1 round or until it Escapes ([[/act escape dc=20]]{DC 20}) or destroys the webbing.";
-        let result = clean_description_from_all_tags(input, None);
+        let result =
+            clean_description_from_all_tags(input, None, |path| lookup_path(&mock_json, path));
         assert!(
             !result.contains("@Check"),
             "unparsed @Check tag remained: {result}"

@@ -3,7 +3,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 #[derive(Debug, Clone)]
-pub struct RawTraits {
+pub struct RaritySizeTraits {
     pub rarity: String,
     pub size: String,
     pub traits: Vec<String>,
@@ -19,10 +19,10 @@ pub enum TraitParsingError {
     Traits,
 }
 
-impl TryFrom<&Value> for RawTraits {
+impl TryFrom<&Value> for RaritySizeTraits {
     type Error = TraitParsingError;
     fn try_from(json: &Value) -> Result<Self, Self::Error> {
-        Ok(RawTraits {
+        Ok(RaritySizeTraits {
             rarity: json_utils::get_field_from_json(json, "rarity")
                 .as_str()
                 .map(String::from)

@@ -1,7 +1,9 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::description::Description;
 use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
-use crate::schema::source_schema::common::traits::{RawTraits, TraitParsingError};
+use crate::schema::source_schema::common::rarity_size_traits::{
+    RaritySizeTraits, TraitParsingError,
+};
 use crate::schema::source_schema::item::material::RawMaterial;
 use crate::schema::source_schema::price_struct::PriceStruct;
 use crate::utils::json_utils::get_field_from_json;
@@ -20,7 +22,7 @@ pub struct SourceItem {
     pub level: i64,
     pub price: PriceStruct, // in cp,
     pub publication_info: PublicationInfo,
-    pub traits: RawTraits,
+    pub traits: RaritySizeTraits,
     pub usage: Option<String>,
     pub item_type: String,
 
@@ -101,7 +103,7 @@ impl TryFrom<&Value> for SourceItem {
                 .unwrap_or(0),
             price: PriceStruct::from(&price_json),
             publication_info: PublicationInfo::try_from(&publication_json)?,
-            traits: RawTraits::try_from(&traits_json)?,
+            traits: RaritySizeTraits::try_from(&traits_json)?,
             usage: get_field_from_json(&get_field_from_json(&system_json, "usage"), "value")
                 .as_str()
                 .map(|x| x.to_string()),

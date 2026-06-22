@@ -1,4 +1,4 @@
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, SourceWeapon};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::{Spell, SpellParsingError};
@@ -9,7 +9,7 @@ use tracing::debug;
 
 pub struct ItemLinkedToCreature {
     pub spell_list: Vec<Spell>,
-    pub weapon_list: Vec<BybeWeapon>,
+    pub weapon_list: Vec<SourceWeapon>,
     pub armor_list: Vec<BybeArmor>,
     pub item_list: Vec<BybeItem>,
     pub action_list: Vec<Action>,
@@ -65,7 +65,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                         spells.push(sp);
                     }
                 }
-                "melee" | "weapon" => match BybeWeapon::try_from((el, true)) {
+                "melee" | "weapon" => match SourceWeapon::try_from((el, true)) {
                     Ok(wp) => weapons.push(wp),
                     Err(e) => debug!("{e}"),
                 },
