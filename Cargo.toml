@@ -6,7 +6,7 @@ authors = ["RakuJa"]
 
 # Compiler info
 edition = "2024"
-rust-version = "1.88.0"
+rust-version = "1.94.1"
 
 description = "a Database to help develop tools for Pathfinder 2e. It's built for the BYBE webservice"
 readme = "README.md"
@@ -16,7 +16,8 @@ license = "MIT"
 keywords = ["database", "pathfinder"]
 publish = false
 
-build = "build/main.rs"
+[features]
+dry-run = []
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -34,11 +35,11 @@ capitalize = "0.3.4"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
-git2 = "0.20"
+git2 = "0.21"
 
 strum = { version = "0.28.0", features = ["derive"] }
 
-sqlx = { version = "0.9.0-alpha.1", features = ["runtime-async-std", "sqlite"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "migrate"] }
 dotenvy = "0.15.7"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
@@ -48,9 +49,8 @@ thiserror = "2.0"
 
 [build-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt"] }
-log = "0.4"
 anyhow = "1.0"
-sqlx = { version = "0.9.0-alpha.1", features = ["runtime-async-std", "sqlite"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "migrate"] }
 dotenvy = "0.15"
 
 [dev-dependencies]

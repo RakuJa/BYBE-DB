@@ -2,33 +2,24 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 
 pub fn clean_description(description: &str) -> String {
-    _clean_description_from_compendium_tag(description)
-}
-
-fn _clean_description_from_compendium_tag(description: &str) -> String {
     static RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"@UUID(\[Compendium\..*?])(\{.*?})?").unwrap());
     let mut clean_description = String::from(description);
-    for el in RE.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = RE.captures(el) {
-            let raw_compendium_descr = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            let compendium_descr =
-                if let Some(curly_brackets_content) = curr_match.get(2).map(|x| x.as_str()) {
-                    curly_brackets_content.replace(&['{', '}'][..], "")
-                } else {
-                    let mut descr = String::new();
-                    if let Some(inner_descr) = curr_match.get(1).map(|x| x.as_str()) {
-                        let clean_inner_descr = inner_descr.replace(&['[', ']'][..], "");
-                        match clean_inner_descr.rsplit_once('.') {
-                            None => descr.push_str(clean_inner_descr.as_str()),
-                            Some(v) => descr.push_str(v.1),
-                        }
-                    }
-                    descr
-                };
-            clean_description =
-                clean_description.replace(raw_compendium_descr, compendium_descr.as_str());
-        }
+    for curr_match in RE.captures_iter(description) {
+        let raw_descr = curr_match.get(0).unwrap().as_str();
+        let replacement = if let Some(curly) = curr_match.get(2).map(|x| x.as_str()) {
+            curly.replace(&['{', '}'][..], "")
+        } else {
+            let inner = curr_match
+                .get(1)
+                .map_or("", |m| m.as_str())
+                .replace(&['[', ']'][..], "");
+            match inner.rsplit_once('.') {
+                Some((_, last)) => last.to_string(),
+                None => inner,
+            }
+        };
+        clean_description = clean_description.replace(raw_descr, &replacement);
     }
     clean_description
 }

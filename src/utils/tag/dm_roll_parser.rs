@@ -7,37 +7,35 @@ pub fn clean_description(description: &str) -> String {
     let mut desc = String::from(description);
     static SPLIT_REGEX: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"\[\[([^\[\]]*)]](\{(.*?)})?").unwrap());
-    for el in SPLIT_REGEX.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = SPLIT_REGEX.captures(el) {
-            let dirty_match = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            let square_bracket_content = curr_match.get(1).map(|x| x.as_str()).unwrap_or("");
-            let is_r_command = square_bracket_content.trim_start().starts_with("/r");
+    for curr_match in SPLIT_REGEX.captures_iter(description) {
+        let dirty_match = curr_match.get(0).unwrap().as_str();
+        let square_bracket_content = curr_match.get(1).map(|x| x.as_str()).unwrap_or("");
+        let is_r_command = square_bracket_content.trim_start().starts_with("/r");
 
-            let cleaned_match = if is_r_command {
-                clean_description_without_curly_brackets(square_bracket_content)
-                    .trim()
-                    .to_string()
-            } else if let Some(curly_bracket_content) = curr_match.get(3).map(|x| x.as_str()) {
-                curly_bracket_content.to_string()
-            } else {
-                clean_description_without_curly_brackets(square_bracket_content)
-            };
+        let cleaned_match = if is_r_command {
+            clean_description_without_curly_brackets(square_bracket_content)
+                .trim()
+                .to_string()
+        } else if let Some(curly_bracket_content) = curr_match.get(3).map(|x| x.as_str()) {
+            curly_bracket_content.to_string()
+        } else {
+            clean_description_without_curly_brackets(square_bracket_content)
+        };
 
-            let match_pos = desc.find(dirty_match);
-            let needs_space = is_r_command
-                && match_pos
-                    .and_then(|pos| desc[..pos].chars().last())
-                    .map(|c| c.is_alphanumeric() || c == '_')
-                    .unwrap_or(false);
+        let needs_space = is_r_command
+            && desc
+                .find(dirty_match)
+                .and_then(|pos| desc[..pos].chars().last())
+                .map(|c| c.is_alphanumeric() || c == '_')
+                .unwrap_or(false);
 
-            let replacement = if needs_space {
-                format!(" {cleaned_match}")
-            } else {
-                cleaned_match
-            };
+        let replacement = if needs_space {
+            format!(" {cleaned_match}")
+        } else {
+            cleaned_match
+        };
 
-            desc = desc.replacen(dirty_match, replacement.as_str(), 1);
-        }
+        desc = desc.replacen(dirty_match, &replacement, 1);
     }
     desc
 }
@@ -46,16 +44,10 @@ pub fn clean_description_without_curly_brackets(description: &str) -> String {
     let mut desc = String::from(description);
     static SPLIT_REGEX: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"/(?:gmr|r) ([0-9]+d[0-9]+[+\-]?[0-9]*)(?:\s.*)?").unwrap());
-    for el in SPLIT_REGEX.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = SPLIT_REGEX.captures(el) {
-            let dirty_match = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            let cleaned_match = if let Some(dice_content) = curr_match.get(1).map(|x| x.as_str()) {
-                dice_content
-            } else {
-                dirty_match
-            };
-            desc = desc.replacen(dirty_match, cleaned_match, 1);
-        }
+    for curr_match in SPLIT_REGEX.captures_iter(description) {
+        let dirty_match = curr_match.get(0).unwrap().as_str();
+        let cleaned_match = curr_match.get(1).map(|x| x.as_str()).unwrap_or(dirty_match);
+        desc = desc.replacen(dirty_match, cleaned_match, 1);
     }
     desc
 }
@@ -88,6 +80,23 @@ mod tests {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }
+    #[rstest]
+    #[case("[[/r 1d6]]", "1d6")]
+    #[case("[[/r 2d8+3]]", "2d8+3")]
+    #[case("[[/r 1d20-2]]", "1d20-2")]
+    fn clean_bare_r_roll(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case("[[/gmr 1d4+2 #Recharge]]{1d4+2 rounds}", "1d4+2 rounds")]
+    #[case("[[/gmr 2d6+1 #Duration]]{2d6+1 minutes}", "2d6+1 minutes")]
+    fn clean_gmr_with_modifier(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
     #[rstest]
     #[case("1d6 minutes", "1d6 minutes")]
     fn clean_without_tags(#[case] input: &str, #[case] expected: &str) {
@@ -122,6 +131,14 @@ mod tests {
         "there is a 1 in 4 chance of hitting you (1 on 1d4)."
     )]
     fn clean_roll_slash_r_check(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case("([[/act escape dc=20]]{DC 20})", "(DC 20)")]
+    #[case("[[/act escape dc=20]]{Escape}", "Escape")]
+    fn clean_act_command_with_curly(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description(input);
         assert_eq!(expected, parsed_description);
     }

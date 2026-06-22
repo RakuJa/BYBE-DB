@@ -1,49 +1,82 @@
 ![Rust](https://img.shields.io/badge/Rust-664666?style=for-the-badge&logo=rust&logoColor=red)
-![SQLite](https://img.shields.io/badge/sqlite-%2307405e.svg?style=for-the-badge&logo=sqlite&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
 
 # BYBE - DB
 
 > Beyond Your Bestiary Explorer (BYBE) provides tools to help Pathfinder 2e Game Masters. Built as the database initializer of [BYBE - Backend](https://github.com/RakuJa/BYBE/)
 
-## Features
+This Rust program downloads Foundry VTT source data, parses it, and stores it in a PostgreSQL database. A pre-built dump (`db/bybe_postgres.sql`) is included to restore data and avoid losing legacy creatures or change ids.
 
-This rust program automagically downloads foundry data (and it's kinda slow, beware!) and then parses it storing in a more organized form in a SQLite DB.
+---
 
-## Requirements
+## Docker (recommended)
 
-Built using:
+### First start
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- [SQLite](https://www.sqlite.org/download.html)
-
-## Installation guide - Local
-
-1. Install [Rust](https://www.rust-lang.org/tools/install) on your machine.
-2. Setup .env correctly (for sane defaults rename .env.example -> .env)
-
-3. Build the project:
+Builds the images, restores the dump into PostgreSQL, and runs the updater once:
 
 ```bash
-cargo build
+docker compose up --build
 ```
-4. Run the database initializer in development mode:
+
+### Start the DB only (serve queries)
+The previous step should have already started the db, if it did not run:
+```bash
+docker compose up db
+```
+
+### Re-run the updater (if needed)
+
+Fetches the latest Foundry data and repopulates the database:
+```bash
+docker compose run --rm updater
+```
+
+After this, [refresh the dump](#refreshing-the-dump) so the new data is captured.
+
+---
+
+## Local setup
+
+**Requirements:** [Rust](https://www.rust-lang.org/tools/install), a running PostgreSQL instance.
+
+1. Copy and fill in the environment file:
 
 ```bash
-cargo run
+cp .env.example .env
 ```
 
-To instead deploy the production build, run:
-
-```bash
-cargo build --release
-```
+2. Run schema migrations:
 
 ```bash
-cargo run
+sqlx migrate run
 ```
-It should be quick (~1 minute) if the foundry data is already cloned, otherwise it can last a long time.
+
+3. Run the data updater:
+
+```bash
+cargo run --release
+```
+
+The binary applies any pending migrations automatically, then clears and repopulates all data tables. The source repo is cloned on first run (~slow); subsequent runs reuse the existing clone (~1 minute).
+
+---
+
+## Refreshing the dump
+
+Run this after the updater finishes to capture the new state into `db/bybe_postgres.sql`:
+
+```bash
+docker exec bybe-postgres pg_dump -U postgres bybe > db/bybe_postgres.sql
+```
+
+Commit `db/bybe_postgres.sql` so the next `docker compose up --build` starts from the updated data without re-running the pipeline.
+## Exporte pglite compatible sql
+
+```bash
+docker exec bybe-postgres pg_dump -U postgres --format=plain --no-owner --no-privileges --inserts bybe > db/bybe_pglite.sql
+```
 ## Support me
 
 If you like this tool, consider supporting me:

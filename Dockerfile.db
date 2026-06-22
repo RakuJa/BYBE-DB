@@ -1,0 +1,3 @@
+FROM postgres:latest
+
+COPY db/bybe_postgres.sql /docker-entrypoint-initdb.d/01_dump.sql

@@ -4,131 +4,239 @@ use {once_cell::sync::Lazy, regex::Regex};
 
 pub fn clean_description(description: &str, item_lvl: Option<i64>) -> String {
     let mut desc = String::from(description);
-    static SPLIT_REGEX: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"@Damage\[[\w\W]*?]((.*?])]?(\{(.*?)})?)?").unwrap());
-    for el in SPLIT_REGEX.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = SPLIT_REGEX.captures(el) {
-            let dirty_match = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            let cleaned_match = if let Some(curly_bracket_content) =
-                curr_match.get(4).map(|x| x.as_str())
-            {
+    // Matches @Damage[...] with one level of nested brackets (e.g. [bludgeoning]),
+    // an optional extra trailing ] (some entries have a stray one), and optional {label}.
+    // Group 1: full {label}, Group 2: label content without braces.
+    static SPLIT_REGEX: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r"@Damage\[(?:[^\[\]]*(?:\[[^\[\]]*\])?)*\]\]?(\{([^}]*)\})?").unwrap()
+    });
+    for curr_match in SPLIT_REGEX.captures_iter(description) {
+        let dirty_match = curr_match.get(0).unwrap().as_str();
+        let cleaned_match =
+            if let Some(curly_bracket_content) = curr_match.get(2).map(|x| x.as_str()) {
                 curly_bracket_content.to_string()
             } else {
-                _clean_generic_description_from_dmg_tag(
-                    _clean_item_rank_description_from_dmg_tag(dirty_match, item_lvl.unwrap_or(0))
-                        .as_str(),
-                )
+                let inner = extract_dmg_inner_content(dirty_match);
+                if has_top_level_comma(inner) {
+                    clean_multi_damage(inner)
+                } else if inner.contains("@actor.") {
+                    clean_actor_level_damage(inner)
+                } else {
+                    let item_cleaned = clean_item_rank_dmg_tag(dirty_match, item_lvl.unwrap_or(0));
+                    clean_generic_dmg_tag(&item_cleaned)
+                }
             };
-            desc = desc.replacen(dirty_match, cleaned_match.as_str(), 1);
-        }
+        desc = desc.replacen(dirty_match, &cleaned_match, 1);
     }
     desc
 }
 
-fn _clean_item_rank_description_from_dmg_tag(description: &str, item_lvl: i64) -> String {
+/// Extracts the content between `@Damage[` and its matching closing `]`.
+fn extract_dmg_inner_content(dirty_match: &str) -> &str {
+    const PREFIX: &str = "@Damage[";
+    let rest = &dirty_match[PREFIX.len()..];
+    let mut depth = 0i32;
+    for (i, c) in rest.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => {
+                if depth == 0 {
+                    return &rest[..i];
+                }
+                depth -= 1;
+            }
+            _ => {}
+        }
+    }
+    rest
+}
+
+/// Returns true if `s` contains a `,` at bracket depth 0 (i.e. a top-level separator between
+/// multiple damage entries such as `7d6[fire],4d12[persistent,poison]`).
+fn has_top_level_comma(s: &str) -> bool {
+    let mut depth = 0i32;
+    for c in s.chars() {
+        match c {
+            '[' => depth += 1,
+            ']' => depth -= 1,
+            ',' if depth == 0 => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+/// Strips the first top-level `|suffix` (e.g. `|options:area-damage`, `|traits:...`).
+fn strip_pipe_suffix(s: &str) -> &str {
+    let mut depth = 0i32;
+    for (i, c) in s.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => depth -= 1,
+            '|' if depth == 0 => return &s[..i],
+            _ => {}
+        }
+    }
+    s
+}
+
+/// Parses a multi-damage inner string like `7d6[fire],4d12[persistent,poison]|options:area-damage`
+/// into a human-readable form like `7d6 fire, 4d12 persistent poison`.
+fn clean_multi_damage(inner: &str) -> String {
+    let content = strip_pipe_suffix(inner);
+
+    // Split by ',' at depth 0.
+    let mut parts: Vec<&str> = Vec::new();
+    let mut start = 0;
+    let mut depth = 0i32;
+    for (i, c) in content.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(content[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(content[start..].trim());
+
+    parts
+        .iter()
+        .filter(|p| !p.is_empty())
+        .map(|p| parse_single_dmg_part(p))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Parses one damage segment like `7d6[fire]` or `4d12[persistent,poison]` into `7d6 fire` /
+/// `4d12 persistent poison`.
+fn parse_single_dmg_part(part: &str) -> String {
+    if let Some(bracket_start) = part.find('[') {
+        let dice = part[..bracket_start].trim();
+        let type_raw = part[bracket_start + 1..].trim_end_matches(']');
+        let dmg_type = type_raw.replace(',', " ");
+        format!("{dice} {dmg_type}")
+    } else {
+        part.trim().to_string()
+    }
+}
+
+/// Handles `@Damage[...]` inner content that references `@actor.level` or `@actor.rank`.
+/// Substitutes those tokens with "Level" and extracts the formula and damage type.
+fn clean_actor_level_damage(inner: &str) -> String {
+    let content = strip_pipe_suffix(inner)
+        .to_string()
+        .replace("@actor.level", "Level")
+        .replace("@actor.rank", "Level");
+
+    // Find the last top-level '[type]' to separate formula from damage type
+    let mut depth = 0i32;
+    let mut last_open: Option<usize> = None;
+    for (i, c) in content.char_indices() {
+        match c {
+            '[' => {
+                if depth == 0 {
+                    last_open = Some(i);
+                }
+                depth += 1;
+            }
+            ']' => depth -= 1,
+            _ => {}
+        }
+    }
+
+    if let Some(pos) = last_open {
+        let formula = content[..pos].trim();
+        let type_raw = content[pos + 1..].trim_end_matches(']');
+        let dmg_type = type_raw.replace(',', " ");
+        if dmg_type.is_empty() {
+            formula.to_string()
+        } else {
+            format!("{formula} {dmg_type}")
+        }
+    } else {
+        content
+    }
+}
+
+fn clean_item_rank_dmg_tag(description: &str, item_lvl: i64) -> String {
     static RE: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"@Damage\[(.*[\[|(])?(@item\.(rank|level).*)([]|)])?\[([^]]*)](.*])").unwrap()
     });
     let mut clean_description = String::from(description);
-    for el in RE.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = RE.captures(el) {
-            let raw_dmg_str = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            let curr_dmg_str = if let Some(second) = curr_match.get(2) {
-                let mut dmg_str = String::new();
-                // explanation of the logic with the given entry
-                // @Damage[(2*(@item.level - 2))[fire,persistent]]
-                // 0 => @Damage[
-                // 1 => everything before @item => (2*(
-                // 2 => @item.level - 2))
-                // 3 => level (or rank if item.rank)
-                // 5 => fire,persistent
-                // 6 => ] (tailing garbage)
-                // So we substitute item.level/rank with the level, and fill
-                // the parenthesis if they are missing. Then we evaluate the result
-                let first = curr_match.get(1).map(|x| x.as_str()).unwrap_or("");
-                let match_str = format!("{}{}", first, second.as_str());
-                let n_of_open_brackets = match_str.matches("(").count();
-                let n_of_closed_brackets = match_str.matches(")").count();
-                let filler = if n_of_closed_brackets > n_of_open_brackets {
-                    "(".repeat(n_of_closed_brackets - n_of_open_brackets)
-                } else {
-                    ")".repeat(n_of_open_brackets - n_of_closed_brackets)
-                };
-                let to_replace = format!(
-                    "@item.{}",
-                    curr_match.get(3).map(|x| x.as_str()).unwrap_or("rank")
-                );
-                let to_evaluate = remove_all_dices_from_description(
-                    format!("{filler}{match_str}")
-                        .replace(to_replace.as_str(), item_lvl.to_string().as_str())
-                        .as_str(),
-                );
-                let dmg = eval(to_evaluate.as_str());
-                dmg_str.push_str(dmg.unwrap().as_int().unwrap().to_string().as_str());
-                if let Some(dice) = get_dice_inside_string(second.as_str()) {
-                    dmg_str.push_str(dice.to_string().as_str());
-                };
-                if let Some(dmg_type) = curr_match.get(5).map(|x| parse_dmg_type(x.as_str())) {
-                    if !dmg_type.is_empty() {
-                        dmg_str.push(' ');
-                    }
-                    dmg_str.push_str(dmg_type.as_str());
-                }
-                dmg_str
+    for curr_match in RE.captures_iter(description) {
+        let raw_dmg_str = curr_match.get(0).unwrap().as_str();
+        let curr_dmg_str = if let Some(second) = curr_match.get(2) {
+            // explanation of the logic with the given entry
+            // @Damage[(2*(@item.level - 2))[fire,persistent]]
+            // 0 => @Damage[
+            // 1 => everything before @item => (2*(
+            // 2 => @item.level - 2))
+            // 3 => level (or rank if item.rank)
+            // 5 => fire,persistent
+            // 6 => ] (tailing garbage)
+            // So we substitute item.level/rank with the level, and fill
+            // the parenthesis if they are missing. Then we evaluate the result
+            let first = curr_match.get(1).map_or("", |x| x.as_str());
+            let match_str = format!("{first}{}", second.as_str());
+            let n_of_open = match_str.matches('(').count();
+            let n_of_close = match_str.matches(')').count();
+            let filler = if n_of_close > n_of_open {
+                "(".repeat(n_of_close - n_of_open)
             } else {
-                "".to_string()
+                ")".repeat(n_of_open - n_of_close)
             };
-            clean_description = clean_description.replace(raw_dmg_str, curr_dmg_str.as_str());
-        }
+            let item_key = format!("@item.{}", curr_match.get(3).map_or("rank", |x| x.as_str()));
+            let to_evaluate = remove_all_dices_from_description(
+                &format!("{filler}{match_str}").replace(&item_key, &item_lvl.to_string()),
+            );
+            let value = eval(&to_evaluate).unwrap().as_int().unwrap();
+            let dice = get_dice_inside_string(second.as_str()).unwrap_or_default();
+            let dmg_type = curr_match
+                .get(5)
+                .map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
+            format!("{value}{dice} {dmg_type}").trim_end().to_string()
+        } else {
+            String::new()
+        };
+        clean_description = clean_description.replace(raw_dmg_str, &curr_dmg_str);
     }
     clean_description
 }
 
 fn parse_dmg_type(raw_dmg_type: &str) -> String {
-    let mut clean_dmg_type = String::new();
-    let cleaned_dmg_type = raw_dmg_type
-        // remove parenthesis
-        .replace(&['(', ')', ']'][..], "");
-    // list of types could be divided either by , or [type1][type2].
-    // removing ] => type1[type2. So we split by [
-    for dmg_type in if cleaned_dmg_type.contains(',') {
-        cleaned_dmg_type.split(',')
-    } else {
-        cleaned_dmg_type.split('[')
-    } {
-        clean_dmg_type.push_str(format!("{dmg_type} ").as_str())
-    }
-    clean_dmg_type.trim_end().replace(&['[', ']', ']'][..], "")
+    // Remove parens and closing brackets; [ is kept as a fallback separator (see below)
+    let cleaned = raw_dmg_type.replace(&['(', ')', ']'][..], "");
+    // Types are separated by , (e.g. persistent,acid) or by [ (e.g. type1[type2 after ] removal)
+    let sep = if cleaned.contains(',') { ',' } else { '[' };
+    cleaned
+        .split(sep)
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace('[', "")
+        .trim()
+        .to_string()
 }
-fn _clean_generic_description_from_dmg_tag(description: &str) -> String {
+fn clean_generic_dmg_tag(description: &str) -> String {
     static RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"@Damage\[\(?([\w+]*)\)?\[?([^\s-]*])(\{.*})?(.*)").unwrap());
-    //@Damage\[\(?([\w+]*)\)?(\[([^\s-]*])(\{.*})?(.*))?
-    //@Damage\[\(?([\w+]*)\)?\[([^\s-]*])(\{.*})?(.*)
+        Lazy::new(|| Regex::new(r"@Damage\[\(?([\w+\-\s]*)\)?\[?([^\s-]*])(\{.*})?(.*)").unwrap());
     let mut clean_description = String::from(description);
-    for el in RE.find_iter(description).map(|x| x.as_str()) {
-        if let Some(curr_match) = RE.captures(el) {
-            let raw_dmg_str = curr_match.get(0).map(|x| x.as_str()).unwrap();
-            // CURLY BRACKETS CONTENT NEEDS TO BE HIGH PRIO, ex something {hi osi} => hi osi
-            let curr_dmg_str =
-                if let Some(curly_brackets_content) = curr_match.get(3).map(|x| x.as_str()) {
-                    curly_brackets_content.replace(&['{', '}'][..], "")
-                } else {
-                    let dmg_dice = curr_match.get(1).map(|x| x.as_str()).unwrap_or("0");
-                    let mut dmg_str = String::new();
-                    dmg_str.push_str(dmg_dice);
-                    if let Some(dmg_type) = curr_match.get(2).map(|x| parse_dmg_type(x.as_str())) {
-                        if !dmg_type.is_empty() {
-                            dmg_str.push(' ');
-                        }
-                        dmg_str.push_str(dmg_type.as_str());
-                    }
-                    dmg_str
-                };
-            clean_description = clean_description.replace(raw_dmg_str, curr_dmg_str.as_str());
-        }
+    for curr_match in RE.captures_iter(description) {
+        let raw_dmg_str = curr_match.get(0).unwrap().as_str();
+        // Curly bracket label takes priority: {hi osi} => hi osi
+        let curr_dmg_str = if let Some(curly) = curr_match.get(3).map(|x| x.as_str()) {
+            curly.replace(&['{', '}'][..], "")
+        } else {
+            let dmg_dice = curr_match.get(1).map_or("0", |x| x.as_str().trim());
+            let dmg_type = curr_match
+                .get(2)
+                .map_or_else(String::new, |x| parse_dmg_type(x.as_str()));
+            format!("{dmg_dice} {dmg_type}").trim_end().to_string()
+        };
+        clean_description = clean_description.replace(raw_dmg_str, &curr_dmg_str);
     }
-
     clean_description
 }
 
@@ -149,6 +257,8 @@ mod tests {
         "take 1d12 electricity damage"
     )]
     #[case("@Damage[(2d8+4)[electricity]]", "2d8+4 electricity")]
+    #[case("@Damage[(1d10-1)[piercing]]", "1d10-1 piercing")]
+    #[case("@Damage[(1d12 + 3)[bludgeoning]]", "1d12 + 3 bludgeoning")]
     fn clean_damage_string_with_one_type(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description(input, None);
         assert_eq!(expected, parsed_description);
@@ -270,6 +380,43 @@ mod tests {
 
     #[rstest]
     #[case(
+        "@Damage[2d6[bludgeoning],2d6[piercing],2d6[slashing]]{2d6 bludgeoning damage, 2d6 piercing damage, and 2d6 slashing damage}",
+        "2d6 bludgeoning damage, 2d6 piercing damage, and 2d6 slashing damage"
+    )]
+    // pipe options (|options:...) before the curly label — seen in area-damage entries
+    #[case(
+        "@Damage[3d12[piercing],2d12[void]|options:area-damage]{3d12 piercing damage and 2d12 void damage}",
+        "3d12 piercing damage and 2d12 void damage"
+    )]
+    fn clean_multi_damage_with_label(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input, None);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case(
+        "@Damage[7d6[fire],4d12[persistent,poison]|options:area-damage]",
+        "7d6 fire, 4d12 persistent poison"
+    )]
+    #[case("@Damage[3d6[fire],3d6[cold]]", "3d6 fire, 3d6 cold")]
+    #[case(
+        "@Damage[2d8[slashing],1d6[persistent,bleed]]",
+        "2d8 slashing, 1d6 persistent bleed"
+    )]
+    fn clean_multi_damage_without_label(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input, None);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case("@Damage[1d6[fire]]{1d6 fire damage}", "1d6 fire damage")]
+    fn clean_single_damage_curly_label_preferred(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input, None);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case(
         "@Damage[2d6[persistent,fire]] or @Damage[2d6[persistent,acid]]",
         "2d6 persistent fire or 2d6 persistent acid"
     )]
@@ -297,6 +444,18 @@ mod tests {
         "6d6 fire damage and two 4d6 fire"
     )]
     fn multiple_damage_entry_in_one(#[case] input: &str, #[case] expected: &str) {
+        let parsed_description = clean_description(input, None);
+        assert_eq!(expected, parsed_description);
+    }
+
+    #[rstest]
+    #[case(
+        "@Damage[floor(1 + @actor.level/2)d6[void]|options:area-damage]",
+        "floor(1 + Level/2)d6 void"
+    )]
+    #[case("@Damage[@actor.level[fire]]", "Level fire")]
+    #[case("@Damage[@actor.rank[void,healing]]", "Level void healing")]
+    fn clean_damage_string_with_actor_level(#[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description(input, None);
         assert_eq!(expected, parsed_description);
     }

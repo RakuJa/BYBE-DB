@@ -1,3 +1,4 @@
+#[cfg(not(feature = "dry-run"))]
 mod db;
 mod schema;
 mod utils;
@@ -6,30 +7,35 @@ extern crate core;
 extern crate dotenvy;
 extern crate git2;
 
-use crate::db::db_handler_one;
 use crate::schema::bybe_creature::BybeCreature;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeItemParsingError, BybeShield, BybeWeapon};
 use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
 };
+#[cfg(not(feature = "dry-run"))]
 use crate::utils::game_system_enum::GameSystem;
 use crate::utils::json_manual_fetcher::get_json_paths;
 
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::source_schema::hazard::source_hazard::{SourceHazard, SourceHazardParsingError};
 use dotenvy::dotenv;
-use sqlx::{Sqlite, SqlitePool, Transaction};
 use std::{backtrace, env, fs};
-use tracing::warn;
-use tracing::{debug, error};
+#[cfg(not(feature = "dry-run"))]
+use tracing::error;
+use tracing::{debug, warn};
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer, fmt};
 
+#[cfg(not(feature = "dry-run"))]
+use crate::db::db_handler_one;
+#[cfg(not(feature = "dry-run"))]
+use sqlx::{PgPool, Postgres, Transaction};
+
 #[tokio::main]
 async fn main() {
-    dotenv().ok(); // use dotenv env variables
+    dotenv().ok();
     let file_appender = rolling::daily("./logs", "app.log");
     let (file_writer, _guard) = non_blocking(file_appender);
 
@@ -45,6 +51,7 @@ async fn main() {
                 .with_filter(EnvFilter::new("error")),
         )
         .init();
+
     let source_url = &env::var("SOURCE_URL")
         .or_else(|_| env::var("SOURCE_URL"))
         .expect("SOURCE URL NOT SET.. Aborting. Hint: set SOURCE_URL environmental variable");
@@ -52,12 +59,6 @@ async fn main() {
     let source_path = &env::var("SOURCE_DOWNLOAD_PATH").expect(
         "DOWNLOAD PATH NOT SET.. Aborting. Hint: set SOURCE_DOWNLOAD_PATH environmental variable",
     );
-    let db_url = &env::var("DATABASE_URL")
-        .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
-    let conn = db_handler_one::connect(db_url)
-        .await
-        .expect("Could not connect to the given db url, something went wrong..");
-
     fs::create_dir_all(source_path.as_str())
         .expect("Could not create folder to store source raw data");
 
@@ -69,14 +70,117 @@ async fn main() {
     let pf2e_json_paths = get_json_paths(pf2e_source_path.as_str());
     let sf2e_json_paths = get_json_paths(sf2e_source_path.as_str());
 
-    clear_db(&conn).await.unwrap();
+    #[cfg(feature = "dry-run")]
+    {
+        dry_run_check_descriptions(&pf2e_json_paths, "pf2e");
+        dry_run_check_descriptions(&sf2e_json_paths, "sf2e");
+    }
 
-    db_update(&conn, pf2e_json_paths, sf2e_json_paths)
-        .await
-        .unwrap();
+    #[cfg(not(feature = "dry-run"))]
+    {
+        let db_url = &env::var("DATABASE_URL")
+            .expect("DB URL IS NOT SET.. Aborting. Hint: set DATABASE_URL environmental variable");
+        let conn = db_handler_one::connect(db_url)
+            .await
+            .expect("Could not connect to the given db url, something went wrong..");
+
+        sqlx::migrate::Migrator::new(std::path::Path::new("./migrations"))
+            .await
+            .expect("Could not find migrations directory")
+            .run(&conn)
+            .await
+            .expect("Failed to run migrations");
+
+        clear_db(&conn).await.unwrap();
+        db_update(&conn, pf2e_json_paths, sf2e_json_paths)
+            .await
+            .unwrap();
+    }
 }
 
-async fn clear_db(conn: &SqlitePool) -> anyhow::Result<()> {
+#[cfg(feature = "dry-run")]
+fn dry_run_check_descriptions(json_paths: &[String], system: &str) {
+    use crate::utils::tag::tag_parser::find_remaining_tags;
+
+    let mut total_issues = 0usize;
+
+    for creature in deserialize_json_creatures(json_paths) {
+        for action in &creature.actions {
+            for issue in find_remaining_tags(&action.description) {
+                println!(
+                    "[{system}] creature '{}' action '{}': {issue}",
+                    creature.name, action.name
+                );
+                total_issues += 1;
+            }
+        }
+    }
+
+    for item in deserialize_json_items(json_paths) {
+        for issue in find_remaining_tags(&item.description) {
+            println!("[{system}] item '{}' description: {issue}", item.name);
+            total_issues += 1;
+        }
+    }
+
+    for weapon in deserialize_json_weapons(json_paths) {
+        for issue in find_remaining_tags(&weapon.item_core.description) {
+            println!(
+                "[{system}] weapon '{}' description: {issue}",
+                weapon.item_core.name
+            );
+            total_issues += 1;
+        }
+    }
+
+    for armor in deserialize_json_armors(json_paths) {
+        for issue in find_remaining_tags(&armor.item_core.description) {
+            println!(
+                "[{system}] armor '{}' description: {issue}",
+                armor.item_core.name
+            );
+            total_issues += 1;
+        }
+    }
+
+    for shield in deserialize_json_shields(json_paths) {
+        for issue in find_remaining_tags(&shield.item_core.description) {
+            println!(
+                "[{system}] shield '{}' description: {issue}",
+                shield.item_core.name
+            );
+            total_issues += 1;
+        }
+    }
+
+    for hazard in deserialize_json_hazards(json_paths) {
+        for (label, desc) in [
+            ("description", &hazard.description),
+            ("disable_description", &hazard.disable_description),
+            ("reset_description", &hazard.reset_description),
+            ("routine_description", &hazard.routine_description),
+        ] {
+            for issue in desc.parsing_errors(None) {
+                println!("[{system}] hazard '{}' {label}: {issue}", hazard.name);
+                total_issues += 1;
+            }
+        }
+        for action in &hazard.actions {
+            for issue in find_remaining_tags(&action.description) {
+                println!(
+                    "[{system}] hazard '{}' action '{}': {issue}",
+                    hazard.name, action.name
+                );
+                total_issues += 1;
+            }
+        }
+    }
+
+    println!("[{system}] dry-run complete: {total_issues} description issue(s) found");
+}
+
+#[cfg(not(feature = "dry-run"))]
+async fn clear_db(conn: &PgPool) -> anyhow::Result<()> {
     db_handler_one::drop_tables_except(
         conn,
         &[
@@ -92,12 +196,13 @@ async fn clear_db(conn: &SqlitePool) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "dry-run"))]
 async fn db_update(
-    conn: &SqlitePool,
+    conn: &PgPool,
     pf2e_json_paths: Vec<String>,
     sf2e_json_paths: Vec<String>,
 ) -> anyhow::Result<()> {
-    let mut tx: Transaction<Sqlite> = conn.begin().await?;
+    let mut tx: Transaction<Postgres> = conn.begin().await?;
 
     game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder).await?;
 
@@ -111,8 +216,9 @@ async fn db_update(
     Ok(())
 }
 
+#[cfg(not(feature = "dry-run"))]
 async fn game_system_tables_update(
-    tx: &mut Transaction<'_, Sqlite>,
+    tx: &mut Transaction<'_, Postgres>,
     json_paths: Vec<String>,
     gs: &GameSystem,
 ) -> anyhow::Result<()> {
@@ -157,8 +263,7 @@ async fn game_system_tables_update(
             );
         }
     }
-    // we add creature as last. This is made to avoid useless duplicates for
-    // item, weapons, etc
+    // creatures are added last to avoid useless duplicates for items, weapons, etc.
     for el in deserialize_json_creatures(&json_paths) {
         if let Err(e) = db_handler_one::insert_creature_to_db(tx, gs, &el).await {
             error!(
@@ -170,7 +275,7 @@ async fn game_system_tables_update(
     Ok(())
 }
 
-fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
+fn deserialize_json_creatures(json_files: &[String]) -> Vec<BybeCreature> {
     let mut creatures = Vec::new();
     for file in json_files {
         match SourceCreature::try_from(
@@ -192,7 +297,7 @@ fn deserialize_json_creatures(json_files: &Vec<String>) -> Vec<BybeCreature> {
     creatures
 }
 
-fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
+fn deserialize_json_items(json_files: &[String]) -> Vec<BybeItem> {
     let mut items = Vec::new();
     for file in json_files {
         match BybeItem::try_from((
@@ -205,7 +310,7 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
                 _ => panic!(
-                    "Error parsing weapon {} \n{}",
+                    "Error parsing item {} \n{}",
                     e,
                     backtrace::Backtrace::capture()
                 ),
@@ -215,7 +320,7 @@ fn deserialize_json_items(json_files: &Vec<String>) -> Vec<BybeItem> {
     items
 }
 
-fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
+fn deserialize_json_weapons(json_files: &[String]) -> Vec<BybeWeapon> {
     let mut weapons = Vec::new();
     for file in json_files {
         match BybeWeapon::try_from((
@@ -238,7 +343,7 @@ fn deserialize_json_weapons(json_files: &Vec<String>) -> Vec<BybeWeapon> {
     weapons
 }
 
-fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
+fn deserialize_json_armors(json_files: &[String]) -> Vec<BybeArmor> {
     let mut armors = Vec::new();
     for file in json_files {
         match BybeArmor::try_from((
@@ -251,7 +356,7 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
                 _ => panic!(
-                    "Error parsing weapon {} \n{}",
+                    "Error parsing armor {} \n{}",
                     e,
                     backtrace::Backtrace::capture()
                 ),
@@ -261,7 +366,7 @@ fn deserialize_json_armors(json_files: &Vec<String>) -> Vec<BybeArmor> {
     armors
 }
 
-fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
+fn deserialize_json_shields(json_files: &[String]) -> Vec<BybeShield> {
     let mut shields = Vec::new();
     for file in json_files {
         match BybeShield::try_from((
@@ -274,7 +379,7 @@ fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
                 BybeItemParsingError::InvalidItemType
                 | BybeItemParsingError::UnsupportedItemType => {}
                 _ => panic!(
-                    "Error parsing weapon {} \n{}",
+                    "Error parsing shield {} \n{}",
                     e,
                     backtrace::Backtrace::capture()
                 ),
@@ -284,7 +389,7 @@ fn deserialize_json_shields(json_files: &Vec<String>) -> Vec<BybeShield> {
     shields
 }
 
-fn deserialize_json_hazards(json_files: &Vec<String>) -> Vec<BybeHazard> {
+fn deserialize_json_hazards(json_files: &[String]) -> Vec<BybeHazard> {
     let mut hazards = Vec::new();
     for file in json_files {
         match SourceHazard::try_from(
@@ -314,13 +419,9 @@ fn is_dir_empty(path: &str) -> bool {
 
 fn fetch_source_data(source_url: &str, source_path: &str) {
     // Clones source if the given path is empty, otherwise warns
-    // But keeps executing
     if is_dir_empty(source_path) {
         debug!("Cloning path: {source_path}");
-        match git2::build::RepoBuilder::new()
-            //.branch("6.8.5")
-            .clone(source_url, source_path.as_ref())
-        {
+        match git2::build::RepoBuilder::new().clone(source_url, source_path.as_ref()) {
             Ok(repo) => repo,
             Err(e) => panic!("failed to clone: {e}"),
         };

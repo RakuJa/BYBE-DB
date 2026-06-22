@@ -1,0 +1,26 @@
+# Cloned source data — by far the largest directory, never needed in image
+data/
+
+# Rust build artifacts
+target/
+
+# SQLite legacy db (keep only the postgres dump)
+db/
+!db/bybe_postgres.sql
+
+# Git and IDE
+.git/
+.idea/
+
+# Logs and local tooling
+logs/
+migrate.load
+scripts/
+
+# Secrets
+.env
+
+# Not needed for build
+.github/
+.sqlx/
+*.md
