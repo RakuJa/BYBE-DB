@@ -48,6 +48,12 @@ impl From<&str> for Description {
     }
 }
 
+impl From<String> for Description {
+    fn from(raw_description: String) -> Self {
+        Description { raw_description }
+    }
+}
+
 impl fmt::Display for Description {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(

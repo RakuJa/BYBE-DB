@@ -1,3 +1,4 @@
+pub mod bybe_condition;
 pub mod bybe_creature;
 pub mod bybe_hazard;
 pub mod bybe_item;

@@ -1,3 +1,4 @@
+use crate::schema::bybe_condition::BybeCondition;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::creature::item::action::Action;
@@ -78,6 +79,8 @@ pub struct BybeCreature {
     pub spellcasting: Vec<SpellCastingEntry>,
     pub spells: Vec<Spell>,
     pub skills: Vec<Skill>,
+
+    pub conditions: Vec<BybeCondition>,
 
     pub status: Status,
 }
@@ -199,6 +202,7 @@ impl From<SourceCreature> for BybeCreature {
             skills: source_cr.items.skill_list,
             n_of_focus_points: source_cr.resource.n_of_focus_points,
             status: Default::default(),
+            conditions: source_cr.items.condition_list,
         }
     }
 }

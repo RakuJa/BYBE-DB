@@ -34,6 +34,7 @@ use tracing_subscriber::{EnvFilter, Layer, fmt};
 #[cfg(not(feature = "dry-run"))]
 use crate::db::db_handler_one;
 use crate::game_system_handler::set_game_system;
+use crate::schema::bybe_condition::{BybeCondition, BybeConditionParsingError};
 #[cfg(not(feature = "dry-run"))]
 use sqlx::{PgPool, Postgres, Transaction};
 
@@ -137,6 +138,13 @@ fn dry_run_check_descriptions(json_paths: &[String], system: &str) {
         }
     }
 
+    for cond in deserialize_json_conditions(json_paths) {
+        for issue in find_remaining_tags(&cond.rule.to_string()) {
+            println!("[{system}] condition '{}' rule: {issue}", cond.rule);
+            total_issues += 1;
+        }
+    }
+
     for armor in deserialize_json_armors(json_paths) {
         for issue in find_remaining_tags(&armor.item_core.description) {
             println!(
@@ -196,7 +204,8 @@ async fn clear_db(conn: &PgPool) -> anyhow::Result<()> {
             "sf_hazard_table",
         ],
     )
-    .await?;
+    .await
+    .unwrap();
     Ok(())
 }
 
@@ -206,17 +215,46 @@ async fn db_update(
     pf2e_json_paths: Vec<String>,
     sf2e_json_paths: Vec<String>,
 ) -> anyhow::Result<()> {
-    let mut tx: Transaction<Postgres> = conn.begin().await?;
+    let mut tx: Transaction<Postgres> = conn.begin().await.unwrap();
+
+    let pf2e_conditions = deserialize_json_conditions(&pf2e_json_paths);
+
+    db_handler_one::insert_conditions(&mut tx, &GameSystem::Pathfinder, &pf2e_conditions)
+        .await
+        .unwrap();
+
+    let sf2e_conditions = deserialize_json_conditions(&sf2e_json_paths);
+
+    let sf2e_names: std::collections::HashSet<&str> =
+        sf2e_conditions.iter().map(|c| c.name.as_str()).collect();
+
+    let sf2e_conditions: Vec<BybeCondition> = pf2e_conditions
+        .iter()
+        .filter(|c| !sf2e_names.contains(c.name.as_str()))
+        .cloned()
+        .chain(sf2e_conditions.clone())
+        .collect();
+
+    db_handler_one::insert_conditions(&mut tx, &GameSystem::Starfinder, &sf2e_conditions)
+        .await
+        .unwrap();
+
     set_game_system(GameSystem::Pathfinder);
-    game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder).await?;
+    game_system_tables_update(&mut tx, pf2e_json_paths, &GameSystem::Pathfinder)
+        .await
+        .unwrap();
 
-    db_handler_one::update_with_aon_data(&mut tx).await?;
+    db_handler_one::update_with_aon_data(&mut tx).await.unwrap();
     set_game_system(GameSystem::Starfinder);
-    game_system_tables_update(&mut tx, sf2e_json_paths, &GameSystem::Starfinder).await?;
+    game_system_tables_update(&mut tx, sf2e_json_paths, &GameSystem::Starfinder)
+        .await
+        .unwrap();
 
-    db_handler_one::insert_scales_values_to_db(&mut tx).await?;
+    db_handler_one::insert_scales_values_to_db(&mut tx)
+        .await
+        .unwrap();
 
-    tx.commit().await?;
+    tx.commit().await.unwrap();
     Ok(())
 }
 
@@ -276,6 +314,7 @@ async fn game_system_tables_update(
             );
         }
     }
+
     Ok(())
 }
 
@@ -299,6 +338,27 @@ fn deserialize_json_creatures(json_files: &[String]) -> Vec<BybeCreature> {
         }
     }
     creatures
+}
+
+fn deserialize_json_conditions(json_files: &[String]) -> Vec<BybeCondition> {
+    let mut conditions = Vec::new();
+    for file in json_files {
+        match BybeCondition::try_from(
+            &serde_json::from_str(&read_from_file_to_string(file.as_str()))
+                .expect("JSON was not well-formatted"),
+        ) {
+            Ok(item) => conditions.push(item),
+            Err(e) => match e {
+                BybeConditionParsingError::UnsupportedConditionType => {}
+                _ => panic!(
+                    "Error parsing item {} \n{}",
+                    e,
+                    backtrace::Backtrace::capture()
+                ),
+            },
+        }
+    }
+    conditions
 }
 
 fn deserialize_json_items(json_files: &[String]) -> Vec<BybeItem> {

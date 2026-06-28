@@ -1,3 +1,4 @@
+use crate::schema::bybe_condition::BybeCondition;
 use crate::schema::bybe_creature::BybeCreature;
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
@@ -15,7 +16,7 @@ use sqlx::{PgPool, Postgres, QueryBuilder, Transaction};
 use std::collections::HashMap;
 
 pub async fn connect(db_url: &str) -> Result<PgPool> {
-    Ok(PgPool::connect(db_url).await?)
+    Ok(PgPool::connect(db_url).await.unwrap())
 }
 
 pub async fn drop_tables_except(conn: &PgPool, exclude: &[&str]) -> Result<(), sqlx::Error> {
@@ -25,13 +26,15 @@ pub async fn drop_tables_except(conn: &PgPool, exclude: &[&str]) -> Result<(), s
     let tables: Vec<(String,)> =
         sqlx::query_as("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
             .fetch_all(conn)
-            .await?;
+            .await
+            .unwrap();
 
     for (table_name,) in tables {
         if !exclusions.contains(&table_name.as_str()) {
             sqlx::query(sqlx::AssertSqlSafe(format!("DELETE FROM {}", table_name)))
                 .execute(conn)
-                .await?;
+                .await
+                .unwrap();
         }
     }
 
@@ -43,15 +46,21 @@ pub async fn insert_hazard_to_db(
     gs: &GameSystem,
     hz: &BybeHazard,
 ) -> Result<bool> {
-    let hz_id = insert_hazard(conn, gs, hz).await?;
-    insert_traits(conn, gs, &hz.traits).await?;
-    insert_hazard_trait_association(conn, gs, &hz.traits, hz_id).await?;
+    let hz_id = insert_hazard(conn, gs, hz).await.unwrap();
+    insert_traits(conn, gs, &hz.traits).await.unwrap();
+    insert_hazard_trait_association(conn, gs, &hz.traits, hz_id)
+        .await
+        .unwrap();
 
     for el in &hz.actions {
-        let action_id = insert_action(conn, gs, el).await?;
-        insert_traits(conn, gs, &el.traits.traits).await?;
-        insert_action_trait_association(conn, gs, &el.traits.traits, action_id).await?;
-        insert_action_hazard_association(conn, gs, action_id, hz_id).await?;
+        let action_id = insert_action(conn, gs, el).await.unwrap();
+        insert_traits(conn, gs, &el.traits.traits).await.unwrap();
+        insert_action_trait_association(conn, gs, &el.traits.traits, action_id)
+            .await
+            .unwrap();
+        insert_action_hazard_association(conn, gs, action_id, hz_id)
+            .await
+            .unwrap();
     }
     Ok(true)
 }
@@ -72,7 +81,8 @@ async fn insert_hazard_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -89,7 +99,8 @@ async fn insert_action_hazard_association(
     .bind(action_id)
     .bind(hz_id)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -169,13 +180,15 @@ async fn insert_hazard(
     .bind(rarity)
     .bind(size)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT id FROM {gs}_hazard_table WHERE foundry_id = $1"
     )))
     .bind(&hz.foundry_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 pub async fn insert_item_to_db(
@@ -184,11 +197,15 @@ pub async fn insert_item_to_db(
     item: &BybeItem,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item(conn, gs, item).await?;
-    insert_traits(conn, gs, &item.traits).await?;
-    insert_item_trait_association(conn, gs, &item.traits, item_id).await?;
+    let item_id = insert_item(conn, gs, item).await.unwrap();
+    insert_traits(conn, gs, &item.traits).await.unwrap();
+    insert_item_trait_association(conn, gs, &item.traits, item_id)
+        .await
+        .unwrap();
     if let Some(creature_id) = cr_id {
-        insert_item_creature_association(conn, gs, item_id, creature_id, item.quantity).await?;
+        insert_item_creature_association(conn, gs, item_id, creature_id, item.quantity)
+            .await
+            .unwrap();
     }
     Ok(item_id)
 }
@@ -199,9 +216,11 @@ pub async fn insert_shield_to_db(
     shield: &BybeShield,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, gs, &shield.item_core, None).await?;
+    let item_id = insert_item_to_db(conn, gs, &shield.item_core, None)
+        .await
+        .unwrap();
 
-    let shield_id = insert_shield(conn, gs, shield, item_id).await?;
+    let shield_id = insert_shield(conn, gs, shield, item_id).await.unwrap();
 
     if let Some(creature_id) = cr_id {
         insert_shield_creature_association(
@@ -211,9 +230,12 @@ pub async fn insert_shield_to_db(
             creature_id,
             shield.item_core.quantity,
         )
-        .await?;
+        .await
+        .unwrap();
     }
-    insert_shield_trait_association(conn, gs, &shield.item_core.traits, shield_id).await?;
+    insert_shield_trait_association(conn, gs, &shield.item_core.traits, shield_id)
+        .await
+        .unwrap();
 
     Ok(shield_id)
 }
@@ -224,11 +246,13 @@ pub async fn insert_weapon_to_db(
     wp: &BybeWeapon,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, gs, &wp.item_core, None).await?;
+    let item_id = insert_item_to_db(conn, gs, &wp.item_core, None)
+        .await
+        .unwrap();
 
-    let wp_id = insert_weapon(conn, gs, wp, item_id).await?;
+    let wp_id = insert_weapon(conn, gs, wp, item_id).await.unwrap();
     if let Some(range) = wp.range.clone() {
-        let range_id = insert_range(conn, gs, range).await?;
+        let range_id = insert_range(conn, gs, range).await.unwrap();
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {gs}_weapon_range_association_table (range_id, weapon_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -236,22 +260,32 @@ pub async fn insert_weapon_to_db(
         .bind(range_id)
         .bind(wp_id)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     if let Some(creature_id) = cr_id {
         insert_weapon_creature_association(conn, gs, wp_id, creature_id, wp.item_core.quantity)
-            .await?;
+            .await
+            .unwrap();
     }
 
-    insert_weapon_damage(conn, gs, &wp.damage_data, wp_id).await?;
+    insert_weapon_damage(conn, gs, &wp.damage_data, wp_id)
+        .await
+        .unwrap();
 
-    insert_runes(conn, gs, &wp.property_runes).await?;
-    insert_weapon_rune_association(conn, gs, &wp.property_runes, wp_id).await?;
+    insert_runes(conn, gs, &wp.property_runes).await.unwrap();
+    insert_weapon_rune_association(conn, gs, &wp.property_runes, wp_id)
+        .await
+        .unwrap();
 
-    insert_weapon_trait_association(conn, gs, &wp.item_core.traits, wp_id).await?;
+    insert_weapon_trait_association(conn, gs, &wp.item_core.traits, wp_id)
+        .await
+        .unwrap();
     for action in wp.attack_effects.as_slice() {
-        let a_id = insert_action(conn, gs, action).await?;
-        insert_weapon_action_association(conn, gs, wp_id, a_id).await?;
+        let a_id = insert_action(conn, gs, action).await.unwrap();
+        insert_weapon_action_association(conn, gs, wp_id, a_id)
+            .await
+            .unwrap();
     }
     Ok(wp_id)
 }
@@ -262,19 +296,26 @@ pub async fn insert_armor_to_db(
     armor: &BybeArmor,
     cr_id: Option<i64>,
 ) -> Result<i64> {
-    let item_id = insert_item_to_db(conn, gs, &armor.item_core, None).await?;
+    let item_id = insert_item_to_db(conn, gs, &armor.item_core, None)
+        .await
+        .unwrap();
 
-    let arm_id = insert_armor(conn, gs, armor, item_id).await?;
+    let arm_id = insert_armor(conn, gs, armor, item_id).await.unwrap();
 
     if let Some(creature_id) = cr_id {
         insert_armor_creature_association(conn, gs, arm_id, creature_id, armor.item_core.quantity)
-            .await?;
+            .await
+            .unwrap();
     }
 
-    insert_runes(conn, gs, &armor.property_runes).await?;
-    insert_armor_rune_association(conn, gs, &armor.property_runes, arm_id).await?;
+    insert_runes(conn, gs, &armor.property_runes).await.unwrap();
+    insert_armor_rune_association(conn, gs, &armor.property_runes, arm_id)
+        .await
+        .unwrap();
 
-    insert_armor_trait_association(conn, gs, &armor.item_core.traits, arm_id).await?;
+    insert_armor_trait_association(conn, gs, &armor.item_core.traits, arm_id)
+        .await
+        .unwrap();
     Ok(arm_id)
 }
 
@@ -283,28 +324,46 @@ pub async fn insert_creature_to_db(
     gs: &GameSystem,
     cr: &BybeCreature,
 ) -> Result<bool> {
-    let cr_id = insert_creature(conn, gs, cr).await?;
-    insert_traits(conn, gs, &cr.traits).await?;
-    insert_cr_trait_association(conn, gs, &cr.traits, cr_id).await?;
-    insert_language_and_association(conn, gs, &cr.languages, cr_id).await?;
-    insert_immunity_and_association(conn, gs, &cr.immunities, cr_id).await?;
-    insert_sense_and_association(conn, gs, &cr.senses, cr_id).await?;
-    insert_speeds(conn, gs, &cr.speed, cr_id).await?;
-    insert_weaknesses(conn, gs, &cr.weaknesses, cr_id).await?;
-    insert_resistances(conn, gs, &cr.resistances, cr_id).await?;
+    let cr_id = insert_creature(conn, gs, cr).await.unwrap();
+    insert_traits(conn, gs, &cr.traits).await.unwrap();
+    insert_cr_trait_association(conn, gs, &cr.traits, cr_id)
+        .await
+        .unwrap();
+    insert_language_and_association(conn, gs, &cr.languages, cr_id)
+        .await
+        .unwrap();
+    insert_immunity_and_association(conn, gs, &cr.immunities, cr_id)
+        .await
+        .unwrap();
+    insert_sense_and_association(conn, gs, &cr.senses, cr_id)
+        .await
+        .unwrap();
+    insert_speeds(conn, gs, &cr.speed, cr_id).await.unwrap();
+    insert_weaknesses(conn, gs, &cr.weaknesses, cr_id)
+        .await
+        .unwrap();
+    insert_resistances(conn, gs, &cr.resistances, cr_id)
+        .await
+        .unwrap();
     for el in &cr.weapons {
-        insert_weapon_to_db(conn, gs, el, Some(cr_id)).await?;
+        insert_weapon_to_db(conn, gs, el, Some(cr_id))
+            .await
+            .unwrap();
     }
     for el in &cr.armors {
-        insert_armor_to_db(conn, gs, el, Some(cr_id)).await?;
+        insert_armor_to_db(conn, gs, el, Some(cr_id)).await.unwrap();
     }
     for el in &cr.spellcasting {
-        let sc_entry_id = insert_spellcasting_entry(conn, gs, el, cr_id).await?;
+        let sc_entry_id = insert_spellcasting_entry(conn, gs, el, cr_id)
+            .await
+            .unwrap();
         for (slot, spells) in el.spell_slots.clone() {
             for spell in spells {
-                let spell_id = insert_spell(conn, gs, &spell, slot, cr_id, sc_entry_id).await?;
+                let spell_id = insert_spell(conn, gs, &spell, slot, cr_id, sc_entry_id)
+                    .await
+                    .unwrap();
                 if let Some(range) = spell.range {
-                    let range_id = insert_range(conn, gs, range).await?;
+                    let range_id = insert_range(conn, gs, range).await.unwrap();
                     sqlx::query(sqlx::AssertSqlSafe(format!(
                         "INSERT INTO {gs}_spell_range_association_table (range_id, spell_id) \
                     VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -312,27 +371,43 @@ pub async fn insert_creature_to_db(
                     .bind(range_id)
                     .bind(spell_id)
                     .execute(&mut **conn)
-                    .await?;
+                    .await
+                    .unwrap();
                 }
-                insert_traits(conn, gs, &spell.traits.traits).await?;
-                insert_spell_trait_association(conn, gs, &spell.traits.traits, spell_id).await?;
+                insert_traits(conn, gs, &spell.traits.traits).await.unwrap();
+                insert_spell_trait_association(conn, gs, &spell.traits.traits, spell_id)
+                    .await
+                    .unwrap();
                 insert_tradition_and_association(conn, gs, &spell.traits.traditions, spell_id)
-                    .await?;
+                    .await
+                    .unwrap();
             }
         }
     }
     for el in &cr.actions {
-        let action_id = insert_action(conn, gs, el).await?;
-        insert_traits(conn, gs, &el.traits.traits).await?;
-        insert_action_trait_association(conn, gs, &el.traits.traits, action_id).await?;
-        insert_action_creature_association(conn, gs, action_id, cr_id).await?;
+        let action_id = insert_action(conn, gs, el).await.unwrap();
+        insert_traits(conn, gs, &el.traits.traits).await.unwrap();
+        insert_action_trait_association(conn, gs, &el.traits.traits, action_id)
+            .await
+            .unwrap();
+        insert_action_creature_association(conn, gs, action_id, cr_id)
+            .await
+            .unwrap();
     }
     for el in &cr.skills {
-        let skill_id = insert_skill(conn, gs, el, cr_id).await?;
-        insert_skill_modifier_variant_table(conn, gs, &el.variant_label, cr_id, skill_id).await?;
+        let skill_id = insert_skill(conn, gs, el, cr_id).await.unwrap();
+        insert_skill_modifier_variant_table(conn, gs, &el.variant_label, cr_id, skill_id)
+            .await
+            .unwrap();
     }
     for el in &cr.items {
-        insert_item_to_db(conn, gs, el, Some(cr_id)).await?;
+        insert_item_to_db(conn, gs, el, Some(cr_id)).await.unwrap();
+    }
+    insert_conditions(conn, gs, &cr.conditions).await.unwrap();
+    for el in &cr.conditions {
+        insert_condition_creature_association(conn, gs, &el.name, cr_id)
+            .await
+            .unwrap();
     }
     Ok(true)
 }
@@ -349,24 +424,43 @@ async fn insert_action_creature_association(
     .bind(action_id)
     .bind(cr_id)
     .execute(&mut **conn)
-    .await?;
+    .await.unwrap();
+    Ok(true)
+}
+
+async fn insert_condition_creature_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    condition_id: &str,
+    cr_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_creature_condition_association_table (creature_id, condition_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )))
+    .bind(cr_id)
+    .bind(condition_id)
+    .execute(&mut **conn)
+    .await.unwrap();
     Ok(true)
 }
 
 pub async fn update_with_aon_data(conn: &mut Transaction<'_, Postgres>) -> Result<bool> {
     sqlx::raw_sql(include_str!("raw_queries/update_mon_w_aon_data.sql"))
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     sqlx::raw_sql(include_str!("raw_queries/update_npc_w_aon_data.sql"))
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     Ok(true)
 }
 
 pub async fn insert_scales_values_to_db(conn: &mut Transaction<'_, Postgres>) -> Result<bool> {
     sqlx::raw_sql(include_str!("raw_queries/scales.sql"))
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     Ok(true)
 }
 
@@ -391,7 +485,60 @@ async fn insert_traits(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
+    }
+    Ok(true)
+}
+
+pub async fn insert_conditions(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    conditions: &[BybeCondition],
+) -> Result<bool> {
+    if !conditions.is_empty() {
+        QueryBuilder::new(format!(
+            "INSERT INTO {gs}_condition_table (name, rule, note, summary, license, remaster, source, is_perpetual, is_stackable, condition_group) "
+        ))
+            .push_values(conditions, |mut b, c| {
+                b.push_bind(&c.name)
+                    .push_bind(c.rule.to_string())
+                    .push_bind(c.note.as_ref().map(|n| n.to_string()))
+                    .push_bind(c.summary.as_ref().map(|s| s.to_string()))
+                    .push_bind(&c.publication_info.license)
+                    .push_bind(c.publication_info.remastered)
+                    .push_bind(&c.publication_info.source)
+                    .push_bind(c.is_perpetual)
+                    .push_bind(c.is_stackable)
+                    .push_bind(&c.group);
+            })
+            .push(" ON CONFLICT (name) DO NOTHING")
+            .build()
+            .execute(&mut **conn)
+            .await.unwrap();
+        // I have to do in two steps, first insert then association
+        // because otherwise we risk inserting an association to a name that is not yet inserted
+        let all_overrides: Vec<(&str, &str)> = conditions
+            .iter()
+            .flat_map(|c| {
+                c.overrides
+                    .iter()
+                    .map(move |o| (c.name.as_str(), o.as_str()))
+            })
+            .collect();
+
+        if !all_overrides.is_empty() {
+            QueryBuilder::new(format!(
+                "INSERT INTO {gs}_condition_overrides_table (source_condition_id, overridden_condition_id) "
+            ))
+            .push_values(all_overrides, |mut b, (source, overridden)| {
+                b.push_bind(source).push_bind(overridden);
+            })
+            .push(" ON CONFLICT DO NOTHING")
+            .build()
+            .execute(&mut **conn)
+            .await.unwrap();
+        }
     }
     Ok(true)
 }
@@ -412,7 +559,8 @@ async fn insert_weapon_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -433,7 +581,8 @@ async fn insert_shield_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -454,7 +603,8 @@ async fn insert_armor_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -475,7 +625,8 @@ async fn insert_item_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -496,7 +647,8 @@ async fn insert_cr_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -513,7 +665,8 @@ async fn insert_language_and_association(
         )))
         .bind(el)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {gs}_language_creature_association_table (creature_id, language_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -521,7 +674,8 @@ async fn insert_language_and_association(
         .bind(id)
         .bind(el)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -538,7 +692,8 @@ async fn insert_immunity_and_association(
         )))
         .bind(el)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {gs}_immunity_creature_association_table (creature_id, immunity_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -546,7 +701,8 @@ async fn insert_immunity_and_association(
         .bind(id)
         .bind(el)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -564,9 +720,10 @@ async fn insert_sense_and_association(
         .bind(&el.name)
         .bind(&el.acuity)
         .fetch_one(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
         if let Some(range) = el.range.clone() {
-            let range_id = insert_range(conn, gs, range).await?;
+            let range_id = insert_range(conn, gs, range).await.unwrap();
             sqlx::query(sqlx::AssertSqlSafe(format!(
                 "INSERT INTO {gs}_range_sense_association_table (range_id, sense_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING"
@@ -574,7 +731,8 @@ async fn insert_sense_and_association(
             .bind(range_id)
             .bind(sense_id)
             .execute(&mut **conn)
-            .await?;
+            .await
+            .unwrap();
         }
 
         sqlx::query(sqlx::AssertSqlSafe(format!(
@@ -584,7 +742,8 @@ async fn insert_sense_and_association(
         .bind(id)
         .bind(sense_id)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -605,7 +764,8 @@ async fn insert_speeds(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
 
     Ok(true)
@@ -626,10 +786,15 @@ async fn insert_resistances(
         .bind(&res.name)
         .bind(res.value)
         .fetch_one(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
 
-        insert_resistance_double_vs(conn, gs, res_id, res.double_vs.clone()).await?;
-        insert_resistance_exception_vs(conn, gs, res_id, res.exceptions.clone()).await?;
+        insert_resistance_double_vs(conn, gs, res_id, res.double_vs.clone())
+            .await
+            .unwrap();
+        insert_resistance_exception_vs(conn, gs, res_id, res.exceptions.clone())
+            .await
+            .unwrap();
     }
 
     Ok(true)
@@ -651,7 +816,8 @@ async fn insert_resistance_double_vs(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
 
     Ok(true)
@@ -673,7 +839,8 @@ async fn insert_resistance_exception_vs(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -694,7 +861,8 @@ async fn insert_weaknesses(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
 
     Ok(true)
@@ -711,7 +879,8 @@ async fn insert_item(
     // Use SAVEPOINT to recover if item_stats UNIQUE constraint fires on a different foundry_id
     sqlx::query("SAVEPOINT item_insert")
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
 
     let insert_result = sqlx::query(sqlx::AssertSqlSafe(format!(
         "INSERT INTO {gs}_item_table (
@@ -777,11 +946,13 @@ async fn insert_item(
     if insert_result.is_err() {
         sqlx::query("ROLLBACK TO SAVEPOINT item_insert")
             .execute(&mut **conn)
-            .await?;
+            .await
+            .unwrap();
     }
     sqlx::query("RELEASE SAVEPOINT item_insert")
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
 
     // Try by foundry_id first; if the item_stats constraint deduplicated it, fall back to name.
     let id_by_foundry_id: Option<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
@@ -789,7 +960,8 @@ async fn insert_item(
     )))
     .bind(&item.foundry_id)
     .fetch_optional(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
 
     Ok(if let Some(id) = id_by_foundry_id {
         id
@@ -799,7 +971,8 @@ async fn insert_item(
         )))
         .bind(&item.name)
         .fetch_one(&mut **conn)
-        .await?
+        .await
+        .unwrap()
     })
 }
 
@@ -818,7 +991,8 @@ async fn insert_item_creature_association(
     .bind(cr_id)
     .bind(quantity)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -918,13 +1092,15 @@ async fn insert_creature(
     .bind(cr.n_of_focus_points)
     .bind(cr.status.to_string())
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT id FROM {gs}_creature_table WHERE foundry_id = $1"
     )))
     .bind(&cr.foundry_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_shield(
@@ -942,7 +1118,7 @@ async fn insert_shield(
     .bind(shield.speed_penalty)
     .bind(item_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await.unwrap())
 }
 
 async fn insert_shield_creature_association(
@@ -960,7 +1136,8 @@ async fn insert_shield_creature_association(
     .bind(cr_id)
     .bind(quantity)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -984,7 +1161,8 @@ async fn insert_weapon(
     .bind(&wp.weapon_type)
     .bind(item_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_weapon_damage(
@@ -1005,7 +1183,8 @@ async fn insert_weapon_damage(
         .bind(el.die_size)
         .bind(wp_id)
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(())
 }
@@ -1023,7 +1202,8 @@ async fn insert_weapon_action_association(
     .bind(weapon_id)
     .bind(action_id)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -1042,7 +1222,8 @@ async fn insert_weapon_creature_association(
     .bind(cr_id)
     .bind(quantity)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -1067,7 +1248,8 @@ async fn insert_armor(
     .bind(armor.strength_required)
     .bind(item_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_armor_creature_association(
@@ -1085,7 +1267,8 @@ async fn insert_armor_creature_association(
     .bind(cr_id)
     .bind(quantity)
     .execute(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -1111,7 +1294,8 @@ async fn insert_spellcasting_entry(
     .bind(spellcasting_entry.heighten_level)
     .bind(id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_spell_trait_association(
@@ -1130,7 +1314,8 @@ async fn insert_spell_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -1149,7 +1334,8 @@ async fn insert_tradition_and_association(
             .push(" ON CONFLICT DO NOTHING")
             .build()
             .execute(&mut **conn)
-            .await?;
+            .await
+            .unwrap();
 
         QueryBuilder::new(format!(
             "INSERT INTO {gs}_tradition_spell_association_table (spell_id, tradition_id) "
@@ -1160,7 +1346,8 @@ async fn insert_tradition_and_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -1215,7 +1402,8 @@ async fn insert_spell(
     .bind(cr_id)
     .bind(spellcasting_entry_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_action(
@@ -1255,7 +1443,8 @@ async fn insert_action(
     .bind(&action.slug)
     .bind(action.traits.rarity.to_string())
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_action_trait_association(
@@ -1274,7 +1463,8 @@ async fn insert_action_trait_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -1300,7 +1490,8 @@ async fn insert_skill(
     .bind(&skill.publication_info.source)
     .bind(cr_id)
     .fetch_one(&mut **conn)
-    .await?)
+    .await
+    .unwrap())
 }
 
 async fn insert_skill_modifier_variant_table(
@@ -1319,7 +1510,8 @@ async fn insert_skill_modifier_variant_table(
         })
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -1337,7 +1529,8 @@ async fn insert_runes(
             .push(" ON CONFLICT DO NOTHING")
             .build()
             .execute(&mut **conn)
-            .await?;
+            .await
+            .unwrap();
     }
     Ok(true)
 }
@@ -1358,7 +1551,8 @@ async fn insert_range(
     .bind(range.increment)
     .bind(range.max)
     .fetch_one(&mut **conn)
-    .await?;
+    .await
+    .unwrap();
     Ok(range_id)
 }
 
@@ -1378,7 +1572,8 @@ async fn insert_weapon_rune_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }
@@ -1399,7 +1594,8 @@ async fn insert_armor_rune_association(
         .push(" ON CONFLICT DO NOTHING")
         .build()
         .execute(&mut **conn)
-        .await?;
+        .await
+        .unwrap();
     }
     Ok(true)
 }

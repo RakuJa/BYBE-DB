@@ -1,3 +1,4 @@
+use crate::schema::bybe_condition::BybeCondition;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, SourceWeapon};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
@@ -15,6 +16,7 @@ pub struct ItemLinkedToCreature {
     pub action_list: Vec<Action>,
     pub spellcasting_entry: Vec<RawSpellCastingEntry>,
     pub skill_list: Vec<Skill>,
+    pub condition_list: Vec<BybeCondition>,
 }
 
 #[derive(Debug, Error)]
@@ -42,6 +44,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
         let mut actions = Vec::new();
         let mut skills = Vec::new();
         let mut items = Vec::new();
+        let mut conditions = Vec::new();
         for el in json_vec {
             match el
                 .get("type")
@@ -86,6 +89,10 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                     Ok(item) => items.push(item),
                     Err(e) => debug!("{e}"),
                 },
+                "condition" => match BybeCondition::try_from(el) {
+                    Ok(condition) => conditions.push(condition),
+                    Err(e) => debug!("{e}"),
+                },
                 // there are other options
                 _ => {
                     // do nothing
@@ -100,6 +107,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
             item_list: items,
             action_list: actions,
             skill_list: skills,
+            condition_list: conditions,
         })
     }
 }
