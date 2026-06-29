@@ -298,7 +298,7 @@ async fn game_system_tables_update(
         }
     }
     for el in deserialize_json_weapons(&json_paths) {
-        if let Err(e) = db_handler_one::insert_weapon_to_db(tx, gs, &el, None).await {
+        if let Err(e) = db_handler_one::insert_weapon_to_db(tx, gs, &el).await {
             error!(
                 "Failed to insert weapon: {:?}, skipping with error {:?}",
                 el, e

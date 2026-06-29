@@ -97,7 +97,7 @@ impl TryFrom<&Value> for SourceItem {
             hardness: get_field_from_json(&system_json, "hardness")
                 .as_i64()
                 .unwrap_or(0),
-            hp_values: RawHpValues::try_from(&hp_json)?,
+            hp_values: RawHpValues::try_from(&hp_json).unwrap(),
             level: get_field_from_json(&get_field_from_json(&system_json, "level"), "value")
                 .as_i64()
                 .unwrap_or(0),

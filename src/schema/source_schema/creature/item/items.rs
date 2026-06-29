@@ -8,7 +8,8 @@ use serde_json::Value;
 use thiserror::Error;
 use tracing::debug;
 
-pub struct ItemLinkedToCreature {
+#[derive(Debug, Clone)]
+pub struct ItemLinkedToEntity {
     pub spell_list: Vec<Spell>,
     pub weapon_list: Vec<SourceWeapon>,
     pub armor_list: Vec<BybeArmor>,
@@ -20,7 +21,7 @@ pub struct ItemLinkedToCreature {
 }
 
 #[derive(Debug, Error)]
-pub enum CreatureItemParsingError {
+pub enum EntityItemParsingError {
     #[error("Json should be a vector")]
     JsonIsNotAVector,
     #[error("Could not parse item type")]
@@ -31,12 +32,12 @@ pub enum CreatureItemParsingError {
     SpellError(#[from] SpellParsingError),
 }
 
-impl TryFrom<&Value> for ItemLinkedToCreature {
-    type Error = CreatureItemParsingError;
+impl TryFrom<&Value> for ItemLinkedToEntity {
+    type Error = EntityItemParsingError;
     fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let json_vec = json
             .as_array()
-            .ok_or(CreatureItemParsingError::JsonIsNotAVector)?;
+            .ok_or(EntityItemParsingError::JsonIsNotAVector)?;
         let mut spellcasting_entry = Vec::new();
         let mut spells = Vec::new();
         let mut weapons = Vec::new();
@@ -50,7 +51,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                 .get("type")
                 .and_then(|x| x.as_str())
                 .map(|x| x.to_ascii_lowercase())
-                .ok_or(CreatureItemParsingError::MissingItemType)?
+                .ok_or(EntityItemParsingError::MissingItemType)?
                 .as_str()
             {
                 "spellcastingentry" => match RawSpellCastingEntry::try_from(el) {
@@ -62,7 +63,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                     if el
                         .get("system")
                         .map(|x| x.get("ritual").is_none())
-                        .ok_or(CreatureItemParsingError::MissingSystemField)?
+                        .ok_or(EntityItemParsingError::MissingSystemField)?
                         && let Ok(sp) = Spell::try_from(el)
                     {
                         spells.push(sp);
@@ -99,7 +100,7 @@ impl TryFrom<&Value> for ItemLinkedToCreature {
                 }
             }
         }
-        Ok(ItemLinkedToCreature {
+        Ok(ItemLinkedToEntity {
             spellcasting_entry,
             spell_list: spells,
             weapon_list: weapons,

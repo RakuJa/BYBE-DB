@@ -5,11 +5,15 @@ use thiserror::Error;
 #[derive(Debug, Clone)]
 pub struct RawHpValues {
     pub hp: i64,
+    pub hp_details: Option<String>, // items have no details
 }
 
 impl Default for RawHpValues {
     fn default() -> Self {
-        Self { hp: -2 }
+        Self {
+            hp: -2,
+            hp_details: None,
+        }
     }
 }
 
@@ -24,8 +28,15 @@ impl TryFrom<&Value> for RawHpValues {
     fn try_from(json: &Value) -> Result<Self, Self::Error> {
         let fallback_hp = get_field_from_json(json, "value");
         let hp = json.get("max").unwrap_or(&fallback_hp);
+        let hp_details = json
+            .get("details")
+            .and_then(|s| s.as_str())
+            .map(|s| s.to_string());
         if let Some(hp_val) = hp.as_i64() {
-            Ok(RawHpValues { hp: hp_val })
+            Ok(RawHpValues {
+                hp: hp_val,
+                hp_details,
+            })
         } else {
             Ok(RawHpValues {
                 hp: hp
@@ -33,6 +44,7 @@ impl TryFrom<&Value> for RawHpValues {
                     .ok_or(HpParsingError::HpNaN)?
                     .parse::<i64>()
                     .unwrap_or(0),
+                hp_details,
             })
         }
     }

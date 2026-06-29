@@ -3,7 +3,6 @@ mod attributes;
 mod details;
 pub mod item;
 mod perception;
-pub mod resistance;
 mod resources;
 pub mod sense;
 pub mod source_creature;

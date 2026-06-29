@@ -7,7 +7,7 @@ use crate::schema::source_schema::creature::abilities::{AbilityParsingError, Raw
 use crate::schema::source_schema::creature::attributes::{AttributeParsingError, RawAttributes};
 use crate::schema::source_schema::creature::details::{DetailsParsingError, RawDetails};
 use crate::schema::source_schema::creature::item::items::{
-    CreatureItemParsingError, ItemLinkedToCreature,
+    EntityItemParsingError, ItemLinkedToEntity,
 };
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::perception::{PerceptionParsingError, RawPerception};
@@ -29,7 +29,7 @@ pub struct SourceCreature {
     pub resource: RawResource,
     pub saves: RawSaves,
     pub traits: RaritySizeTraits,
-    pub items: ItemLinkedToCreature,
+    pub items: ItemLinkedToEntity,
 }
 
 #[derive(Debug, Error)]
@@ -46,10 +46,10 @@ pub enum SourceCreatureParsingError {
     NameFormat,
     #[error("Initiative ability could not be parsed")]
     InitiativeAbilityFormat,
-    #[error("Source item could not be parsed")]
+    #[error("Resistance attribute could not be parsed")]
     ResistanceError(#[from] AttributeParsingError),
     #[error("Item related to creature could not be parsed")]
-    CreatureItemError(#[from] CreatureItemParsingError),
+    CreatureItemError(#[from] EntityItemParsingError),
     #[error("Creature details could not be parsed")]
     CreatureDetailError(#[from] DetailsParsingError),
     #[error("Creature ability could not be parsed")]
@@ -99,7 +99,7 @@ impl TryFrom<&Value> for SourceCreature {
             return Err(SourceCreatureParsingError::DuplicatedCreature);
         }
 
-        let mut foundry_items = ItemLinkedToCreature::try_from(&items_json)?;
+        let mut foundry_items = ItemLinkedToEntity::try_from(&items_json)?;
 
         let skills: Vec<Skill> = skills_json
             .as_object()

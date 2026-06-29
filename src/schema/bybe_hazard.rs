@@ -1,11 +1,13 @@
+use crate::schema::bybe_item::BybeWeapon;
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::publication_info::PublicationInfo;
 use crate::schema::source_schema::common::description::Description;
-use crate::schema::source_schema::common::hp_values::RawHpValues;
+use crate::schema::source_schema::common::resistance::Resistance;
 use crate::schema::source_schema::common::saves::RawSaves;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::hazard::source_hazard::{SourceHazard, SourceHazardParsingError};
 use serde_json::Value;
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Clone, Debug)]
@@ -13,14 +15,17 @@ pub struct BybeHazard {
     pub name: String,
     pub foundry_id: String,
 
-    pub actions: Vec<Action>,
     // Attributes
-    pub ac_value: i64,
+    pub ac_value: Option<i64>,
     pub hardness: i64,
     pub has_health: bool,
-    pub hp_values: RawHpValues,
+    pub hp: Option<i64>,
+    pub hp_details: Option<String>,
     pub stealth: i64,
     pub stealth_detail: Description,
+    pub immunities: Vec<String>,
+    pub resistances: Vec<Resistance>,
+    pub weaknesses: HashMap<String, i64>,
 
     // Details
     pub description: Description,
@@ -32,7 +37,8 @@ pub struct BybeHazard {
     pub publication_info: PublicationInfo,
 
     pub saves: RawSaves,
-    pub status_effect_list: Vec<String>,
+    pub weapons: Vec<BybeWeapon>,
+    pub actions: Vec<Action>,
     pub rarity: RarityEnum,
     pub size: SizeEnum,
     pub traits: Vec<String>,
@@ -53,16 +59,39 @@ impl TryFrom<&Value> for BybeHazard {
 
 impl From<SourceHazard> for BybeHazard {
     fn from(source_hz: SourceHazard) -> Self {
+        let weapons = source_hz
+            .items
+            .weapon_list
+            .into_iter()
+            .map(|x| {
+                BybeWeapon::builder()
+                    .creature_actions(&source_hz.items.action_list)
+                    .source_weapon(x)
+                    .build()
+            })
+            .collect();
+
+        if !source_hz.attributes.speed.is_empty() {
+            println!("not empty speed");
+        }
+
         Self {
             name: source_hz.name,
             foundry_id: source_hz.foundry_id,
-            actions: source_hz.actions,
-            ac_value: source_hz.ac_value,
-            hardness: source_hz.hardness,
-            has_health: source_hz.has_health,
-            hp_values: source_hz.hp_values,
-            stealth: source_hz.stealth,
-            stealth_detail: source_hz.stealth_detail,
+            actions: source_hz.items.action_list,
+            ac_value: source_hz.attributes.ac,
+            hardness: source_hz.attributes.hardness,
+            has_health: source_hz.attributes.has_health,
+            hp: source_hz.attributes.hp_values.as_ref().map(|x| x.hp),
+            hp_details: source_hz
+                .attributes
+                .hp_values
+                .as_ref()
+                .map(|x| x.hp_details.clone().unwrap()),
+            stealth: source_hz.attributes.stealth,
+            stealth_detail: source_hz.attributes.stealth_detail,
+            resistances: source_hz.attributes.resistances,
+            immunities: source_hz.attributes.immunities,
             description: source_hz.description,
             disable_description: source_hz.disable_description,
             reset_description: source_hz.reset_description,
@@ -71,7 +100,6 @@ impl From<SourceHazard> for BybeHazard {
             level: source_hz.level,
             publication_info: source_hz.publication_info,
             saves: source_hz.saves,
-            status_effect_list: source_hz.status_effect_list,
             rarity: source_hz
                 .traits
                 .rarity
@@ -85,6 +113,8 @@ impl From<SourceHazard> for BybeHazard {
                 .parse()
                 .unwrap_or(SizeEnum::Medium),
             traits: source_hz.traits.traits,
+            weapons,
+            weaknesses: source_hz.attributes.weakness,
         }
     }
 }

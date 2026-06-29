@@ -1,11 +1,11 @@
 use crate::schema::bybe_condition::BybeCondition;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
+use crate::schema::source_schema::common::resistance::Resistance;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
-use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::creature::sense::Sense;
 use crate::schema::source_schema::creature::source_creature::{
     SourceCreature, SourceCreatureParsingError,
@@ -144,7 +144,7 @@ impl From<SourceCreature> for BybeCreature {
             wisdom: source_cr.abilities.wisdom,
             ac: source_cr.attributes.ac,
             hp: source_cr.attributes.hp_values.hp,
-            hp_details: source_cr.attributes.hp_details,
+            hp_details: source_cr.attributes.hp_values.hp_details.unwrap(),
             ac_details: source_cr.attributes.ac_details,
             speed: source_cr.attributes.speed,
             immunities: get_all_immunities(

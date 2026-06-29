@@ -1,27 +1,24 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::description::Description;
-use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::hp_values::HpParsingError;
 use crate::schema::source_schema::common::rarity_size_traits::{
     RaritySizeTraits, TraitParsingError,
 };
 use crate::schema::source_schema::common::saves::{RawSaves, SaveParsingError};
-use crate::schema::source_schema::creature::item::action::{Action, ActionParsingError};
+use crate::schema::source_schema::creature::item::action::ActionParsingError;
+use crate::schema::source_schema::creature::item::items::{
+    EntityItemParsingError, ItemLinkedToEntity,
+};
+use crate::schema::source_schema::hazard::attributes::{AttributeParsingError, RawAttributes};
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 use thiserror::Error;
-use tracing::warn;
+
 pub struct SourceHazard {
     pub name: String,
     pub foundry_id: String,
 
-    pub actions: Vec<Action>,
-    // Attributes
-    pub ac_value: i64,
-    pub hardness: i64,
-    pub has_health: bool,
-    pub hp_values: RawHpValues,
-    pub stealth: i64,
-    pub stealth_detail: Description,
+    pub attributes: RawAttributes,
 
     pub creature_type: Option<String>,
     // Details
@@ -34,7 +31,7 @@ pub struct SourceHazard {
     pub routine_description: Description,
 
     pub saves: RawSaves,
-    pub status_effect_list: Vec<String>,
+    pub items: ItemLinkedToEntity,
     pub traits: RaritySizeTraits,
 }
 
@@ -58,6 +55,10 @@ pub enum SourceHazardParsingError {
     HazardTypeFormat,
     #[error("Invalid hazard type")]
     InvalidHazardType,
+    #[error("Item related to hazard could not be parsed")]
+    HazardItemError(#[from] EntityItemParsingError),
+    #[error("Attribute could not be parsed")]
+    AttributeError(#[from] AttributeParsingError),
 }
 
 impl TryFrom<&Value> for SourceHazard {
@@ -75,11 +76,13 @@ impl TryFrom<&Value> for SourceHazard {
         let foundry_id = get_field_from_json(json, "_id")
             .as_str()
             .map(String::from)
-            .ok_or(SourceHazardParsingError::IdMissing)?;
+            .ok_or(SourceHazardParsingError::IdMissing)
+            .unwrap();
         let name = get_field_from_json(json, "name")
             .as_str()
             .map(|x| x.to_string())
-            .ok_or(SourceHazardParsingError::NameFieldMissing)?;
+            .ok_or(SourceHazardParsingError::NameFieldMissing)
+            .unwrap();
 
         let system_json = get_field_from_json(json, "system");
         let items_json = get_field_from_json(json, "items");
@@ -89,67 +92,13 @@ impl TryFrom<&Value> for SourceHazard {
         let saves_json = get_field_from_json(&system_json, "saves");
         let traits_json = get_field_from_json(&system_json, "traits");
 
-        let hp_json = get_field_from_json(&attributes_json, "hp");
-
         let publication_json = get_field_from_json(&details_json, "publication");
-
-        let actions: Vec<Action> = items_json
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter_map(|x| {
-                let temp = x
-                    .get("type")
-                    .and_then(|x| x.as_str())
-                    .map(|x| x.to_ascii_lowercase());
-                if let Some(item_type) = temp
-                    && item_type == "action"
-                {
-                    Action::try_from(x).ok()
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let span = tracing::info_span!("save_parsing", caller = "Source hazard try from");
-        let _guard = span.enter();
-
-        let stealth_value =
-            get_field_from_json(&get_field_from_json(&attributes_json, "stealth"), "value");
-        let stealth_num = if stealth_value.is_null() {
-            warn!(
-                "Hazard: {:?} does not have a stealth value, setting default to 10",
-                name
-            );
-            10
-        } else {
-            let val = stealth_value.as_i64().unwrap();
-            if val < 10 && val > -10 { val + 10 } else { val }
-        };
 
         Ok(Self {
             name,
             foundry_id,
-            actions,
-            ac_value: get_field_from_json(&get_field_from_json(&attributes_json, "ac"), "value")
-                .as_i64()
-                .unwrap_or(0),
-            hardness: get_field_from_json(&attributes_json, "hardness")
-                .as_i64()
-                .unwrap_or(0),
-            has_health: get_field_from_json(&attributes_json, "hasHealth")
-                .as_bool()
-                .unwrap_or(false),
-            hp_values: RawHpValues::try_from(&hp_json).unwrap_or_default(),
-            stealth: stealth_num,
-            stealth_detail: get_field_from_json(
-                &get_field_from_json(&attributes_json, "stealth"),
-                "details",
-            )
-            .as_str()
-            .map(Description::from)
-            .unwrap(),
-            creature_type: get_field_from_json(&attributes_json, "creatureType")
+            attributes: RawAttributes::try_from(&attributes_json).unwrap(),
+            creature_type: get_field_from_json(&system_json, "creatureType")
                 .as_str()
                 .map(|x| x.to_string()),
             description: get_field_from_json(&details_json, "description")
@@ -175,9 +124,9 @@ impl TryFrom<&Value> for SourceHazard {
                 .as_i64()
                 .unwrap_or(0),
             publication_info: PublicationInfo::try_from(&publication_json)?,
-            saves: RawSaves::try_from(&saves_json)?,
-            status_effect_list: vec![],
-            traits: RaritySizeTraits::try_from(&traits_json)?,
+            saves: RawSaves::try_from(&saves_json).unwrap(),
+            traits: RaritySizeTraits::try_from(&traits_json).unwrap(),
+            items: ItemLinkedToEntity::try_from(&items_json).unwrap(),
         })
     }
 }

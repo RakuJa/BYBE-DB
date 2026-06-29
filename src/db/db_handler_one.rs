@@ -4,11 +4,11 @@ use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
 use crate::schema::bybe_trait::Trait;
 use crate::schema::source_schema::common::range_data::RangeData;
+use crate::schema::source_schema::common::resistance::Resistance;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::Spell;
 use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
-use crate::schema::source_schema::creature::resistance::Resistance;
 use crate::schema::source_schema::creature::sense::Sense;
 use crate::utils::game_system_enum::GameSystem;
 use anyhow::Result;
@@ -51,6 +51,30 @@ pub async fn insert_hazard_to_db(
     insert_hazard_trait_association(conn, gs, &hz.traits, hz_id)
         .await
         .unwrap();
+    for el in &hz.weapons {
+        let wp_id = insert_weapon_to_db(conn, gs, el).await.unwrap();
+        insert_weapon_hazard_association(conn, gs, wp_id, hz_id, el.item_core.quantity)
+            .await
+            .unwrap();
+    }
+
+    for w_id in insert_weaknesses(conn, gs, &hz.weaknesses).await.unwrap() {
+        insert_weakness_hazard_association(conn, gs, w_id, hz_id)
+            .await
+            .unwrap();
+    }
+    for res_id in insert_resistances(conn, gs, &hz.resistances).await.unwrap() {
+        insert_resistance_hazard_association(conn, gs, res_id, hz_id)
+            .await
+            .unwrap();
+    }
+
+    for imm in &hz.immunities {
+        insert_immunity(conn, gs, imm).await.unwrap();
+        insert_hazard_immunity_association(conn, gs, imm, hz_id)
+            .await
+            .unwrap();
+    }
 
     for el in &hz.actions {
         let action_id = insert_action(conn, gs, el).await.unwrap();
@@ -113,7 +137,7 @@ async fn insert_hazard(
     let rarity = hz.rarity.to_string();
     sqlx::query(sqlx::AssertSqlSafe(format!(
         "INSERT INTO {gs}_hazard_table (
-            foundry_id, name, ac, hardness, has_health, hp,
+            foundry_id, name, ac, hardness, has_health, hp, hp_details,
             stealth, stealth_detail, description, disable_description,
             reset_description, routine_description, is_complex, level,
             license, remaster, source,
@@ -127,7 +151,7 @@ async fn insert_hazard(
             $15, $16, $17,
             $18, $19, $20,
             $21, $22, $23,
-            $24, $25
+            $24, $25, $26
         ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             ac = excluded.ac,
@@ -159,7 +183,8 @@ async fn insert_hazard(
     .bind(hz.ac_value)
     .bind(hz.hardness)
     .bind(hz.has_health)
-    .bind(hz.hp_values.hp)
+    .bind(hz.hp)
+    .bind(hz.hp_details.clone())
     .bind(hz.stealth)
     .bind(hz.stealth_detail.to_string())
     .bind(hz.description.to_string())
@@ -244,7 +269,6 @@ pub async fn insert_weapon_to_db(
     conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     wp: &BybeWeapon,
-    cr_id: Option<i64>,
 ) -> Result<i64> {
     let item_id = insert_item_to_db(conn, gs, &wp.item_core, None)
         .await
@@ -262,11 +286,6 @@ pub async fn insert_weapon_to_db(
         .execute(&mut **conn)
         .await
         .unwrap();
-    }
-    if let Some(creature_id) = cr_id {
-        insert_weapon_creature_association(conn, gs, wp_id, creature_id, wp.item_core.quantity)
-            .await
-            .unwrap();
     }
 
     insert_weapon_damage(conn, gs, &wp.damage_data, wp_id)
@@ -332,21 +351,29 @@ pub async fn insert_creature_to_db(
     insert_language_and_association(conn, gs, &cr.languages, cr_id)
         .await
         .unwrap();
-    insert_immunity_and_association(conn, gs, &cr.immunities, cr_id)
-        .await
-        .unwrap();
+    for imm in &cr.immunities {
+        insert_immunity(conn, gs, imm).await.unwrap();
+        insert_creature_immunity_association(conn, gs, imm, cr_id)
+            .await
+            .unwrap();
+    }
     insert_sense_and_association(conn, gs, &cr.senses, cr_id)
         .await
         .unwrap();
     insert_speeds(conn, gs, &cr.speed, cr_id).await.unwrap();
-    insert_weaknesses(conn, gs, &cr.weaknesses, cr_id)
-        .await
-        .unwrap();
-    insert_resistances(conn, gs, &cr.resistances, cr_id)
-        .await
-        .unwrap();
+    for w_id in insert_weaknesses(conn, gs, &cr.weaknesses).await.unwrap() {
+        insert_weakness_creature_association(conn, gs, w_id, cr_id)
+            .await
+            .unwrap();
+    }
+    for res_id in insert_resistances(conn, gs, &cr.resistances).await.unwrap() {
+        insert_resistance_creature_association(conn, gs, res_id, cr_id)
+            .await
+            .unwrap();
+    }
     for el in &cr.weapons {
-        insert_weapon_to_db(conn, gs, el, Some(cr_id))
+        let wp_id = insert_weapon_to_db(conn, gs, el).await.unwrap();
+        insert_weapon_creature_association(conn, gs, wp_id, cr_id, el.item_core.quantity)
             .await
             .unwrap();
     }
@@ -680,30 +707,54 @@ async fn insert_language_and_association(
     Ok(true)
 }
 
-async fn insert_immunity_and_association(
+async fn insert_immunity(
     conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
-    immunities: &Vec<String>,
-    id: i64,
+    immunity: &str,
 ) -> Result<bool> {
-    for el in immunities {
-        sqlx::query(sqlx::AssertSqlSafe(format!(
-            "INSERT INTO {gs}_immunity_table (name) VALUES ($1) ON CONFLICT DO NOTHING"
-        )))
-        .bind(el)
-        .execute(&mut **conn)
-        .await
-        .unwrap();
-        sqlx::query(sqlx::AssertSqlSafe(format!(
-            "INSERT INTO {gs}_immunity_creature_association_table (creature_id, immunity_id) \
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_immunity_table (name) VALUES ($1) ON CONFLICT DO NOTHING"
+    )))
+    .bind(immunity)
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+    Ok(true)
+}
+
+async fn insert_creature_immunity_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    immunity: &str,
+    creature_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_creature_immunity_association_table (creature_id, immunity_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING"
-        )))
-        .bind(id)
-        .bind(el)
-        .execute(&mut **conn)
-        .await
-        .unwrap();
-    }
+    )))
+    .bind(creature_id)
+    .bind(immunity)
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+    Ok(true)
+}
+
+async fn insert_hazard_immunity_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    immunity: &str,
+    hazard_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_hazard_immunity_association_table (hazard_id, immunity_id) \
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"
+    )))
+    .bind(hazard_id)
+    .bind(immunity)
+    .execute(&mut **conn)
+    .await
+    .unwrap();
     Ok(true)
 }
 
@@ -774,29 +825,61 @@ async fn insert_speeds(
 async fn insert_resistances(
     conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
-    resistances: &Vec<Resistance>,
-    id: i64,
-) -> Result<bool> {
+    resistances: &[Resistance],
+) -> Result<Vec<i64>> {
+    let mut ids: Vec<i64> = Vec::with_capacity(resistances.len());
     for res in resistances {
         let res_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "INSERT INTO {gs}_resistance_table (creature_id, name, value) \
-             VALUES ($1, $2, $3) RETURNING id"
+            "INSERT INTO {gs}_resistance_table (name, value)
+             VALUES ($1, $2)
+             ON CONFLICT (name, value) DO UPDATE SET name = EXCLUDED.name
+             RETURNING id"
         )))
-        .bind(id)
         .bind(&res.name)
         .bind(res.value)
         .fetch_one(&mut **conn)
         .await
         .unwrap();
-
         insert_resistance_double_vs(conn, gs, res_id, res.double_vs.clone())
             .await
             .unwrap();
         insert_resistance_exception_vs(conn, gs, res_id, res.exceptions.clone())
             .await
             .unwrap();
+        ids.push(res_id);
     }
+    Ok(ids)
+}
 
+async fn insert_resistance_creature_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    resistance_id: i64,
+    cr_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_creature_resistance_association_table (resistance_id, creature_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )))
+        .bind(resistance_id)
+        .bind(cr_id)
+        .execute(&mut **conn)
+        .await.unwrap();
+    Ok(true)
+}
+
+async fn insert_resistance_hazard_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    resistance_id: i64,
+    hz_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_hazard_resistance_association_table (resistance_id, hazard_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )))
+        .bind(resistance_id)
+        .bind(hz_id)
+        .execute(&mut **conn)
+        .await.unwrap();
     Ok(true)
 }
 
@@ -849,22 +932,55 @@ async fn insert_weaknesses(
     conn: &mut Transaction<'_, Postgres>,
     gs: &GameSystem,
     weaknesses: &HashMap<String, i64>,
-    id: i64,
-) -> Result<bool> {
-    if !weaknesses.is_empty() {
-        QueryBuilder::new(format!(
-            "INSERT INTO {gs}_weakness_table (creature_id, name, value) "
-        ))
-        .push_values(weaknesses, |mut b, (weak_type, weak_value)| {
-            b.push_bind(id).push_bind(weak_type).push_bind(weak_value);
-        })
-        .push(" ON CONFLICT DO NOTHING")
-        .build()
-        .execute(&mut **conn)
+) -> Result<Vec<i64>> {
+    let mut ids: Vec<i64> = Vec::with_capacity(weaknesses.len());
+    for (name, value) in weaknesses {
+        let w_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_weakness_table (name, value)
+             VALUES ($1, $2)
+             ON CONFLICT (name, value) DO UPDATE SET name = EXCLUDED.name
+             RETURNING id
+             "
+        )))
+        .bind(name)
+        .bind(value)
+        .fetch_one(&mut **conn)
         .await
         .unwrap();
+        ids.push(w_id);
     }
+    Ok(ids)
+}
 
+async fn insert_weakness_creature_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    weakness_id: i64,
+    cr_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_creature_weakness_association_table (weakness_id, creature_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )))
+        .bind(weakness_id)
+        .bind(cr_id)
+        .execute(&mut **conn)
+        .await.unwrap();
+    Ok(true)
+}
+
+async fn insert_weakness_hazard_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    weakness_id: i64,
+    hz_id: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_hazard_weakness_association_table (weakness_id, hazard_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )))
+        .bind(weakness_id)
+        .bind(hz_id)
+        .execute(&mut **conn)
+        .await.unwrap();
     Ok(true)
 }
 
@@ -1220,6 +1336,26 @@ async fn insert_weapon_creature_association(
     )))
     .bind(weapon_id)
     .bind(cr_id)
+    .bind(quantity)
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+    Ok(true)
+}
+
+async fn insert_weapon_hazard_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    weapon_id: i64,
+    hz_id: i64,
+    quantity: i64,
+) -> Result<bool> {
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_weapon_hazard_association_table \
+            (weapon_id, hazard_id, quantity) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+    )))
+    .bind(weapon_id)
+    .bind(hz_id)
     .bind(quantity)
     .execute(&mut **conn)
     .await

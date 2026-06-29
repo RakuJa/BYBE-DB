@@ -1,5 +1,5 @@
 use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
-use crate::schema::source_schema::creature::resistance::{Resistance, ResistanceParserError};
+use crate::schema::source_schema::common::resistance::{Resistance, ResistanceParserError};
 use crate::utils::json_utils;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -11,7 +11,6 @@ pub struct RawAttributes {
     pub ac: i64, //i8,
     pub ac_details: String,
     pub hp_values: RawHpValues,
-    pub hp_details: String,
     pub speed: HashMap<String, i64>,
     pub immunities: Vec<String>,
     pub resistances: Vec<Resistance>,
@@ -58,11 +57,6 @@ impl TryFrom<&Value> for RawAttributes {
                 .map(|s| s.to_string())
                 .ok_or(AttributeParsingError::ACDetail)?,
             hp_values: RawHpValues::try_from(&hp_json)?,
-            hp_details: hp_json
-                .get("details")
-                .and_then(|s| s.as_str())
-                .map(|s| s.to_string())
-                .ok_or(AttributeParsingError::HPDetail)?,
             immunities: json_utils::extract_vec_of_str_from_json_with_vec_of_jsons(
                 json,
                 "immunities",

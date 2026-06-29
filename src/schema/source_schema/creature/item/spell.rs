@@ -1,7 +1,7 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::range_data::RangeData;
+use crate::schema::source_schema::common::resistance::ResistanceParserError;
 use crate::schema::source_schema::creature::item::saving_throw::SavingThrow;
-use crate::schema::source_schema::creature::resistance::ResistanceParserError;
 use crate::utils::json_utils;
 use serde_json::Value;
 use thiserror::Error;
