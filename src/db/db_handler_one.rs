@@ -525,7 +525,7 @@ pub async fn insert_conditions(
 ) -> Result<bool> {
     if !conditions.is_empty() {
         QueryBuilder::new(format!(
-            "INSERT INTO {gs}_condition_table (name, rule, note, summary, license, remaster, source, is_perpetual, is_stackable, condition_group) "
+            "INSERT INTO {gs}_condition_table (name, rule, note, summary, license, remaster, source, is_perpetual, is_stackable, value, condition_group) "
         ))
             .push_values(conditions, |mut b, c| {
                 b.push_bind(&c.name)
@@ -537,6 +537,7 @@ pub async fn insert_conditions(
                     .push_bind(&c.publication_info.source)
                     .push_bind(c.is_perpetual)
                     .push_bind(c.is_stackable)
+                    .push_bind(c.value)
                     .push_bind(&c.group);
             })
             .push(" ON CONFLICT (name) DO NOTHING")

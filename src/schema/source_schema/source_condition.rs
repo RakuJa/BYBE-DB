@@ -12,6 +12,7 @@ pub struct SourceCondition {
     pub overrides: Vec<String>,
     pub is_perpetual: bool,
     pub is_stackable: bool, // value => isvalue = true
+    pub value: Option<i64>,
     pub group: Option<String>,
 }
 
@@ -58,6 +59,7 @@ impl TryFrom<&Value> for SourceCondition {
             is_stackable: get_field_from_json(&value_json, "isValued")
                 .as_bool()
                 .unwrap(),
+            value: get_field_from_json(&value_json, "value").as_i64(),
             group: get_field_from_json(&system_json, "group")
                 .as_str()
                 .map(|x| x.to_string()),

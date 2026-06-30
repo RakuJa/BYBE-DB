@@ -51,6 +51,7 @@ impl From<SourceCondition> for BybeCondition {
             overrides: condition.overrides,
             is_perpetual: condition.is_perpetual,
             is_stackable: condition.is_stackable,
+            value: condition.value,
             group: condition.group,
             name,
         }
@@ -87,5 +88,6 @@ pub struct BybeCondition {
     pub overrides: Vec<String>,
     pub is_perpetual: bool,
     pub is_stackable: bool, // value => isvalue = true
+    pub value: Option<i64>,
     pub group: Option<String>,
 }
