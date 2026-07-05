@@ -118,7 +118,7 @@ async fn insert_action_hazard_association(
     hz_id: i64,
 ) -> Result<bool> {
     sqlx::query(sqlx::AssertSqlSafe(format!(
-        "INSERT INTO {gs}_action_hazard_association_table (action_id, hazard_id) VALUES ($1, $2)"
+        "INSERT INTO {gs}_action_hazard_association_table (action_id, hazard_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
     )))
     .bind(action_id)
     .bind(hz_id)
@@ -488,6 +488,88 @@ pub async fn insert_scales_values_to_db(conn: &mut Transaction<'_, Postgres>) ->
         .execute(&mut **conn)
         .await
         .unwrap();
+    Ok(true)
+}
+
+/// Finds creatures with no hidden/child data at all (no actions, senses, skills, etc.) --
+/// e.g. a creature whose foundry_id has disappeared from the current Foundry source and has
+/// no historical snapshot to restore it from. Used to surface these at the end of a run rather
+/// than let them silently sit there as bare stat rows.
+pub async fn find_empty_creatures(
+    conn: &PgPool,
+    gs: &GameSystem,
+) -> Result<Vec<(i64, String, String)>> {
+    let rows: Vec<(i64, String, String)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT c.id, c.foundry_id, c.name
+         FROM {gs}_creature_table c
+         WHERE NOT EXISTS (SELECT 1 FROM {gs}_creature_action_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_creature_immunity_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_creature_resistance_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_creature_skill_label_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_creature_weakness_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_item_creature_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_language_creature_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_sense_creature_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_shield_creature_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_skill_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_speed_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_spell_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_spellcasting_entry_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_trait_creature_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_weapon_creature_association_table t WHERE t.creature_id = c.id)
+           AND NOT EXISTS (SELECT 1 FROM {gs}_armor_creature_association_table t WHERE t.creature_id = c.id)
+         ORDER BY c.id"
+    )))
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
+/// Restores hidden/child data for creatures whose foundry_id has disappeared from the current
+/// Foundry source (so db_update() never touches them again), sourced from historical BYBE-DB
+/// sqlite snapshots. Must run after clear_db()/db_update(), never before: those unconditionally
+/// wipe these child tables every run, so this has to replay afterward every time to persist.
+pub async fn restore_legacy_creature_data(conn: &mut Transaction<'_, Postgres>) -> Result<bool> {
+    sqlx::raw_sql(include_str!(
+        "raw_queries/restore_orphaned_creature_data_from_4_1_0.sql"
+    ))
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+    sqlx::raw_sql(include_str!(
+        "raw_queries/restore_orphaned_creature_data_from_4_0_0.sql"
+    ))
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+    Ok(true)
+}
+
+pub async fn apply_trait_description_overrides(
+    conn: &mut Transaction<'_, Postgres>,
+) -> Result<bool> {
+    sqlx::query(
+        "UPDATE pf_trait_table t
+         SET description = o.description
+         FROM pf_trait_description_overrides o
+         WHERE t.name = o.trait_name
+           AND (t.description IS NULL OR t.description = '')",
+    )
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "UPDATE sf_trait_table t
+         SET description = o.description
+         FROM sf_trait_description_overrides o
+         WHERE t.name = o.trait_name
+           AND (t.description IS NULL OR t.description = '')",
+    )
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+
     Ok(true)
 }
 

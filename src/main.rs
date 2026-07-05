@@ -100,7 +100,22 @@ async fn main() {
         db_update(&conn, pf2e_json_paths, sf2e_json_paths)
             .await
             .unwrap();
+        warn_about_empty_creatures(&conn).await.unwrap();
     }
+}
+
+#[cfg(not(feature = "dry-run"))]
+async fn warn_about_empty_creatures(conn: &PgPool) -> anyhow::Result<()> {
+    let mut total = 0usize;
+    for gs in [GameSystem::Pathfinder, GameSystem::Starfinder] {
+        let empty = db_handler_one::find_empty_creatures(conn, &gs).await?;
+        for (id, foundry_id, name) in &empty {
+            warn!("[{gs}] empty creature found: name='{name}' id={id} foundry_id={foundry_id}");
+        }
+        total += empty.len();
+    }
+    warn!("Process finished. {total} empty creature(s) have been found.");
+    Ok(())
 }
 
 #[cfg(feature = "dry-run")]
@@ -202,6 +217,8 @@ async fn clear_db(conn: &PgPool) -> anyhow::Result<()> {
             "sf_creature_table",
             "pf_hazard_table",
             "sf_hazard_table",
+            "pf_trait_description_overrides",
+            "sf_trait_description_overrides",
         ],
     )
     .await
@@ -251,6 +268,14 @@ async fn db_update(
         .unwrap();
 
     db_handler_one::insert_scales_values_to_db(&mut tx)
+        .await
+        .unwrap();
+
+    db_handler_one::apply_trait_description_overrides(&mut tx)
+        .await
+        .unwrap();
+
+    db_handler_one::restore_legacy_creature_data(&mut tx)
         .await
         .unwrap();
 

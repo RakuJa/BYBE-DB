@@ -45,7 +45,9 @@ impl TryFrom<&Value> for RawAttributes {
             speed_map.insert("Base".to_string(), speed_val);
         }
 
-        let stealth_num = get_field_from_json(&get_field_from_json(json, "stealth"), "value").as_i64().unwrap_or(0);
+        let stealth_num = get_field_from_json(&get_field_from_json(json, "stealth"), "value")
+            .as_i64()
+            .unwrap_or(0);
 
         let hp_values = RawHpValues::try_from(&hp_json).ok();
 
