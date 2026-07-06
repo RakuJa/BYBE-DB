@@ -3,6 +3,7 @@
 -- directly -- never via a proper ALTER ... RENAME COLUMN migration. So a database bootstrapped from db/bybe_postgres.sql (converted
 -- straight from the SQLite source) already has these tables under their *original* SQLite
 -- column names
+DO $$
 DECLARE
     renames TEXT[][] := ARRAY[
         ['pf_spell_table', 'saving_throw_statistic', 'saving_throw'],
