@@ -15,17 +15,17 @@ pub struct Description {
 fn resolve_localization(source: &str, item_lvl: Option<i64>) -> String {
     let gs = current_game_system();
     let lookup = move |path: &str| -> Option<String> {
-        let pf2e_result = localize_loader::lookup_path(localize_loader::lang_data(), path);
-
         if matches!(gs, GameSystem::Starfinder)
             && let Some(sf2e_value) =
                 localize_loader::lookup_path(localize_loader::sf2e_data(), path)
         {
             return Some(sf2e_value);
         }
-        pf2e_result
+        // `/act` action titles live in their own action-en.json, not en.json.
+        localize_loader::lookup_path(localize_loader::lang_data(), path)
+            .or_else(|| localize_loader::lookup_path(localize_loader::action_lang_data(), path))
     };
-    clean_description_from_all_tags(source, item_lvl, lookup)
+    clean_description_from_all_tags(source, item_lvl, lookup, localize_loader::parsed_actions())
 }
 
 impl Description {

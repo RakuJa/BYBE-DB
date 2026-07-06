@@ -1,15 +1,27 @@
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::{env, fs};
 
 static LANG_DATA: OnceLock<Value> = OnceLock::new();
 static SF2E_OVERRIDES: OnceLock<Value> = OnceLock::new();
+static ACTION_LANG_DATA: OnceLock<Value> = OnceLock::new();
 
 static TRAITS_ASSOCIATION_FILE: OnceLock<String> = OnceLock::new();
 
 static PARSED_TRAITS: OnceLock<HashMap<String, HashMap<String, String>>> = OnceLock::new();
+static PARSED_ACTIONS: OnceLock<HashMap<String, ActionNames>> = OnceLock::new();
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActionNames {
+    /// Localization key(e.g. "PF2E.Actions.Escape.Title")
+    pub name: String,
+    /// variant slug -> localization key (e.g. "acting" -> "PF2E.Actions.Perform.Acting.Title")
+    pub variants: HashMap<String, String>,
+}
 
 fn base_path() -> String {
     env::var("SOURCE_DOWNLOAD_PATH").expect(
@@ -36,6 +48,15 @@ pub fn sf2e_data() -> &'static Value {
     })
 }
 
+pub fn action_lang_data() -> &'static Value {
+    ACTION_LANG_DATA.get_or_init(|| {
+        let base_path = base_path();
+        let file_content = fs::read_to_string(format!("{base_path}/static/lang/action-en.json"))
+            .expect("failed to read action-en.json");
+        serde_json::from_str(&file_content).expect("failed to parse action-en.json")
+    })
+}
+
 fn traits_ts_association_file() -> &'static String {
     TRAITS_ASSOCIATION_FILE.get_or_init(|| {
         let base_path = base_path();
@@ -46,6 +67,15 @@ fn traits_ts_association_file() -> &'static String {
 
 pub fn parsed_traits() -> &'static HashMap<String, HashMap<String, String>> {
     PARSED_TRAITS.get_or_init(|| parse_ts_traits(traits_ts_association_file()))
+}
+
+pub fn parsed_actions() -> &'static HashMap<String, ActionNames> {
+    PARSED_ACTIONS.get_or_init(|| {
+        let base_path = base_path();
+        parse_ts_actions_dir(Path::new(&format!(
+            "{base_path}/src/module/system/action-macros"
+        )))
+    })
 }
 
 /// Walks a dot-separated path through a JSON value, returning the string at that path if present.
@@ -149,6 +179,96 @@ fn parse_ts_traits(ts_content: &str) -> HashMap<String, HashMap<String, String>>
                     .or_default()
                     .insert(kind.to_string(), value.clone());
             }
+        }
+    }
+    result
+}
+
+/// Recursively collects `.ts` files under `dir`, skipping the barrel/helper files that don't
+/// define an action themselves
+fn collect_action_macro_files(dir: &Path, out: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_action_macro_files(&path, out);
+        } else if path.extension().is_some_and(|ext| ext == "ts") {
+            let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if !matches!(file_name, "index.ts" | "helpers.ts" | "types.ts") {
+                out.push(path);
+            }
+        }
+    }
+}
+
+/// Resolves `${IDENT}` template-literal interpolations using a file-local `const IDENT = "...";`
+/// table. Left as-is if the referenced const isn't found (best-effort).
+fn resolve_template_literal(raw: &str, consts: &HashMap<String, String>) -> String {
+    static INTERPOLATION_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\$\{(\w+)}").unwrap());
+    INTERPOLATION_RE
+        .replace_all(raw, |caps: &regex::Captures| {
+            consts
+                .get(&caps[1])
+                .cloned()
+                .unwrap_or_else(|| caps[0].to_string())
+        })
+        .to_string()
+}
+
+/// Parses a single action-macro source file (e.g. `thievery/disable-device.ts`) into its slug
+/// and localization keys. Each file defines exactly one top-level action (optionally with
+/// variants), always as a `name: ...` field immediately followed, somewhere later in the same
+/// object, by a `slug: "..."` field - this holds for both the action itself and each of its
+/// variant entries, so pairing them up in file order recovers the full slug/variant structure.
+fn parse_ts_action_file(content: &str) -> Option<(String, ActionNames)> {
+    static CONST_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r#"const\s+(\w+)\s*=\s*"([^"]+)";"#).unwrap());
+    static NAME_OR_SLUG_RE: Lazy<Regex> = Lazy::new(|| {
+        Regex::new(r#"name:\s*"([^"]+)"|name:\s*`([^`]+)`|slug:\s*"([\w-]+)""#).unwrap()
+    });
+
+    let consts: HashMap<String, String> = CONST_RE
+        .captures_iter(content)
+        .map(|c| (c[1].to_string(), c[2].to_string()))
+        .collect();
+
+    let mut pending_name: Option<String> = None;
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    for caps in NAME_OR_SLUG_RE.captures_iter(content) {
+        if let Some(raw_name) = caps.get(1).or_else(|| caps.get(2)) {
+            pending_name = Some(resolve_template_literal(raw_name.as_str(), &consts));
+        } else if let Some(slug) = caps.get(3)
+            && let Some(name) = pending_name.take()
+        {
+            pairs.push((slug.as_str().to_string(), name));
+        }
+    }
+
+    if pairs.is_empty() {
+        return None;
+    }
+    let (root_slug, root_name) = pairs.remove(0);
+    Some((
+        root_slug,
+        ActionNames {
+            name: root_name,
+            variants: pairs.into_iter().collect(),
+        },
+    ))
+}
+
+fn parse_ts_actions_dir(dir: &Path) -> HashMap<String, ActionNames> {
+    let mut files = Vec::new();
+    collect_action_macro_files(dir, &mut files);
+
+    let mut result = HashMap::new();
+    for file in files {
+        if let Ok(content) = fs::read_to_string(&file)
+            && let Some((slug, action_names)) = parse_ts_action_file(&content)
+        {
+            result.insert(slug, action_names);
         }
     }
     result
@@ -311,5 +431,64 @@ mod tests {
     #[case("PF2E.Unknown", None)]
     fn test_lookup_path(json_data: Value, #[case] path: &str, #[case] expected: Option<&str>) {
         assert_eq!(lookup_path(&json_data, path).as_deref(), expected);
+    }
+    
+    #[rstest]
+    fn parse_action_file_simple_slug() {
+        let ts = r#"
+            const action = new SingleCheckAction({
+                cost: 2,
+                name: "PF2E.Actions.DisableDevice.Title",
+                section: "skill",
+                slug: "disable-device",
+                statistic: "thievery",
+            });
+        "#;
+        let (slug, names) = parse_ts_action_file(ts).expect("should parse an action");
+        assert_eq!(slug, "disable-device");
+        assert_eq!(names.name, "PF2E.Actions.DisableDevice.Title");
+        assert!(names.variants.is_empty());
+    }
+
+    #[rstest]
+    fn parse_action_file_with_prefix_const_and_variants() {
+        let ts = r#"
+            const PREFIX = "PF2E.Actions.Perform";
+            const action = new SingleCheckAction({
+                name: `${PREFIX}.Title`,
+                slug: "perform",
+                variants: [
+                    {
+                        name: `${PREFIX}.Acting.Title`,
+                        slug: "acting",
+                    },
+                    {
+                        name: `${PREFIX}.Dance.Title`,
+                        slug: "dance",
+                    },
+                ],
+            });
+        "#;
+        let (slug, names) = parse_ts_action_file(ts).expect("should parse an action");
+        assert_eq!(slug, "perform");
+        assert_eq!(names.name, "PF2E.Actions.Perform.Title");
+        assert_eq!(
+            names.variants.get("acting").map(String::as_str),
+            Some("PF2E.Actions.Perform.Acting.Title")
+        );
+        assert_eq!(
+            names.variants.get("dance").map(String::as_str),
+            Some("PF2E.Actions.Perform.Dance.Title")
+        );
+    }
+    
+    #[rstest]
+    fn parse_action_file_without_slug_returns_none() {
+        let ts = r#"
+            const action = new SingleCheckAction({
+                name: "PF2E.Actions.Craft.Title",
+            });
+        "#;
+        assert_eq!(parse_ts_action_file(ts), None);
     }
 }
