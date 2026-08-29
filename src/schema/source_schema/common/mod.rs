@@ -1,4 +1,5 @@
 pub mod description;
+pub mod frequency;
 pub mod hp_values;
 pub mod range_data;
 pub mod rarity_size_traits;

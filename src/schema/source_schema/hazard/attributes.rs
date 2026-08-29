@@ -1,12 +1,11 @@
 use crate::schema::source_schema::common::description::Description;
-use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::hp_values::RawHpValues;
 use crate::schema::source_schema::common::resistance::{Resistance, ResistanceParserError};
 use crate::utils::json_utils;
 use crate::utils::json_utils::get_field_from_json;
 use serde_json::Value;
 use std::collections::HashMap;
 use thiserror::Error;
-use tracing::warn;
 
 #[derive(Debug)]
 pub struct RawAttributes {
@@ -21,15 +20,13 @@ pub struct RawAttributes {
     pub stealth_detail: Description,
     pub hardness: i64,
     pub has_health: bool,
-    pub hp_values: Option<RawHpValues>,
+    pub hp_values: RawHpValues,
 }
 
 #[derive(Debug, Error)]
 pub enum AttributeParsingError {
     #[error("Mandatory AC detail is missing from json")]
     ResistanceError(#[from] ResistanceParserError),
-    #[error("Hp fields (value or details) could not be parsed")]
-    HpError(#[from] HpParsingError),
 }
 
 impl TryFrom<&Value> for RawAttributes {
@@ -49,11 +46,11 @@ impl TryFrom<&Value> for RawAttributes {
             .as_i64()
             .unwrap_or(0);
 
-        let hp_values = RawHpValues::try_from(&hp_json).ok();
+        let hp_values = RawHpValues::from(&hp_json);
 
         let has_health = get_field_from_json(json, "hasHealth")
             .as_bool()
-            .unwrap_or(hp_values.as_ref().is_some_and(|x| x.hp > 0));
+            .unwrap_or(hp_values.hp > 0);
 
         Ok(RawAttributes {
             ac: ac_json.get("value").and_then(|x| x.as_i64()),

@@ -115,6 +115,7 @@ impl TryFrom<&Value> for RawSpellCastingEntry {
         let prepared_json = json_utils::get_field_from_json(&system_json, "prepared");
         let spell_dc = json_utils::get_field_from_json(&system_json, "spelldc");
         let heighten_level = json_utils::get_field_from_json(&system_json, "autoHeightenLevel");
+        let tradition_json = json_utils::get_field_from_json(&system_json, "tradition");
 
         Ok(RawSpellCastingEntry {
             raw_foundry_id: json_utils::get_field_from_json(json, "_id")
@@ -138,7 +139,7 @@ impl TryFrom<&Value> for RawSpellCastingEntry {
             atk_modifier: json_utils::get_field_from_json(&spell_dc, "value")
                 .as_i64()
                 .ok_or(RawSpellCastingParsingError::AtkModifier)?,
-            tradition: json_utils::get_field_from_json(&system_json, "type")
+            tradition: json_utils::get_field_from_json(&tradition_json, "value")
                 .as_str()
                 .map(String::from)
                 .ok_or(RawSpellCastingParsingError::Tradition)?,
@@ -159,5 +160,74 @@ impl TryFrom<&Value> for RawSpellCastingEntry {
                 })
                 .collect(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn tradition_is_read_from_tradition_value_not_type() {
+        let json = json!({
+            "_id": "abc123",
+            "name": "Innate Spells",
+            "system": {
+                "prepared": { "value": "innate" },
+                "spelldc": { "dc": 40, "value": 30 },
+                "autoHeightenLevel": { "value": null },
+                "tradition": { "value": "arcane" },
+                "slots": {},
+            }
+        });
+        let entry = RawSpellCastingEntry::try_from(&json).unwrap();
+        assert_eq!("arcane", entry.tradition);
+    }
+
+    #[test]
+    fn tradition_reads_divine_not_prepared_value() {
+        let json = json!({
+            "_id": "abc123",
+            "name": "Divine Spells",
+            "system": {
+                "prepared": { "value": "prepared" },
+                "spelldc": { "dc": 30, "value": 20 },
+                "autoHeightenLevel": { "value": null },
+                "tradition": { "value": "divine" },
+                "slots": {},
+            }
+        });
+        let entry = RawSpellCastingEntry::try_from(&json).unwrap();
+        assert_eq!("divine", entry.tradition);
+        assert_eq!("prepared", entry.type_of_spellcaster);
+    }
+
+    // Demilich's "Arcane Innate Spells" entry
+    #[test]
+    fn tradition_parses_from_real_demilich_json() {
+        let json = json!({
+            "_id": "rNMUpQjQil41A67R",
+            "name": "Arcane Innate Spells",
+            "system": {
+                "autoHeightenLevel": { "value": null },
+                "description": { "value": "" },
+                "prepared": { "flexible": false, "value": "innate" },
+                "proficiency": { "value": 0 },
+                "publication": { "license": "OGL", "remaster": false, "title": "" },
+                "rules": [],
+                "showSlotlessLevels": { "value": false },
+                "slots": {},
+                "slug": null,
+                "spelldc": { "dc": 40, "mod": 0, "value": 30 },
+                "tradition": { "value": "arcane" }
+            },
+            "type": "spellcastingEntry"
+        });
+        let entry = RawSpellCastingEntry::try_from(&json).unwrap();
+        assert_eq!("arcane", entry.tradition);
+        assert_eq!("innate", entry.type_of_spellcaster);
+        assert_eq!(40, entry.dc_modifier);
+        assert_eq!(30, entry.atk_modifier);
     }
 }

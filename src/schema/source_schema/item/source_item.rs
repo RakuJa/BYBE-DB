@@ -1,6 +1,6 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::description::Description;
-use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::hp_values::RawHpValues;
 use crate::schema::source_schema::common::rarity_size_traits::{
     RaritySizeTraits, TraitParsingError,
 };
@@ -44,8 +44,6 @@ pub enum SourceItemParsingError {
     PublicationError(#[from] PublicationParsingError),
     #[error("Error while parsing type field")]
     TypeFieldError,
-    #[error("Hp Value could not be parsed")]
-    HpError(#[from] HpParsingError),
     #[error("Trait values could not be parsed")]
     TraitError(#[from] TraitParsingError),
 }
@@ -97,7 +95,7 @@ impl TryFrom<&Value> for SourceItem {
             hardness: get_field_from_json(&system_json, "hardness")
                 .as_i64()
                 .unwrap_or(0),
-            hp_values: RawHpValues::try_from(&hp_json).unwrap(),
+            hp_values: RawHpValues::from(&hp_json),
             level: get_field_from_json(&get_field_from_json(&system_json, "level"), "value")
                 .as_i64()
                 .unwrap_or(0),

@@ -1,5 +1,5 @@
 use crate::schema::bybe_condition::BybeCondition;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon};
 use crate::schema::bybe_metadata_enum::{RarityEnum, SizeEnum};
 use crate::schema::source_schema::common::resistance::Resistance;
 use crate::schema::source_schema::creature::item::action::Action;
@@ -37,6 +37,7 @@ pub struct BybeCreature {
     pub hp_details: String,
     pub ac_details: String,
     pub speed: HashMap<String, i64>,
+    pub speed_details: String,
     pub immunities: Vec<String>,
     pub resistances: Vec<Resistance>,
     pub weaknesses: HashMap<String, i64>,
@@ -45,6 +46,8 @@ pub struct BybeCreature {
     pub languages_details: String,
     pub languages: Vec<String>,
     pub level: i64,
+    pub description: String,
+    pub blurb: String,
     // source details (title, license, remastered)
     pub license: String,
     pub remaster: bool,
@@ -73,6 +76,7 @@ pub struct BybeCreature {
 
     pub weapons: Vec<BybeWeapon>,
     pub armors: Vec<BybeArmor>,
+    pub shields: Vec<BybeShield>,
     pub items: Vec<BybeItem>,
     pub actions: Vec<Action>,
     pub n_of_focus_points: i64,
@@ -147,6 +151,7 @@ impl From<SourceCreature> for BybeCreature {
             hp_details: source_cr.attributes.hp_values.hp_details.unwrap(),
             ac_details: source_cr.attributes.ac_details,
             speed: source_cr.attributes.speed,
+            speed_details: source_cr.attributes.speed_details,
             immunities: get_all_immunities(
                 source_cr.attributes.immunities,
                 &rules,
@@ -157,6 +162,8 @@ impl From<SourceCreature> for BybeCreature {
             languages_details: source_cr.details.languages_details,
             languages: source_cr.details.languages,
             level: source_cr.details.level,
+            description: source_cr.details.description,
+            blurb: source_cr.details.blurb,
             license: source_cr.details.publication_info.license,
             remaster: source_cr.details.publication_info.remastered,
             source: source_cr.details.publication_info.source,
@@ -194,6 +201,7 @@ impl From<SourceCreature> for BybeCreature {
                 .unwrap_or(SizeEnum::Medium),
             traits: source_cr.traits.traits,
             armors: source_cr.items.armor_list,
+            shields: source_cr.items.shield_list,
             weapons,
             items: source_cr.items.item_list,
             actions: source_cr.items.action_list,

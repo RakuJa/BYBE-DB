@@ -1,4 +1,4 @@
-use crate::schema::source_schema::common::hp_values::{HpParsingError, RawHpValues};
+use crate::schema::source_schema::common::hp_values::RawHpValues;
 use crate::schema::source_schema::common::resistance::{Resistance, ResistanceParserError};
 use crate::utils::json_utils;
 use serde_json::Value;
@@ -12,6 +12,7 @@ pub struct RawAttributes {
     pub ac_details: String,
     pub hp_values: RawHpValues,
     pub speed: HashMap<String, i64>,
+    pub speed_details: String,
     pub immunities: Vec<String>,
     pub resistances: Vec<Resistance>,
     pub weakness: HashMap<String, i64>,
@@ -21,14 +22,10 @@ pub struct RawAttributes {
 pub enum AttributeParsingError {
     #[error("AC field is missing or NaN")]
     AC,
-    #[error("Mandatory HP field is missing from json")]
-    HPDetail,
     #[error("Mandatory AC detail is missing from json")]
     ACDetail,
     #[error("Resistance could not be parsed")]
     ResistanceError(#[from] ResistanceParserError),
-    #[error("Hp Value could not be parsed")]
-    HpError(#[from] HpParsingError),
 }
 
 impl TryFrom<&Value> for RawAttributes {
@@ -56,7 +53,7 @@ impl TryFrom<&Value> for RawAttributes {
                 .and_then(|s| s.as_str())
                 .map(|s| s.to_string())
                 .ok_or(AttributeParsingError::ACDetail)?,
-            hp_values: RawHpValues::try_from(&hp_json)?,
+            hp_values: RawHpValues::from(&hp_json),
             immunities: json_utils::extract_vec_of_str_from_json_with_vec_of_jsons(
                 json,
                 "immunities",
@@ -70,8 +67,40 @@ impl TryFrom<&Value> for RawAttributes {
                 .map(Resistance::try_from)
                 .collect::<Result<Vec<_>, _>>()?,
             speed: speed_map,
+            speed_details: json_utils::get_field_from_json(&speed_json, "details")
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
             weakness: json_utils::from_json_vec_of_maps_to_map(json, "weaknesses")
                 .unwrap_or_default(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn speed_details_is_parsed_when_present() {
+        let json = json!({
+            "ac": { "value": 20, "details": "" },
+            "hp": { "value": 10, "max": 10 },
+            "speed": { "value": 20, "details": "earth glide" },
+        });
+        let attributes = RawAttributes::try_from(&json).unwrap();
+        assert_eq!("earth glide", attributes.speed_details);
+    }
+
+    #[test]
+    fn speed_details_defaults_to_empty_when_absent() {
+        let json = json!({
+            "ac": { "value": 20, "details": "" },
+            "hp": { "value": 10, "max": 10 },
+            "speed": { "value": 20 },
+        });
+        let attributes = RawAttributes::try_from(&json).unwrap();
+        assert_eq!("", attributes.speed_details);
     }
 }

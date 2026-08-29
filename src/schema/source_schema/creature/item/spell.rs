@@ -1,16 +1,19 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
+use crate::schema::source_schema::common::description::Description;
 use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::common::resistance::ResistanceParserError;
 use crate::schema::source_schema::creature::item::saving_throw::SavingThrow;
+use crate::utils::dice::formula::{ParsedDiceFormula, parse_dice_formula};
 use crate::utils::json_utils;
 use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialOrd, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Spell {
     pub raw_foundry_id: String,
     pub location_id: String,
     pub name: String,
+    pub description: Description,
     pub area: Option<Area>,
     pub counteraction: bool,
 
@@ -21,9 +24,7 @@ pub struct Spell {
     pub sustained: bool,
     pub duration: Option<String>,
 
-    // too complicated atm, it's a vec of struct
-    // because there are multiple ways to heighten data
-    //pub heightened: Option<HeightenedData>,
+    pub heightening: Option<Heightening>,
     pub level: i64,
     pub heightened_level: Option<i64>,
     pub range: Option<RangeData>,
@@ -62,8 +63,6 @@ pub enum SpellParsingError {
     DamageType,
     #[error("Damage formula field is missing from json")]
     DamageFormula,
-    #[error("Damage kind field is missing from json")]
-    DamageKind,
     #[error("Resistance could not be parsed")]
     Resistance(#[from] ResistanceParserError),
     #[error("Publication info could not be parsed")]
@@ -83,6 +82,7 @@ impl TryFrom<&Value> for Spell {
         }
 
         let defense_json = json_utils::get_field_from_json(&system_json, "defense");
+        let description_json = json_utils::get_field_from_json(&system_json, "description");
         let duration_json = json_utils::get_field_from_json(&system_json, "duration");
         let level_json = json_utils::get_field_from_json(&system_json, "level");
         let location_json = json_utils::get_field_from_json(&system_json, "location");
@@ -109,6 +109,10 @@ impl TryFrom<&Value> for Spell {
                 .and_then(Value::as_str)
                 .map(String::from)
                 .ok_or(SpellParsingError::Name)?,
+            description: json_utils::get_field_from_json(&description_json, "value")
+                .as_str()
+                .map(Description::from)
+                .unwrap_or_default(),
             area: match system_json.get("area") {
                 Some(x) => Area::try_from(x).ok(),
                 None => None,
@@ -128,10 +132,9 @@ impl TryFrom<&Value> for Spell {
             duration: json_utils::get_field_from_json(&duration_json, "value")
                 .as_str()
                 .map(String::from),
-            //heightened: match system_json.get("heightening") {
-            //    Some(x) => Some(HeightenedData::init_from_json(x)),
-            //    None => None,
-            //},
+            heightening: system_json
+                .get("heightening")
+                .and_then(Heightening::init_from_json),
             level: level_json
                 .get("value")
                 .and_then(|x| x.as_i64())
@@ -180,47 +183,123 @@ impl TryFrom<&Value> for SpellTraits {
     }
 }
 
-/*
-#[derive(Debug)]
-pub struct HeightenedData {
-    pub interval: i64,
-    pub heightening_type: String,
-    pub damage_dice: Vec<String>,
+/// Two mutually exclusive ways a spell can scale with a higher casting rank:
+/// `"interval"` (every N ranks above the base, add some damage dice e.g. "Heightened (+2)
+/// 1d6 additional damage") and `"fixed"` (overrides to target/range/area/damage).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Heightening {
+    Interval {
+        interval: i64,
+        damage: Vec<ParsedDiceFormula>,
+    },
+    Fixed {
+        levels: Vec<FixedHeighteningLevel>,
+    },
 }
 
-impl HeightenedData {
-    pub fn init_from_json(json: &Value) -> HeightenedData {
-        let mut damage_dice = Vec::new();
-        let mut i = 0;
-        let damage_json = json_utils::get_field_from_json(json, "damage");
-        loop {
-            let dmg_dice_json = damage_json.get(i.to_string().as_str());
-            if dmg_dice_json.is_none() {
-                break;
-            }
-            damage_dice.push(dmg_dice_json.unwrap().as_str().unwrap().to_string());
-            i += 1;
-        }
+#[derive(Debug, Clone, PartialEq)]
+pub struct FixedHeighteningLevel {
+    pub level: i64,
+    pub target: Option<String>,
+    pub range: Option<String>,
+    pub area: Option<Area>,
+    pub damage: Vec<RawDamageData>,
+}
 
-        HeightenedData {
-            interval: json_utils::get_field_from_json(json, "interval")
-                .as_i64()
-                .unwrap(),
-            heightening_type: json_utils::get_field_from_json(json, "type")
-                .as_str()
-                .unwrap()
-                .to_string(),
-            damage_dice,
+impl Heightening {
+    fn init_from_json(json: &Value) -> Option<Heightening> {
+        match json.get("type").and_then(Value::as_str)? {
+            "interval" => {
+                let interval = json.get("interval").and_then(Value::as_i64)?;
+                let damage = json
+                    .get("damage")
+                    .and_then(Value::as_object)
+                    .map(|dice_by_key| {
+                        dice_by_key
+                            .values()
+                            .filter_map(Value::as_str)
+                            .filter_map(parse_dice_formula)
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                Some(Heightening::Interval { interval, damage })
+            }
+            "fixed" => {
+                let levels: Vec<FixedHeighteningLevel> = json
+                    .get("levels")
+                    .and_then(Value::as_object)?
+                    .iter()
+                    .filter_map(|(level_str, overrides)| {
+                        let level = level_str.parse::<i64>().ok()?;
+                        Some(FixedHeighteningLevel::init_from_json_and_level(
+                            level, overrides,
+                        ))
+                    })
+                    .collect();
+                (!levels.is_empty()).then_some(Heightening::Fixed { levels })
+            }
+            _ => None,
         }
     }
 }
 
- */
+impl FixedHeighteningLevel {
+    fn init_from_json_and_level(level: i64, json: &Value) -> Self {
+        Self {
+            level,
+            target: json
+                .get("target")
+                .and_then(|t| t.get("value"))
+                .and_then(Value::as_str)
+                .map(String::from),
+            range: json
+                .get("range")
+                .and_then(|r| r.get("value"))
+                .and_then(Value::as_str)
+                .map(String::from),
+            area: json
+                .get("area")
+                .and_then(Area::init_heightened_data_from_json),
+            damage: json
+                .get("damage")
+                .and_then(Value::as_object)
+                .map(|dmg_by_key| {
+                    dmg_by_key
+                        .values()
+                        .filter_map(|v| RawDamageData::try_from(v).ok())
+                        .collect()
+                })
+                .unwrap_or_default(),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Area {
     pub area_type: String,
     pub area_value: i64,
+}
+
+impl Area {
+    /// A fixed-level area override (heightening) doesn't consistently match the base spell data
+    /// shape (`Area::try_from`), so it's parsed separately. Real data is a mix: the type key is
+    /// `"areaType"` only, `"type"` only, or both (95 / 69 / 92 respectively across the corpus), and
+    /// `value` is a JSON number for some entries and a numeric string for others.
+    fn init_heightened_data_from_json(json: &Value) -> Option<Self> {
+        let area_type = json
+            .get("areaType")
+            .or_else(|| json.get("type"))
+            .and_then(Value::as_str)?
+            .to_string();
+        let area_value = json.get("value").and_then(|v| {
+            v.as_i64()
+                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+        })?;
+        Some(Self {
+            area_type,
+            area_value,
+        })
+    }
 }
 
 impl TryFrom<&Value> for Area {
@@ -245,7 +324,9 @@ impl TryFrom<&Value> for Area {
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct RawDamageData {
     pub category: Option<String>,
-    pub formula: String,
+    pub n_of_dice: Option<i64>,
+    pub die_size: Option<i64>,
+    pub bonus_dmg: i64,
     pub kinds: Vec<String>,
     pub dmg_type: String,
 }
@@ -253,23 +334,162 @@ pub struct RawDamageData {
 impl TryFrom<&Value> for RawDamageData {
     type Error = SpellParsingError;
     fn try_from(json: &Value) -> Result<Self, Self::Error> {
+        let formula = json_utils::get_field_from_json(json, "formula")
+            .as_str()
+            .map(String::from)
+            .ok_or(SpellParsingError::DamageFormula)?;
+        let parsed = parse_dice_formula(&formula).unwrap_or_default();
+
         Ok(RawDamageData {
             category: json_utils::get_field_from_json(json, "category")
                 .as_str()
                 .map(|x| x.to_string()),
-            formula: json_utils::get_field_from_json(json, "formula")
-                .as_str()
-                .map(String::from)
-                .ok_or(SpellParsingError::DamageFormula)?,
-            kinds: json_utils::from_json_vec_of_str_to_vec_of_str(
-                json_utils::get_field_from_json(json, "kinds")
-                    .as_array()
-                    .ok_or(SpellParsingError::DamageKind)?,
-            ),
+            n_of_dice: parsed.n_of_dice,
+            die_size: parsed.die_size,
+            bonus_dmg: parsed.bonus_dmg,
+            kinds: json_utils::get_field_from_json(json, "kinds")
+                .as_array()
+                .map(|arr| json_utils::from_json_vec_of_str_to_vec_of_str(arr))
+                .unwrap_or_default(),
             dmg_type: json_utils::get_field_from_json(json, "type")
                 .as_str()
                 .map(String::from)
                 .ok_or(SpellParsingError::DamageType)?,
         })
+    }
+}
+
+#[cfg(test)]
+mod heightening_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn extracts_a_simple_interval_heightening() {
+        // Harm shape: 1d8 additional damage every rank above base
+        let json = json!({"damage": {"0": "1d8"}, "interval": 1, "type": "interval"});
+        assert_eq!(
+            Some(Heightening::Interval {
+                interval: 1,
+                damage: vec![ParsedDiceFormula {
+                    n_of_dice: Some(1),
+                    die_size: Some(8),
+                    bonus_dmg: 0,
+                    unresolved_terms: vec![],
+                }],
+            }),
+            Heightening::init_from_json(&json)
+        );
+    }
+
+    #[test]
+    fn extracts_interval_heightening_with_multiple_damage_instances() {
+        // Eclipse Burst shape: two separate damage riders scale together every rank
+        let json = json!({
+            "damage": {"0": "1d10", "v1pnjhfu6e9akqe0": "1d4"},
+            "interval": 1,
+            "type": "interval"
+        });
+        let Some(Heightening::Interval { interval, damage }) = Heightening::init_from_json(&json)
+        else {
+            panic!("expected Interval heightening");
+        };
+        assert_eq!(1, interval);
+        assert_eq!(2, damage.len());
+    }
+
+    #[test]
+    fn extracts_a_fixed_target_override() {
+        // Confusion shape: heightened to rank 8, it targets more creatures
+        let json = json!({
+            "levels": { "8": { "target": { "value": "10 creatures" } } },
+            "type": "fixed"
+        });
+        assert_eq!(
+            Some(Heightening::Fixed {
+                levels: vec![FixedHeighteningLevel {
+                    level: 8,
+                    target: Some("10 creatures".to_string()),
+                    range: None,
+                    area: None,
+                    damage: vec![],
+                }],
+            }),
+            Heightening::init_from_json(&json)
+        );
+    }
+
+    #[test]
+    fn extracts_a_fixed_damage_override_reusing_the_base_damage_parser() {
+        // Acid Splash shape: rank 3 bumps both the direct hit and splash damage
+        let json = json!({
+            "levels": {
+                "3": {
+                    "damage": {
+                        "0": {"formula": "2d6", "type": "acid", "category": null},
+                        "gcovwqxwitqchoin": {"formula": "1", "type": "acid", "category": "splash"}
+                    }
+                }
+            },
+            "type": "fixed"
+        });
+        let Some(Heightening::Fixed { levels }) = Heightening::init_from_json(&json) else {
+            panic!("expected Fixed heightening");
+        };
+        assert_eq!(1, levels.len());
+        assert_eq!(3, levels[0].level);
+        assert_eq!(2, levels[0].damage.len());
+        // reused RawDamageData parser: kinds defaults to empty since overrides never carry one
+        assert!(levels[0].damage.iter().all(|d| d.kinds.is_empty()));
+    }
+
+    #[test]
+    fn extracts_a_fixed_area_override() {
+        // Web shape: heightened to rank 4, the burst grows to 20 feet
+        let json = json!({
+            "levels": { "4": { "area": { "areaType": "burst", "value": "20" } } },
+            "type": "fixed"
+        });
+        let Some(Heightening::Fixed { levels }) = Heightening::init_from_json(&json) else {
+            panic!("expected Fixed heightening");
+        };
+        assert_eq!(
+            Some(Area {
+                area_type: "burst".to_string(),
+                area_value: 20,
+            }),
+            levels[0].area
+        );
+    }
+
+    #[test]
+    fn extracts_a_fixed_area_override_with_only_the_legacy_type_key() {
+        let json = json!({
+            "levels": { "4": { "area": { "type": "burst", "value": "20" } } },
+            "type": "fixed"
+        });
+        let Some(Heightening::Fixed { levels }) = Heightening::init_from_json(&json) else {
+            panic!("expected Fixed heightening");
+        };
+        assert_eq!(
+            Some(Area {
+                area_type: "burst".to_string(),
+                area_value: 20,
+            }),
+            levels[0].area
+        );
+    }
+
+    #[test]
+    fn ignores_an_empty_heightening_block() {
+        // Enervation shape on some statblocks: the object is present but conveys nothing
+        let json = json!({"damage": {}});
+        assert_eq!(None, Heightening::init_from_json(&json));
+    }
+
+    #[test]
+    fn ignores_unknown_heightening_types() {
+        let json = json!({"type": "something-new", "value": 1});
+        assert_eq!(None, Heightening::init_from_json(&json));
     }
 }

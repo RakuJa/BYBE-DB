@@ -3,6 +3,7 @@ use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::item::source_item::{SourceItem, SourceItemParsingError};
 use crate::schema::status::Status;
+use crate::utils::dice::formula::{ParsedDiceFormula, parse_dice_formula};
 use crate::utils::json_utils;
 use crate::utils::json_utils::get_field_from_json;
 use bon::bon;
@@ -76,7 +77,10 @@ impl TryFrom<(&Value, bool)> for BybeItem {
             .as_str()
             .map(|x| x.to_ascii_lowercase())
             .ok_or(BybeItemParsingError::MissingItemType)?;
-        if !(item_type.eq("equipment") | item_type.eq("consumable")) {
+        if !matches!(
+            item_type.as_str(),
+            "equipment" | "consumable" | "ammo" | "treasure" | "backpack"
+        ) {
             return Err(BybeItemParsingError::UnsupportedItemType);
         }
         Ok(Self::from((SourceItem::try_from(json)?, is_derived)))
@@ -94,7 +98,7 @@ impl From<(SourceItem, bool)> for BybeItem {
             quantity: source_item.quantity,
             base_item: source_item.base_item,
             category: source_item.category,
-            description: source_item.description.to_string(),
+            description: source_item.description.resolve(Some(source_item.level)),
             hardness: source_item.hardness,
             hp: source_item.hp_values.hp,
             level: source_item.level,
@@ -363,52 +367,30 @@ impl TryFrom<(&Value, bool)> for SourceWeapon {
 
 #[derive(Clone, Debug)]
 pub struct WeaponDamageData {
+    /// e.g. `"persistent"` or `None` for the base damage instance itself.
+    pub category: Option<String>,
     pub dmg_type: Option<String>,
-    pub n_of_dice: Option<i64>,
-    pub die_size: Option<i64>,
-    pub bonus_dmg: i64,
+    pub dice_data: ParsedDiceFormula,
 }
 
 impl TryFrom<&Value> for WeaponDamageData {
     type Error = BybeItemParsingError;
 
-    /// parses a single item of a "DamageRolls"-like json
     fn try_from(json: &Value) -> Result<Self, Self::Error> {
-        if let Some(dmg) = json.get("damage").and_then(|x| x.as_str()) {
-            let (n_dices, dmg_data) = if let Some(x) = dmg.split_once('d') {
-                x
-            } else {
-                // we have a single number, so we put in dmg that will put it in the die size
-                // aka 1 => 1d1 | 3 => 3d1
-                (dmg, "1")
-            };
-            let (die, bonus_dmg) = if dmg_data.contains('+') {
-                let (die, dmg) = dmg_data
-                    .split_once('+')
-                    .ok_or(BybeItemParsingError::DamageData)?;
-                (die, dmg.to_string())
-            } else if dmg_data.contains('-') {
-                let (die, dmg) = dmg_data
-                    .split_once('-')
-                    .ok_or(BybeItemParsingError::DamageData)?;
-                (die, format!("-{dmg}"))
-            } else {
-                (dmg_data, "".to_string())
-            };
-            Ok(WeaponDamageData {
-                dmg_type: get_field_from_json(json, "damageType")
-                    .as_str()
-                    .map(|x| x.to_string()),
-                n_of_dice: n_dices.trim().parse::<i64>().ok(),
-                bonus_dmg: bonus_dmg
-                    .parse()
-                    .map(|x: String| x.trim().parse::<i64>().unwrap_or(0))
-                    .unwrap_or(0),
-                die_size: die.trim().parse::<i64>().ok(),
-            })
-        } else {
-            Err(BybeItemParsingError::InvalidItemType)
-        }
+        let dmg = json
+            .get("damage")
+            .and_then(|x| x.as_str())
+            .ok_or(BybeItemParsingError::InvalidItemType)?;
+
+        let parsed = parse_dice_formula(dmg).ok_or(BybeItemParsingError::DamageData)?;
+
+        Ok(Self {
+            category: None,
+            dmg_type: get_field_from_json(json, "damageType")
+                .as_str()
+                .map(|x| x.to_string()),
+            dice_data: parsed,
+        })
     }
 }
 
@@ -416,19 +398,29 @@ impl WeaponDamageData {
     pub fn init_vec_from_json(json: &Value) -> Vec<WeaponDamageData> {
         let result_vec = match json.get("damage") {
             Some(x) => {
-                vec![WeaponDamageData {
+                let mut damages = vec![WeaponDamageData {
+                    category: None,
                     dmg_type: get_field_from_json(x, "damageType")
                         .as_str()
                         .map(|x| x.to_string()),
-                    n_of_dice: get_field_from_json(x, "dice").as_i64(),
-                    die_size: Some(
-                        get_field_from_json(x, "die")
-                            .as_str()
-                            .and_then(|x| x.replace("d", "").parse::<i64>().ok())
-                            .unwrap_or(1),
-                    ),
-                    bonus_dmg: 0,
-                }]
+                    dice_data: ParsedDiceFormula {
+                        n_of_dice: get_field_from_json(x, "dice").as_i64(),
+                        die_size: Some(
+                            get_field_from_json(x, "die")
+                                .as_str()
+                                .and_then(|x| x.replace("d", "").parse::<i64>().ok())
+                                .unwrap_or(1),
+                        ),
+                        bonus_dmg: 0,
+                        unresolved_terms: vec![],
+                    },
+                }];
+                if let Some(persistent) = x.get("persistent")
+                    && let Some(persistent_dmg) = Self::extract_persistent_dmg_from_json(persistent)
+                {
+                    damages.push(persistent_dmg);
+                }
+                damages
             }
             None => {
                 let mut weapon_dmg_vec = Vec::new();
@@ -444,16 +436,30 @@ impl WeaponDamageData {
         };
         if result_vec.is_empty() {
             vec![WeaponDamageData {
+                category: None,
                 dmg_type: None,
-                n_of_dice: None,
-                die_size: None,
-                bonus_dmg: get_field_from_json(&get_field_from_json(json, "bonusDamage"), "value")
-                    .as_i64()
-                    .unwrap_or(0),
+                dice_data: ParsedDiceFormula::default(),
             }]
         } else {
             result_vec
         }
+    }
+    fn extract_persistent_dmg_from_json(persistent: &Value) -> Option<WeaponDamageData> {
+        let number = persistent.get("number").and_then(Value::as_i64)?;
+        let faces = persistent.get("faces").and_then(Value::as_i64);
+        Some(WeaponDamageData {
+            category: Some("persistent".to_string()),
+            dmg_type: persistent
+                .get("type")
+                .and_then(Value::as_str)
+                .map(String::from),
+            dice_data: ParsedDiceFormula {
+                n_of_dice: faces.map(|_| number),
+                die_size: faces,
+                bonus_dmg: if faces.is_none() { number } else { 0 },
+                unresolved_terms: vec![],
+            },
+        })
     }
 }
 
@@ -497,5 +503,75 @@ impl TryFrom<(&Value, bool)> for BybeShield {
                 .as_i64()
                 .unwrap_or(0),
         })
+    }
+}
+
+#[cfg(test)]
+mod weapon_damage_data_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn extracts_flat_persistent_damage_alongside_base_damage() {
+        // Real Alchemist's Fire (Moderate) shape: 2d8 fire damage plus 2 persistent fire
+        let system = json!({
+            "damage": {
+                "damageType": "fire",
+                "dice": 2,
+                "die": "d8",
+                "persistent": { "faces": null, "number": 2, "type": "fire" }
+            }
+        });
+        let damages = WeaponDamageData::init_vec_from_json(&system);
+        assert_eq!(2, damages.len());
+        assert_eq!(None, damages[0].category);
+        assert_eq!(Some("persistent".to_string()), damages[1].category);
+        assert_eq!(Some("fire".to_string()), damages[1].dmg_type);
+        assert_eq!(None, damages[1].dice_data.n_of_dice);
+        assert_eq!(None, damages[1].dice_data.die_size);
+        assert_eq!(2, damages[1].dice_data.bonus_dmg);
+    }
+
+    #[test]
+    fn extracts_dice_based_persistent_damage() {
+        // Real Infused Acid Flask (Moderate) shape: 1 acid damage plus 2d6 persistent acid
+        let system = json!({
+            "damage": {
+                "damageType": "acid",
+                "dice": 1,
+                "die": "",
+                "persistent": { "faces": 6, "number": 2, "type": "acid" }
+            }
+        });
+        let damages = WeaponDamageData::init_vec_from_json(&system);
+        assert_eq!(2, damages.len());
+        assert_eq!(Some("persistent".to_string()), damages[1].category);
+        assert_eq!(Some(2), damages[1].dice_data.n_of_dice);
+        assert_eq!(Some(6), damages[1].dice_data.die_size);
+        assert_eq!(0, damages[1].dice_data.bonus_dmg);
+    }
+
+    #[test]
+    fn ignores_absent_persistent_field() {
+        let system = json!({
+            "damage": { "damageType": "slashing", "dice": 1, "die": "d6" }
+        });
+        let damages = WeaponDamageData::init_vec_from_json(&system);
+        assert_eq!(1, damages.len());
+        assert_eq!(None, damages[0].category);
+    }
+
+    #[test]
+    fn ignores_empty_persistent_object() {
+        let system = json!({
+            "damage": {
+                "damageType": "slashing",
+                "dice": 1,
+                "die": "d6",
+                "persistent": { "faces": null, "number": null, "type": null }
+            }
+        });
+        let damages = WeaponDamageData::init_vec_from_json(&system);
+        assert_eq!(1, damages.len());
     }
 }

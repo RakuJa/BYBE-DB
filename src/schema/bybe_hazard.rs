@@ -82,12 +82,8 @@ impl From<SourceHazard> for BybeHazard {
             ac_value: source_hz.attributes.ac,
             hardness: source_hz.attributes.hardness,
             has_health: source_hz.attributes.has_health,
-            hp: source_hz.attributes.hp_values.as_ref().map(|x| x.hp),
-            hp_details: source_hz
-                .attributes
-                .hp_values
-                .as_ref()
-                .map(|x| x.hp_details.clone().unwrap()),
+            hp: Some(source_hz.attributes.hp_values.hp),
+            hp_details: source_hz.attributes.hp_values.hp_details.clone(),
             stealth: source_hz.attributes.stealth,
             stealth_detail: source_hz.attributes.stealth_detail,
             resistances: source_hz.attributes.resistances,

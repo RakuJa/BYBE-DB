@@ -4,10 +4,8 @@ use crate::utils::game_system_enum::GameSystem;
 use crate::utils::tag::tag_parser::clean_description_from_all_tags;
 #[cfg(feature = "dry-run")]
 use crate::utils::tag::tag_parser::find_remaining_tags;
-use std::fmt;
-use std::fmt::Formatter;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Description {
     raw_description: String,
 }
@@ -54,13 +52,9 @@ impl From<String> for Description {
     }
 }
 
-impl fmt::Display for Description {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            resolve_localization(self.raw_description.as_str(), None)
-        )
+impl Description {
+    pub fn resolve(&self, item_lvl: Option<i64>) -> String {
+        resolve_localization(self.raw_description.as_str(), item_lvl)
     }
 }
 

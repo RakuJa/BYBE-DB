@@ -1,6 +1,11 @@
 pub mod action;
+pub mod aura;
+pub mod fast_healing;
+pub mod granted_strike;
 pub mod items;
+pub mod movement_data;
 mod saving_throw;
+pub mod size_change;
 pub mod skill;
 pub mod spell;
 pub mod spellcasting_entry;

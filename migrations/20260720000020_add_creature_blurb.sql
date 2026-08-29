@@ -1,0 +1,2 @@
+ALTER TABLE pf_creature_table ADD COLUMN blurb TEXT NOT NULL DEFAULT '';
+ALTER TABLE sf_creature_table ADD COLUMN blurb TEXT NOT NULL DEFAULT '';

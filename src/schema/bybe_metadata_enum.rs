@@ -28,7 +28,7 @@ impl FromStr for RarityEnum {
     }
 }
 
-#[derive(Serialize, Deserialize, Display, Default, Clone, Debug)]
+#[derive(Serialize, Deserialize, Display, Default, Clone, Debug, PartialEq)]
 pub enum SizeEnum {
     #[serde(alias = "tiny", alias = "TINY")]
     Tiny,

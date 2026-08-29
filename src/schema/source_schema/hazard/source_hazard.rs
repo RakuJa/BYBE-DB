@@ -1,6 +1,5 @@
 use crate::schema::publication_info::{PublicationInfo, PublicationParsingError};
 use crate::schema::source_schema::common::description::Description;
-use crate::schema::source_schema::common::hp_values::HpParsingError;
 use crate::schema::source_schema::common::rarity_size_traits::{
     RaritySizeTraits, TraitParsingError,
 };
@@ -43,8 +42,6 @@ pub enum SourceHazardParsingError {
     NameFieldMissing,
     #[error("Publication info could not be parsed")]
     PublicationError(#[from] PublicationParsingError),
-    #[error("Hp Value could not be parsed")]
-    HpError(#[from] HpParsingError),
     #[error("Trait values could not be parsed")]
     TraitError(#[from] TraitParsingError),
     #[error("Could not parse action related to hazard")]

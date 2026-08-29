@@ -2,12 +2,17 @@ use crate::schema::bybe_condition::BybeCondition;
 use crate::schema::bybe_creature::BybeCreature;
 use crate::schema::bybe_hazard::BybeHazard;
 use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, BybeWeapon, WeaponDamageData};
+use crate::schema::bybe_metadata_enum::SizeEnum;
 use crate::schema::bybe_trait::Trait;
 use crate::schema::source_schema::common::range_data::RangeData;
 use crate::schema::source_schema::common::resistance::Resistance;
 use crate::schema::source_schema::creature::item::action::Action;
+use crate::schema::source_schema::creature::item::aura::Aura;
+use crate::schema::source_schema::creature::item::fast_healing::FastHealing;
+use crate::schema::source_schema::creature::item::granted_strike::GrantedStrike;
+use crate::schema::source_schema::creature::item::movement_data::MovementData;
 use crate::schema::source_schema::creature::item::skill::Skill;
-use crate::schema::source_schema::creature::item::spell::Spell;
+use crate::schema::source_schema::creature::item::spell::{Heightening, RawDamageData, Spell};
 use crate::schema::source_schema::creature::item::spellcasting_entry::SpellCastingEntry;
 use crate::schema::source_schema::creature::sense::Sense;
 use crate::utils::game_system_enum::GameSystem;
@@ -186,11 +191,11 @@ async fn insert_hazard(
     .bind(hz.hp)
     .bind(hz.hp_details.clone())
     .bind(hz.stealth)
-    .bind(hz.stealth_detail.to_string())
-    .bind(hz.description.to_string())
-    .bind(hz.disable_description.to_string())
-    .bind(hz.reset_description.to_string())
-    .bind(hz.routine_description.to_string())
+    .bind(hz.stealth_detail.resolve(Some(hz.level)))
+    .bind(hz.description.resolve(Some(hz.level)))
+    .bind(hz.disable_description.resolve(Some(hz.level)))
+    .bind(hz.reset_description.resolve(Some(hz.level)))
+    .bind(hz.routine_description.resolve(Some(hz.level)))
     .bind(hz.is_complex)
     .bind(hz.level)
     .bind(hz.publication_info.license.clone())
@@ -380,6 +385,11 @@ pub async fn insert_creature_to_db(
     for el in &cr.armors {
         insert_armor_to_db(conn, gs, el, Some(cr_id)).await.unwrap();
     }
+    for el in &cr.shields {
+        insert_shield_to_db(conn, gs, el, Some(cr_id))
+            .await
+            .unwrap();
+    }
     for el in &cr.spellcasting {
         let sc_entry_id = insert_spellcasting_entry(conn, gs, el, cr_id)
             .await
@@ -406,6 +416,12 @@ pub async fn insert_creature_to_db(
                     .await
                     .unwrap();
                 insert_tradition_and_association(conn, gs, &spell.traits.traditions, spell_id)
+                    .await
+                    .unwrap();
+                insert_spell_damage(conn, gs, &spell.damage, spell_id)
+                    .await
+                    .unwrap();
+                insert_spell_heightening(conn, gs, &spell.heightening, spell_id)
                     .await
                     .unwrap();
             }
@@ -611,9 +627,9 @@ pub async fn insert_conditions(
         ))
             .push_values(conditions, |mut b, c| {
                 b.push_bind(&c.name)
-                    .push_bind(c.rule.to_string())
-                    .push_bind(c.note.as_ref().map(|n| n.to_string()))
-                    .push_bind(c.summary.as_ref().map(|s| s.to_string()))
+                    .push_bind(c.rule.resolve(None))
+                    .push_bind(c.note.as_ref().map(|n| n.resolve(None)))
+                    .push_bind(c.summary.as_ref().map(|s| s.resolve(None)))
                     .push_bind(&c.publication_info.license)
                     .push_bind(c.publication_info.remastered)
                     .push_bind(&c.publication_info.source)
@@ -1074,14 +1090,45 @@ async fn insert_item(
 ) -> Result<i64> {
     let size = item.size.to_string();
     let rarity = item.rarity.to_string();
+    let status = item.status.to_string();
 
-    // Use SAVEPOINT to recover if item_stats UNIQUE constraint fires on a different foundry_id
-    sqlx::query("SAVEPOINT item_insert")
-        .execute(&mut **conn)
-        .await
-        .unwrap();
+    // The item_stats UNIQUE index dedups by content regardless of foundry_id, so our
+    // upsert can violate it even though ON CONFLICT (foundry_id) doesn't fire. A plain SELECT first
+    // avoids expensive logic and tells us up front whether the collision can happen
+    // at all. If an error occurs during insert it aborts the whole transaction
+    let colliding_id: Option<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT id FROM {gs}_item_table
+         WHERE foundry_id <> $1
+           AND name = $2 AND bulk = $3 AND hardness = $4 AND hp = $5 AND level = $6
+           AND price = $7 AND item_type = $8 AND license = $9 AND remaster = $10
+           AND source = $11 AND rarity = $12 AND size = $13 AND is_derived = $14
+           AND status = $15 AND md5(description) = md5($16)"
+    )))
+    .bind(&item.foundry_id)
+    .bind(&item.name)
+    .bind(item.bulk)
+    .bind(item.hardness)
+    .bind(item.hp)
+    .bind(item.level)
+    .bind(item.price)
+    .bind(&item.item_type)
+    .bind(&item.license)
+    .bind(item.remaster)
+    .bind(&item.source)
+    .bind(&rarity)
+    .bind(&size)
+    .bind(item.is_derived)
+    .bind(&status)
+    .bind(&item.description)
+    .fetch_optional(&mut **conn)
+    .await
+    .unwrap();
 
-    let insert_result = sqlx::query(sqlx::AssertSqlSafe(format!(
+    if let Some(id) = colliding_id {
+        return Ok(id);
+    }
+
+    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "INSERT INTO {gs}_item_table (
             foundry_id, name, bulk, base_item, category, description,
             hardness, hp, level, price, usage, item_group, item_type,
@@ -1114,7 +1161,8 @@ async fn insert_item(
             source = excluded.source,
             rarity = excluded.rarity,
             size = excluded.size,
-            status = excluded.status"
+            status = excluded.status
+        RETURNING id"
     )))
     .bind(&item.foundry_id)
     .bind(&item.name)
@@ -1138,41 +1186,10 @@ async fn insert_item(
     .bind(&item.source)
     .bind(&rarity)
     .bind(&size)
-    .bind(item.status.to_string())
-    .execute(&mut **conn)
-    .await;
-
-    if insert_result.is_err() {
-        sqlx::query("ROLLBACK TO SAVEPOINT item_insert")
-            .execute(&mut **conn)
-            .await
-            .unwrap();
-    }
-    sqlx::query("RELEASE SAVEPOINT item_insert")
-        .execute(&mut **conn)
-        .await
-        .unwrap();
-
-    // Try by foundry_id first; if the item_stats constraint deduplicated it, fall back to name.
-    let id_by_foundry_id: Option<i64> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-        "SELECT id FROM {gs}_item_table WHERE foundry_id = $1"
-    )))
-    .bind(&item.foundry_id)
-    .fetch_optional(&mut **conn)
+    .bind(&status)
+    .fetch_one(&mut **conn)
     .await
-    .unwrap();
-
-    Ok(if let Some(id) = id_by_foundry_id {
-        id
-    } else {
-        sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-            "SELECT id FROM {gs}_item_table WHERE name = $1"
-        )))
-        .bind(&item.name)
-        .fetch_one(&mut **conn)
-        .await
-        .unwrap()
-    })
+    .unwrap())
 }
 
 async fn insert_item_creature_association(
@@ -1211,7 +1228,8 @@ async fn insert_creature(
             initiative_ability, perception, perception_detail, vision,
             fortitude, reflex, will,
             fortitude_detail, reflex_detail, will_detail,
-            rarity, size, cr_type, family, n_of_focus_points, status
+            rarity, size, cr_type, family, n_of_focus_points, status, description, blurb,
+            speed_details
         ) VALUES (
             $1, $2, $3,
             $4, $5, $6, $7, $8, $9,
@@ -1220,7 +1238,7 @@ async fn insert_creature(
             $19, $20, $21, $22,
             $23, $24, $25,
             $26, $27, $28,
-            $29, $30, $31, $32, $33, $34
+            $29, $30, $31, $32, $33, $34, $35, $36, $37
         ) ON CONFLICT (foundry_id) DO UPDATE SET
             name = excluded.name,
             aon_id = excluded.aon_id,
@@ -1254,7 +1272,10 @@ async fn insert_creature(
             cr_type = excluded.cr_type,
             family = excluded.family,
             n_of_focus_points = excluded.n_of_focus_points,
-            status = excluded.status"
+            status = excluded.status,
+            description = excluded.description,
+            blurb = excluded.blurb,
+            speed_details = excluded.speed_details"
     )))
     .bind(&cr.foundry_id)
     .bind(&cr.name)
@@ -1290,6 +1311,9 @@ async fn insert_creature(
     .bind(None::<String>) // family
     .bind(cr.n_of_focus_points)
     .bind(cr.status.to_string())
+    .bind(&cr.description)
+    .bind(&cr.blurb)
+    .bind(&cr.speed_details)
     .execute(&mut **conn)
     .await
     .unwrap();
@@ -1373,13 +1397,14 @@ async fn insert_weapon_damage(
     for el in dmg_data {
         sqlx::query(sqlx::AssertSqlSafe(format!(
             "INSERT INTO {gs}_weapon_damage_table \
-             (bonus_dmg, dmg_type, number_of_dice, die_size, weapon_id) \
-             VALUES ($1, $2, $3, $4, $5)"
+             (bonus_dmg, dmg_type, category, number_of_dice, die_size, weapon_id) \
+             VALUES ($1, $2, $3, $4, $5, $6)"
         )))
-        .bind(el.bonus_dmg)
+        .bind(el.dice_data.bonus_dmg)
         .bind(&el.dmg_type)
-        .bind(el.n_of_dice)
-        .bind(el.die_size)
+        .bind(&el.category)
+        .bind(el.dice_data.n_of_dice)
+        .bind(el.dice_data.die_size)
         .bind(wp_id)
         .execute(&mut **conn)
         .await
@@ -1593,13 +1618,13 @@ async fn insert_spell(
             saving_throw, basic_saving_throw, sustained, duration,
             level, target, actions,
             license, remaster, source, rarity,
-            slot, creature_id, spellcasting_entry_id
+            slot, creature_id, spellcasting_entry_id, description
         ) VALUES (
             $1, $2, $3, $4,
             $5, $6, $7, $8,
             $9, $10, $11, $12,
             $13, $14, $15, $16,
-            $17, $18
+            $17, $18, $19
         ) RETURNING id"
     )))
     .bind(&spell.name)
@@ -1620,9 +1645,116 @@ async fn insert_spell(
     .bind(slot)
     .bind(cr_id)
     .bind(spellcasting_entry_id)
+    .bind(spell.description.resolve(Some(spell.level)))
     .fetch_one(&mut **conn)
     .await
     .unwrap())
+}
+
+async fn insert_spell_damage(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    dmg_data: &Vec<RawDamageData>,
+    spell_id: i64,
+) -> Result<()> {
+    for el in dmg_data {
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_spell_damage_table \
+             (bonus_dmg, dmg_type, category, kinds, number_of_dice, die_size, spell_id) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7)"
+        )))
+        .bind(el.bonus_dmg)
+        .bind(&el.dmg_type)
+        .bind(&el.category)
+        .bind(&el.kinds)
+        .bind(el.n_of_dice)
+        .bind(el.die_size)
+        .bind(spell_id)
+        .execute(&mut **conn)
+        .await
+        .unwrap();
+    }
+    Ok(())
+}
+
+async fn insert_spell_heightening(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    heightening: &Option<Heightening>,
+    spell_id: i64,
+) -> Result<()> {
+    let Some(heightening) = heightening else {
+        return Ok(());
+    };
+    match heightening {
+        Heightening::Interval { interval, damage } => {
+            let heightening_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+                "INSERT INTO {gs}_spell_heightening_interval_table (interval, spell_id) \
+                 VALUES ($1, $2) RETURNING id"
+            )))
+            .bind(interval)
+            .bind(spell_id)
+            .fetch_one(&mut **conn)
+            .await
+            .unwrap();
+
+            for dice in damage {
+                sqlx::query(sqlx::AssertSqlSafe(format!(
+                    "INSERT INTO {gs}_spell_heightening_interval_damage_table \
+                     (number_of_dice, die_size, bonus_dmg, heightening_id) \
+                     VALUES ($1, $2, $3, $4)"
+                )))
+                .bind(dice.n_of_dice)
+                .bind(dice.die_size)
+                .bind(dice.bonus_dmg)
+                .bind(heightening_id)
+                .execute(&mut **conn)
+                .await
+                .unwrap();
+            }
+        }
+        Heightening::Fixed { levels } => {
+            for level in levels {
+                let (area_type, area_value) = match &level.area {
+                    Some(area) => (Some(area.area_type.clone()), Some(area.area_value)),
+                    None => (None, None),
+                };
+                let level_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+                    "INSERT INTO {gs}_spell_heightening_fixed_level_table \
+                     (level, target, range, area_type, area_value, spell_id) \
+                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
+                )))
+                .bind(level.level)
+                .bind(&level.target)
+                .bind(&level.range)
+                .bind(area_type)
+                .bind(area_value)
+                .bind(spell_id)
+                .fetch_one(&mut **conn)
+                .await
+                .unwrap();
+
+                for dmg in &level.damage {
+                    sqlx::query(sqlx::AssertSqlSafe(format!(
+                        "INSERT INTO {gs}_spell_heightening_fixed_level_damage_table \
+                         (dmg_type, category, kinds, number_of_dice, die_size, bonus_dmg, fixed_level_id) \
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)"
+                    )))
+                    .bind(&dmg.dmg_type)
+                    .bind(&dmg.category)
+                    .bind(&dmg.kinds)
+                    .bind(dmg.n_of_dice)
+                    .bind(dmg.die_size)
+                    .bind(dmg.bonus_dmg)
+                    .bind(level_id)
+                    .execute(&mut **conn)
+                    .await
+                    .unwrap();
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 async fn insert_action(
@@ -1630,11 +1762,14 @@ async fn insert_action(
     gs: &GameSystem,
     action: &Action,
 ) -> Result<i64> {
-    Ok(sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+    let frequency_max = action.frequency.as_ref().map(|f| f.max);
+    let frequency_per = action.frequency.as_ref().map(|f| f.per.clone());
+
+    let action_id = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "INSERT INTO {gs}_action_table (
             name, action_type, n_of_actions, category, description,
-            license, remaster, source, slug, rarity
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            license, remaster, source, slug, rarity, frequency_max, frequency_per
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (
             name,
             action_type,
@@ -1645,7 +1780,9 @@ async fn insert_action(
             remaster,
             source,
             slug,
-            rarity
+            rarity,
+            frequency_max,
+            frequency_per
         )
         DO UPDATE SET name = EXCLUDED.name
         RETURNING id
@@ -1661,9 +1798,252 @@ async fn insert_action(
     .bind(&action.publication_info.source)
     .bind(&action.slug)
     .bind(action.traits.rarity.to_string())
+    .bind(frequency_max)
+    .bind(frequency_per)
     .fetch_one(&mut **conn)
     .await
-    .unwrap())
+    .unwrap();
+
+    insert_action_aura(conn, gs, &action.auras, action_id)
+        .await
+        .unwrap();
+
+    insert_action_fast_healing(conn, gs, &action.fast_healing, action_id)
+        .await
+        .unwrap();
+
+    insert_action_strikes(conn, gs, &action.strikes, action_id)
+        .await
+        .unwrap();
+
+    insert_action_movement_changes(conn, gs, &action.movement_changes, action_id)
+        .await
+        .unwrap();
+
+    insert_action_creature_sizes(conn, gs, &action.creature_sizes, action_id)
+        .await
+        .unwrap();
+
+    Ok(action_id)
+}
+
+async fn insert_action_aura(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    auras: &[Aura],
+    action_id: i64,
+) -> Result<()> {
+    for aura in auras {
+        insert_traits(conn, gs, &aura.traits).await.unwrap();
+
+        let aura_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_action_aura_table (radius, slug, action_id) \
+             VALUES ($1, $2, $3) \
+             ON CONFLICT (
+                action_id,
+                COALESCE(radius, -1),
+                COALESCE(slug, '__NULL__')
+             )
+             DO UPDATE SET action_id = EXCLUDED.action_id \
+             RETURNING id"
+        )))
+        .bind(aura.radius)
+        .bind(&aura.slug)
+        .bind(action_id)
+        .fetch_one(&mut **conn)
+        .await
+        .unwrap();
+
+        insert_action_aura_trait_association(conn, gs, &aura.traits, aura_id)
+            .await
+            .unwrap();
+
+        for effect in &aura.effects {
+            sqlx::query(sqlx::AssertSqlSafe(format!(
+                "INSERT INTO {gs}_action_aura_effect_table \
+                 (effect_name, affects, events, removes_on_exit, includes_self, action_aura_id) \
+                 VALUES ($1, $2, $3, $4, $5, $6) \
+                 ON CONFLICT DO NOTHING"
+            )))
+            .bind(&effect.name)
+            .bind(&effect.affects)
+            .bind(&effect.events)
+            .bind(effect.removes_on_exit)
+            .bind(effect.includes_self)
+            .bind(aura_id)
+            .execute(&mut **conn)
+            .await
+            .unwrap();
+        }
+    }
+    Ok(())
+}
+
+async fn insert_action_aura_trait_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    traits: &[String],
+    aura_id: i64,
+) -> Result<()> {
+    if !traits.is_empty() {
+        QueryBuilder::new(format!(
+            "INSERT INTO {gs}_trait_action_aura_association_table (action_aura_id, trait_id) "
+        ))
+        .push_values(traits, |mut b, el| {
+            b.push_bind(aura_id).push_bind(el);
+        })
+        .push(" ON CONFLICT DO NOTHING")
+        .build()
+        .execute(&mut **conn)
+        .await
+        .unwrap();
+    }
+    Ok(())
+}
+
+async fn insert_action_fast_healing(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    fast_healing: &Option<FastHealing>,
+    action_id: i64,
+) -> Result<()> {
+    let Some(fast_healing) = fast_healing else {
+        return Ok(());
+    };
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "INSERT INTO {gs}_action_fast_healing_table \
+         (healing_type, value, deactivated_by, action_id) \
+         VALUES ($1, $2, $3, $4) \
+         ON CONFLICT DO NOTHING"
+    )))
+    .bind(&fast_healing.healing_type)
+    .bind(fast_healing.value)
+    .bind(&fast_healing.deactivated_by)
+    .bind(action_id)
+    .execute(&mut **conn)
+    .await
+    .unwrap();
+    Ok(())
+}
+
+async fn insert_action_movement_changes(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    movement_changes: &[MovementData],
+    action_id: i64,
+) -> Result<()> {
+    for change in movement_changes {
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_action_movement_change_table \
+             (movement_type, value, action_id) \
+             VALUES ($1, $2, $3) \
+             ON CONFLICT DO NOTHING"
+        )))
+        .bind(&change.movement_type)
+        .bind(change.value)
+        .bind(action_id)
+        .execute(&mut **conn)
+        .await
+        .unwrap();
+    }
+    Ok(())
+}
+
+async fn insert_action_creature_sizes(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    creature_sizes: &[SizeEnum],
+    action_id: i64,
+) -> Result<()> {
+    for size in creature_sizes {
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_action_creature_size_table (size, action_id) \
+             VALUES ($1, $2) \
+             ON CONFLICT DO NOTHING"
+        )))
+        .bind(size.to_string())
+        .bind(action_id)
+        .execute(&mut **conn)
+        .await
+        .unwrap();
+    }
+    Ok(())
+}
+
+async fn insert_action_strikes(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    strikes: &[GrantedStrike],
+    action_id: i64,
+) -> Result<()> {
+    for strike in strikes {
+        insert_traits(conn, gs, &strike.traits).await.unwrap();
+
+        let strike_id: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "INSERT INTO {gs}_action_strike_table \
+             (slug, label, attack_modifier, category, weapon_group, dmg_type, \
+              number_of_dice, die_size, bonus_dmg, range_increment, max_range, action_id) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) \
+             ON CONFLICT (
+                action_id,
+                COALESCE(slug, '__NULL__'),
+                COALESCE(label, '__NULL__'),
+                COALESCE(attack_modifier, -1),
+                COALESCE(category, '__NULL__'),
+                COALESCE(weapon_group, '__NULL__'),
+                COALESCE(dmg_type, '__NULL__'),
+                COALESCE(number_of_dice, -1),
+                COALESCE(die_size, -1),
+                bonus_dmg,
+                COALESCE(range_increment, -1),
+                COALESCE(max_range, -1)
+             )
+             DO UPDATE SET action_id = EXCLUDED.action_id \
+             RETURNING id"
+        )))
+        .bind(&strike.slug)
+        .bind(&strike.label)
+        .bind(strike.attack_modifier)
+        .bind(&strike.category)
+        .bind(&strike.group)
+        .bind(&strike.dmg_type)
+        .bind(strike.n_of_dice)
+        .bind(strike.die_size)
+        .bind(strike.bonus_dmg)
+        .bind(strike.range_increment)
+        .bind(strike.max_range)
+        .bind(action_id)
+        .fetch_one(&mut **conn)
+        .await
+        .unwrap();
+
+        insert_action_strike_trait_association(conn, gs, &strike.traits, strike_id)
+            .await
+            .unwrap();
+    }
+    Ok(())
+}
+
+async fn insert_action_strike_trait_association(
+    conn: &mut Transaction<'_, Postgres>,
+    gs: &GameSystem,
+    traits: &[String],
+    strike_id: i64,
+) -> Result<()> {
+    if !traits.is_empty() {
+        QueryBuilder::new(format!(
+            "INSERT INTO {gs}_trait_action_strike_association_table (action_strike_id, trait_id) "
+        ))
+        .push_values(traits, |mut b, el| {
+            b.push_bind(strike_id).push_bind(el);
+        })
+        .push(" ON CONFLICT DO NOTHING")
+        .build()
+        .execute(&mut **conn)
+        .await
+        .unwrap();
+    }
+    Ok(())
 }
 
 async fn insert_action_trait_association(

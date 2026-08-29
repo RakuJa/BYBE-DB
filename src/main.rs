@@ -154,8 +154,11 @@ fn dry_run_check_descriptions(json_paths: &[String], system: &str) {
     }
 
     for cond in deserialize_json_conditions(json_paths) {
-        for issue in find_remaining_tags(&cond.rule.to_string()) {
-            println!("[{system}] condition '{}' rule: {issue}", cond.rule);
+        for issue in find_remaining_tags(&cond.rule.resolve(None)) {
+            println!(
+                "[{system}] condition '{}' rule: {issue}",
+                cond.rule.resolve(None)
+            );
             total_issues += 1;
         }
     }

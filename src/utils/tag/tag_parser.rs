@@ -1,6 +1,6 @@
 use crate::schema::localize_loader;
 use crate::utils::tag::{
-    check_tag_parser, compendium_tag_parser, dm_roll_parser, dmg_tag_parser, localize_tag_parser,
+    check_tag_parser, compendium_tag_parser, dmg_roll_parser, dmg_tag_parser, localize_tag_parser,
     template_tag_parser,
 };
 use std::collections::HashMap;
@@ -8,7 +8,7 @@ use {once_cell::sync::Lazy, regex::Regex};
 
 pub fn remove_all_dices_from_description(description: &str) -> String {
     static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[0-9]*d[1-9][0-9]*").unwrap());
-    RE.replace_all(description, "").to_string()
+    RE.replace_all(description, "+0").replace("(+", "(")
 }
 
 pub fn get_dice_inside_string(input: &str) -> Option<String> {
@@ -85,7 +85,7 @@ where
     let desc = dmg_tag_parser::clean_description(&desc, item_lvl);
     let desc = check_tag_parser::clean_description(&desc);
     let desc = template_tag_parser::clean_description(&desc);
-    let desc = dm_roll_parser::clean_description(&desc, &lookup, actions);
+    let desc = dmg_roll_parser::clean_description(&desc, &lookup, actions);
     clean_description_from_generic_bracket(&desc)
 }
 
@@ -128,7 +128,7 @@ mod tests {
     )]
     #[case(
         "<p>Small, @Damage[(1d12 + 3)[bludgeoning]], Rupture 10</p>\n<hr />\n<p>@Localize[PF2E.NPC.Abilities.Glossary.SwallowWhole]</p>",
-        "<p>Small, 1d12 + 3 bludgeoning, Rupture 10</p>\n<hr />\n<p>Swallow Whole description text</p>"
+        "<p>Small, 1d12 + 3 @VariantDamage() bludgeoning, Rupture 10</p>\n<hr />\n<p>Swallow Whole description text</p>"
     )]
     fn clean_check_uuid(mock_json: Value, #[case] input: &str, #[case] expected: &str) {
         let parsed_description = clean_description_from_all_tags(

@@ -1,5 +1,5 @@
 use crate::schema::bybe_condition::BybeCondition;
-use crate::schema::bybe_item::{BybeArmor, BybeItem, SourceWeapon};
+use crate::schema::bybe_item::{BybeArmor, BybeItem, BybeShield, SourceWeapon};
 use crate::schema::source_schema::creature::item::action::Action;
 use crate::schema::source_schema::creature::item::skill::Skill;
 use crate::schema::source_schema::creature::item::spell::{Spell, SpellParsingError};
@@ -13,6 +13,7 @@ pub struct ItemLinkedToEntity {
     pub spell_list: Vec<Spell>,
     pub weapon_list: Vec<SourceWeapon>,
     pub armor_list: Vec<BybeArmor>,
+    pub shield_list: Vec<BybeShield>,
     pub item_list: Vec<BybeItem>,
     pub action_list: Vec<Action>,
     pub spellcasting_entry: Vec<RawSpellCastingEntry>,
@@ -42,6 +43,7 @@ impl TryFrom<&Value> for ItemLinkedToEntity {
         let mut spells = Vec::new();
         let mut weapons = Vec::new();
         let mut armors = Vec::new();
+        let mut shields = Vec::new();
         let mut actions = Vec::new();
         let mut skills = Vec::new();
         let mut items = Vec::new();
@@ -77,6 +79,10 @@ impl TryFrom<&Value> for ItemLinkedToEntity {
                     Ok(armor) => armors.push(armor),
                     Err(e) => debug!("{e}"),
                 },
+                "shield" => match BybeShield::try_from((el, true)) {
+                    Ok(shield) => shields.push(shield),
+                    Err(e) => debug!("{e}"),
+                },
                 "action" => match Action::try_from(el) {
                     Ok(action) => actions.push(action),
                     Err(e) => debug!("{e}"),
@@ -86,10 +92,12 @@ impl TryFrom<&Value> for ItemLinkedToEntity {
                     Err(e) => debug!("{e}"),
                 },
                 // "real" items, like the one for the shop
-                "consumable" | "equipment" => match BybeItem::try_from((el, true)) {
-                    Ok(item) => items.push(item),
-                    Err(e) => debug!("{e}"),
-                },
+                "consumable" | "equipment" | "ammo" | "treasure" | "backpack" => {
+                    match BybeItem::try_from((el, true)) {
+                        Ok(item) => items.push(item),
+                        Err(e) => debug!("{e}"),
+                    }
+                }
                 "condition" => match BybeCondition::try_from(el) {
                     Ok(condition) => conditions.push(condition),
                     Err(e) => debug!("{e}"),
@@ -105,6 +113,7 @@ impl TryFrom<&Value> for ItemLinkedToEntity {
             spell_list: spells,
             weapon_list: weapons,
             armor_list: armors,
+            shield_list: shields,
             item_list: items,
             action_list: actions,
             skill_list: skills,

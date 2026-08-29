@@ -432,7 +432,7 @@ mod tests {
     fn test_lookup_path(json_data: Value, #[case] path: &str, #[case] expected: Option<&str>) {
         assert_eq!(lookup_path(&json_data, path).as_deref(), expected);
     }
-    
+
     #[rstest]
     fn parse_action_file_simple_slug() {
         let ts = r#"
@@ -481,7 +481,7 @@ mod tests {
             Some("PF2E.Actions.Perform.Dance.Title")
         );
     }
-    
+
     #[rstest]
     fn parse_action_file_without_slug_returns_none() {
         let ts = r#"

@@ -46,7 +46,7 @@ impl TryFrom<&Value> for Skill {
                 .ok_or(SkillParsingError::NameParsing)?,
             description: json_utils::get_field_from_json(&description_json, "value")
                 .as_str()
-                .map(|x| Description::from(x).to_string()),
+                .map(|x| Description::from(x).resolve(None)),
             modifier: json_utils::get_field_from_json(&modifier_json, "value")
                 .as_i64()
                 .ok_or(SkillParsingError::ModifierParsing)?,
