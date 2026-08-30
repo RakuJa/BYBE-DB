@@ -105,10 +105,10 @@ impl TryFrom<&Value> for SourceItem {
             usage: get_field_from_json(&get_field_from_json(&system_json, "usage"), "value")
                 .as_str()
                 .map(|x| x.to_string()),
-            item_type: if item_type.eq("melee") {
-                String::from("weapon")
-            } else {
-                item_type
+            item_type: match item_type.as_str() {
+                "melee" => String::from("weapon"),
+                "ammo" => String::from("ammunition"),
+                _ => item_type,
             },
             group: get_field_from_json(&system_json, "group")
                 .as_str()
